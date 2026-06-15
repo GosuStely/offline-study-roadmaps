@@ -22,6 +22,21 @@ C["lifecycle-of-a-program"] = {
       title: "Example 2: The minimal program",
       description: "<p>Execution starts at <code>main</code>.</p>",
       code: "public class Hello {\n  public static void main(String[] args) {\n    System.out.println(\"Hello, Java\");\n  }\n}\n// JVM finds main(), runs it, exits when it returns."
+    },
+    {
+      title: "Example 3: one JAR, many platforms",
+      description: "<p>Package compiled bytecode once and run it anywhere a JVM exists.</p>",
+      code: "jar --create --file app.jar --main-class Hello Hello.class\n" +
+        "java -jar app.jar   // same app.jar runs on any OS with a matching JVM\n" +
+        "// 'write once, run anywhere' - the bytecode, not the source, is the artifact."
+    },
+    {
+      title: "Example 4 (edge case): class version mismatch",
+      description: "<p>Bytecode compiled by a newer JDK won't run on an older JVM - a very common deployment error.</p>",
+      code: "// Compiled with JDK 21, run on a JVM for Java 17:\n" +
+        "//   java.lang.UnsupportedClassVersionError: Hello has been compiled by a more\n" +
+        "//   recent version of the Java Runtime (class file version 65.0)\n" +
+        "// Fix: run on JDK 21+, or compile with --release 17 to target the older JVM."
     }
   ],
   whenToUse: "<p>Understanding the lifecycle explains Java's behavior: why there's a compile step (errors caught " +
@@ -47,6 +62,23 @@ C["basic-syntax"] = {
       title: "Example 2: Naming conventions",
       description: "<p>Consistent casing signals intent.</p>",
       code: "class OrderService {}          // PascalCase class\nvoid calculateTotal() {}       // camelCase method\nint itemCount;                 // camelCase variable\nstatic final int MAX_SIZE = 100; // UPPER_SNAKE constant"
+    },
+    {
+      title: "Example 3: var for local type inference (Java 10+)",
+      description: "<p><code>var</code> infers the type of a local variable from its initializer - it's still static typing, just less typing.</p>",
+      code: "var count = 5;                 // inferred int\n" +
+        "var name = \"Sam\";              // inferred String\n" +
+        "var list = new ArrayList<String>(); // inferred ArrayList<String>\n" +
+        "// var only works for locals WITH an initializer - not fields or params,\n" +
+        "// and 'var x;' or 'var y = null;' won't compile (nothing to infer)."
+    },
+    {
+      title: "Example 4 (edge case): the public class name must match the file",
+      description: "<p>A frequent first error - the file name and the public class must be identical, case included.</p>",
+      code: "// File: Order.java\n" +
+        "public class Customer {}  // ERROR: class Customer is public, should be\n" +
+        "                          //        declared in a file named Customer.java\n" +
+        "// Rename the file to Customer.java, or the class to Order."
     }
   ],
   whenToUse: "<p>This is the foundation for everything. <strong>Gotchas:</strong> missing semicolons and " +
@@ -72,6 +104,24 @@ C["data-types"] = {
       title: "Example 2: Wrappers and autoboxing",
       description: "<p>Primitives box into objects when needed.</p>",
       code: "Integer boxed = 42;        // autoboxing: int -> Integer\nint unboxed = boxed;       // unboxing: Integer -> int\nList<Integer> list = new ArrayList<>(); // generics need objects, not int"
+    },
+    {
+      title: "Example 3: the Integer == identity trap",
+      description: "<p>Comparing boxed wrappers with <code>==</code> compares references, with a surprising cache for small values.</p>",
+      code: "Integer a = 127, b = 127;\n" +
+        "System.out.println(a == b);      // true  - cached (-128..127)\n" +
+        "Integer c = 128, d = 128;\n" +
+        "System.out.println(c == d);      // false - different objects!\n" +
+        "System.out.println(c.equals(d)); // true  - always compare values with equals()"
+    },
+    {
+      title: "Example 4 (edge case): overflow and floating-point money",
+      description: "<p>Two classic numeric bugs: silent <code>int</code> overflow and binary floating-point imprecision.</p>",
+      code: "int big = Integer.MAX_VALUE + 1; // wraps to -2147483648 (no error!)\n" +
+        "long ok = (long) Integer.MAX_VALUE + 1; // 2147483648 - widen first\n" +
+        "\n" +
+        "System.out.println(0.1 + 0.2);   // 0.30000000000000004\n" +
+        "new java.math.BigDecimal(\"0.1\").add(new java.math.BigDecimal(\"0.2\")); // 0.3 exact"
     }
   ],
   whenToUse: "<p>Use primitives for performance and simple values; use wrappers when you need objects " +
@@ -98,6 +148,27 @@ C["variables-and-scopes"] = {
       title: "Example 2: Block scope",
       description: "<p>A variable dies at the end of its block.</p>",
       code: "for (int i = 0; i < 3; i++) {\n  int squared = i * i;   // scoped to the loop body\n}\n// System.out.println(i);       // ERROR: i out of scope\n// System.out.println(squared);  // ERROR: out of scope"
+    },
+    {
+      title: "Example 3: shadowing - inner scope hides outer",
+      description: "<p>A local variable can shadow a field of the same name; <code>this.</code> reaches the field.</p>",
+      code: "class Account {\n" +
+        "  int balance = 100;\n" +
+        "  void set(int balance) {        // parameter shadows the field\n" +
+        "    // balance = balance;        // BUG: assigns the param to itself\n" +
+        "    this.balance = balance;      // correct: field = parameter\n" +
+        "  }\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): a block-scoped variable can't leak out",
+      description: "<p>Variables declared inside a block (loop, if) don't exist after it - a common 'cannot find symbol' error.</p>",
+      code: "for (int i = 0; i < 3; i++) { /* ... */ }\n" +
+        "System.out.println(i); // ERROR: cannot find symbol 'i' (scope ended)\n" +
+        "\n" +
+        "int found;\n" +
+        "if (cond) { found = 1; }\n" +
+        "System.out.println(found); // ERROR: 'found' may not have been initialized"
     }
   ],
   whenToUse: "<p>Declare variables in the <strong>narrowest scope</strong> that works &mdash; it reduces bugs " +
@@ -124,6 +195,27 @@ C["type-casting"] = {
       title: "Example 2: Object up/downcasting with instanceof",
       description: "<p>Check before downcasting to avoid exceptions.</p>",
       code: "Object o = \"hello\";\nString s = (String) o;          // downcast (works here)\n// Safe pattern (Java 16+ pattern matching):\nif (o instanceof String str) {\n  System.out.println(str.length());\n}"
+    },
+    {
+      title: "Example 3: safe downcasting with instanceof pattern matching",
+      description: "<p>Modern Java tests and casts in one step, avoiding a separate cast and a possible ClassCastException.</p>",
+      code: "Object o = \"hello\";\n" +
+        "if (o instanceof String s) {   // tests AND binds 's' if it matches\n" +
+        "  System.out.println(s.length()); // use the narrowed variable directly\n" +
+        "}\n" +
+        "// Old style needed: if (o instanceof String) { String s = (String) o; ... }"
+    },
+    {
+      title: "Example 4 (edge case): narrowing primitive casts lose data silently",
+      description: "<p>Casting a wider numeric type to a narrower one truncates with no warning - a real source of bugs.</p>",
+      code: "double d = 9.99;\n" +
+        "int i = (int) d;        // 9  - fractional part dropped (not rounded)\n" +
+        "\n" +
+        "int big = 300;\n" +
+        "byte b = (byte) big;    // 44 - overflow wraps around (byte max is 127)\n" +
+        "\n" +
+        "Object n = Integer.valueOf(1);\n" +
+        "String s = (String) n;  // compiles, throws ClassCastException at runtime"
     }
   ],
   whenToUse: "<p>Cast when converting between numeric types or working with polymorphic objects. " +
@@ -148,6 +240,26 @@ C["conditionals"] = {
       title: "Example 2: Modern switch expression",
       description: "<p>Switch expressions (Java 14+) return a value, no fall-through.</p>",
       code: "String day = \"MON\";\nint hours = switch (day) {\n  case \"SAT\", \"SUN\" -> 0;\n  default -> 8;\n};  // arrow form: no break needed, exhaustive"
+    },
+    {
+      title: "Example 3: switch expressions with arrow syntax (Java 14+)",
+      description: "<p>The arrow form returns a value, needs no <code>break</code>, and the compiler enforces exhaustiveness.</p>",
+      code: "int days = switch (month) {\n" +
+        "  case \"FEB\" -> 28;\n" +
+        "  case \"APR\", \"JUN\", \"SEP\", \"NOV\" -> 30;\n" +
+        "  default -> 31;\n" +
+        "};\n" +
+        "// No fall-through, no break, and 'days' is assigned in every path."
+    },
+    {
+      title: "Example 4 (edge case): classic switch fall-through and the dangling else",
+      description: "<p>The old colon <code>switch</code> falls through without <code>break</code>; and <code>else</code> binds to the nearest <code>if</code>.</p>",
+      code: "switch (n) {\n" +
+        "  case 1: doA();   // no break -> ALSO runs doB()! (fall-through bug)\n" +
+        "  case 2: doB(); break;\n" +
+        "}\n" +
+        "\n" +
+        "if (a) if (b) x(); else y(); // 'else' pairs with 'if (b)', not 'if (a)'"
     }
   ],
   whenToUse: "<p>Everywhere you make decisions. <strong>Gotchas:</strong> classic <code>switch</code> with " +
@@ -173,6 +285,26 @@ C["loops"] = {
       title: "Example 2: while, break, continue",
       description: "<p>Condition-driven looping with control statements.</p>",
       code: "int i = 0;\nwhile (i < 10) {\n  i++;\n  if (i % 2 == 0) continue;  // skip evens\n  if (i > 7) break;          // stop early\n  System.out.println(i);     // 1, 3, 5, 7\n}"
+    },
+    {
+      title: "Example 3: break, continue, and labeled loops",
+      description: "<p>A label lets <code>break</code>/<code>continue</code> target an outer loop - the clean way out of nested iteration.</p>",
+      code: "outer:\n" +
+        "for (int i = 0; i < rows; i++) {\n" +
+        "  for (int j = 0; j < cols; j++) {\n" +
+        "    if (grid[i][j] == target) break outer; // exits BOTH loops\n" +
+        "    if (grid[i][j] == 0) continue;          // skip to next j\n" +
+        "  }\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): ConcurrentModificationException while iterating",
+      description: "<p>Modifying a collection during a for-each throws; use the iterator's own <code>remove</code> or <code>removeIf</code>.</p>",
+      code: "List<Integer> xs = new ArrayList<>(List.of(1, 2, 3));\n" +
+        "for (int x : xs) { if (x == 2) xs.remove(Integer.valueOf(x)); } // throws!\n" +
+        "\n" +
+        "xs.removeIf(x -> x == 2);              // correct, concise\n" +
+        "// or use an explicit Iterator and call it.remove()"
     }
   ],
   whenToUse: "<p>Use <code>for-each</code> when you just need elements (cleaner, less error-prone), indexed " +
@@ -199,6 +331,26 @@ C["arrays"] = {
       title: "Example 2: Multidimensional + utilities",
       description: "<p>Arrays of arrays and the Arrays helper class.</p>",
       code: "int[][] grid = {{1, 2}, {3, 4}};   // 2D array\nSystem.out.println(grid[1][0]);    // 3\nint[] a = {3, 1, 2};\njava.util.Arrays.sort(a);          // {1, 2, 3}\nSystem.out.println(java.util.Arrays.toString(a));"
+    },
+    {
+      title: "Example 3: multidimensional and jagged arrays",
+      description: "<p>Java arrays-of-arrays can have rows of different lengths (jagged).</p>",
+      code: "int[][] grid = new int[2][3];     // 2 rows, 3 cols\n" +
+        "grid[0][1] = 5;\n" +
+        "\n" +
+        "int[][] jagged = new int[2][];    // rows allocated separately\n" +
+        "jagged[0] = new int[]{1, 2};\n" +
+        "jagged[1] = new int[]{1, 2, 3, 4}; // different length - allowed"
+    },
+    {
+      title: "Example 4 (edge case): fixed length and array covariance",
+      description: "<p>Arrays can't grow, and their unsafe covariance lets a bad store compile but fail at runtime.</p>",
+      code: "int[] a = new int[3];\n" +
+        "a[3] = 1;                 // ArrayIndexOutOfBoundsException (length is 3)\n" +
+        "\n" +
+        "Object[] arr = new String[2]; // legal: arrays are covariant\n" +
+        "arr[0] = 42;              // compiles, throws ArrayStoreException at runtime\n" +
+        "// Generics (List<String>) are invariant and catch this at compile time."
     }
   ],
   whenToUse: "<p>Use arrays for fixed-size, performance-sensitive, or primitive data. <strong>Gotchas:</strong> " +
@@ -225,6 +377,28 @@ C["strings-and-methods"] = {
       title: "Example 2: StringBuilder for concatenation",
       description: "<p>Avoid creating many strings in a loop.</p>",
       code: "// Inefficient: creates a new String each iteration\n// String r = \"\"; for (...) r += x;\nStringBuilder sb = new StringBuilder();\nfor (int i = 0; i < 1000; i++) sb.append(i).append(\",\");\nString result = sb.toString();"
+    },
+    {
+      title: "Example 3: build strings in a loop with StringBuilder",
+      description: "<p>Because String is immutable, concatenating in a loop creates many throwaway objects; StringBuilder mutates one buffer.</p>",
+      code: "// O(n^2) garbage - avoid in loops:\n" +
+        "String s = \"\";\n" +
+        "for (String w : words) s += w + \",\";\n" +
+        "\n" +
+        "// Efficient:\n" +
+        "StringBuilder sb = new StringBuilder();\n" +
+        "for (String w : words) sb.append(w).append(',');\n" +
+        "String result = sb.toString();"
+    },
+    {
+      title: "Example 4 (edge case): == compares references, not contents",
+      description: "<p>The single most common String bug - use <code>equals</code>; the string pool makes <code>==</code> deceptively work for literals.</p>",
+      code: "String a = \"hi\";\n" +
+        "String b = \"hi\";\n" +
+        "String c = new String(\"hi\");\n" +
+        "System.out.println(a == b);        // true  - both interned literals\n" +
+        "System.out.println(a == c);        // false - c is a new object\n" +
+        "System.out.println(a.equals(c));   // true  - compare CONTENT with equals()"
     }
   ],
   whenToUse: "<p>Use <code>String</code> for text everywhere; use <code>StringBuilder</code> when building " +
@@ -251,6 +425,23 @@ C["math-operations"] = {
       title: "Example 2: Integer division + BigDecimal for money",
       description: "<p>Common pitfalls and the precise alternative.</p>",
       code: "double avg = 7 / 2;      // 3.0 (int division BEFORE assignment!)\ndouble ok = 7 / 2.0;     // 3.5 (one operand is double)\n// Money: avoid float/double; use BigDecimal\nBigDecimal total = new BigDecimal(\"19.99\").multiply(new BigDecimal(\"3\"));"
+    },
+    {
+      title: "Example 3: integer division and modulo pitfalls",
+      description: "<p>Dividing two ints discards the remainder; force floating point by making one operand a double.</p>",
+      code: "int avg = 7 / 2;            // 3, not 3.5 (integer division truncates)\n" +
+        "double real = 7 / 2.0;      // 3.5 - one double operand promotes the whole expr\n" +
+        "\n" +
+        "System.out.println(-7 % 3); // -1 in Java (sign follows the dividend)\n" +
+        "System.out.println(Math.floorMod(-7, 3)); // 2 - true modulo if you want it"
+    },
+    {
+      title: "Example 4 (edge case): division by zero differs for int vs double",
+      description: "<p>Integer division by zero throws; floating-point division by zero yields Infinity/NaN.</p>",
+      code: "int x = 1 / 0;              // throws ArithmeticException: / by zero\n" +
+        "double y = 1.0 / 0;         // Infinity (no exception)\n" +
+        "double z = 0.0 / 0.0;       // NaN\n" +
+        "System.out.println(z == z); // false! NaN is not equal to itself - use Double.isNaN"
     }
   ],
   whenToUse: "<p>For all numeric computation. <strong>Gotchas:</strong> integer division truncates " +
@@ -278,6 +469,26 @@ C["classes-and-objects"] = {
       title: "Example 2: Multiple independent instances",
       description: "<p>Each object holds its own state.</p>",
       code: "Dog a = new Dog(\"Rex\");\nDog b = new Dog(\"Mia\");\na.bark();   // Rex says Woof\nb.bark();   // Mia says Woof  (separate state)"
+    },
+    {
+      title: "Example 3: constructors, this, and overloading",
+      description: "<p>Multiple constructors can delegate to each other with <code>this(...)</code>.</p>",
+      code: "class Point {\n" +
+        "  int x, y;\n" +
+        "  Point() { this(0, 0); }            // delegates to the 2-arg constructor\n" +
+        "  Point(int x, int y) { this.x = x; this.y = y; }\n" +
+        "}\n" +
+        "new Point();        // (0, 0)\n" +
+        "new Point(3, 4);    // (3, 4)"
+    },
+    {
+      title: "Example 4 (edge case): object identity vs equality",
+      description: "<p>Two distinct objects are never <code>==</code>; override <code>equals</code>/<code>hashCode</code> for value equality.</p>",
+      code: "Point a = new Point(1, 1);\n" +
+        "Point b = new Point(1, 1);\n" +
+        "System.out.println(a == b);      // false - different references\n" +
+        "System.out.println(a.equals(b)); // false too, unless equals() is overridden\n" +
+        "// Without overriding, equals() defaults to ==. Records do it for you."
     }
   ],
   whenToUse: "<p>Classes model the entities and concepts of your domain. <strong>Gotchas:</strong> use " +
@@ -302,6 +513,27 @@ C["attributes-and-methods"] = {
       title: "Example 2: Parameters and return values",
       description: "<p>Methods take input and produce output.</p>",
       code: "class Calculator {\n  int add(int a, int b) { return a + b; }      // returns a value\n  void log(String msg) { System.out.println(msg); } // void: no return\n}\nnew Calculator().add(2, 3);   // 5"
+    },
+    {
+      title: "Example 3: instance vs static members",
+      description: "<p>Instance fields/methods belong to each object; static ones belong to the class.</p>",
+      code: "class Counter {\n" +
+        "  static int total = 0;   // shared across all instances\n" +
+        "  int id;                 // unique per instance\n" +
+        "  Counter() { id = ++total; }\n" +
+        "}\n" +
+        "new Counter(); new Counter();\n" +
+        "System.out.println(Counter.total); // 2 - accessed via the class"
+    },
+    {
+      title: "Example 4 (edge case): a getter that leaks a mutable field",
+      description: "<p>Returning an internal collection directly lets callers mutate your object's state behind its back.</p>",
+      code: "class Team {\n" +
+        "  private final List<String> members = new ArrayList<>();\n" +
+        "  List<String> getMembers() { return members; }          // LEAK\n" +
+        "  List<String> getMembersSafe() { return List.copyOf(members); } // defensive copy\n" +
+        "}\n" +
+        "team.getMembers().clear(); // wipes internal state via the leaked reference"
     }
   ],
   whenToUse: "<p>Use fields for an object's data and methods for what it can do. <strong>Gotchas:</strong> keep " +
@@ -327,6 +559,25 @@ C["access-specifiers"] = {
       title: "Example 2: Encapsulation in practice",
       description: "<p>Private fields, public controlled access.</p>",
       code: "public class Account {\n  private double balance;            // hidden\n  public void deposit(double a) {    // controlled entry point\n    if (a <= 0) throw new IllegalArgumentException();\n    balance += a;\n  }\n  public double getBalance() { return balance; }\n}"
+    },
+    {
+      title: "Example 3: the four levels at a glance",
+      description: "<p>From most to least restrictive: <code>private</code> &rarr; package-private (no modifier) &rarr; <code>protected</code> &rarr; <code>public</code>.</p>",
+      code: "public class Api {\n" +
+        "  public int open;        // everyone\n" +
+        "  protected int family;   // this package + subclasses anywhere\n" +
+        "  int samePackage;        // (no modifier) this package only\n" +
+        "  private int hidden;     // this class only\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): you cannot weaken access when overriding",
+      description: "<p>An override may widen visibility but never narrow it, or the subtype would break its parent's contract.</p>",
+      code: "class Base { public void run() {} }\n" +
+        "class Sub extends Base {\n" +
+        "  @Override protected void run() {} // ERROR: attempting weaker access\n" +
+        "}\n" +
+        "// Allowed the other way: a protected method may be overridden as public."
     }
   ],
   whenToUse: "<p>Default to the <strong>most restrictive</strong> level that works &mdash; usually " +
@@ -353,6 +604,26 @@ C["static-keyword"] = {
       title: "Example 2: Shared mutable static (use with care)",
       description: "<p>A static counter shared by all instances.</p>",
       code: "class Widget {\n  static int count = 0;   // shared across ALL instances\n  Widget() { count++; }\n}\nnew Widget(); new Widget();\nSystem.out.println(Widget.count); // 2"
+    },
+    {
+      title: "Example 3: static factory methods",
+      description: "<p>A static method that returns an instance - often clearer than a constructor and able to return cached or subtype instances.</p>",
+      code: "class Color {\n" +
+        "  private Color(int rgb) {}\n" +
+        "  static Color of(int rgb) { return new Color(rgb); }\n" +
+        "  static Color black() { return of(0); }\n" +
+        "}\n" +
+        "Color c = Color.black(); // reads better than 'new Color(0)' and can cache"
+    },
+    {
+      title: "Example 4 (edge case): static methods don't override - they hide",
+      description: "<p>A static method in a subclass with the same signature hides (not overrides) the parent's; dispatch is by the compile-time type.</p>",
+      code: "class A { static String who() { return \"A\"; } }\n" +
+        "class B extends A { static String who() { return \"B\"; } }\n" +
+        "\n" +
+        "A ref = new B();\n" +
+        "System.out.println(ref.who()); // \"A\" - resolved by the variable's type, not B\n" +
+        "// Also: a static method cannot use 'this' or instance fields."
     }
   ],
   whenToUse: "<p>Use <code>static</code> for utility methods, constants (<code>static final</code>), and " +
@@ -379,6 +650,25 @@ C["final-keyword"] = {
       title: "Example 2: final method and class",
       description: "<p>Prevent overriding/subclassing.</p>",
       code: "final class Constants {}        // cannot be extended\nclass Base { final void core() {} }  // subclasses can't override core()"
+    },
+    {
+      title: "Example 3: final class and final method",
+      description: "<p><code>final</code> on a class blocks subclassing; on a method blocks overriding.</p>",
+      code: "final class Money {}              // cannot be extended (like String)\n" +
+        "// class Sub extends Money {}     // ERROR\n" +
+        "\n" +
+        "class Base { final void rules() {} }\n" +
+        "class Sub2 extends Base {\n" +
+        "  // void rules() {}              // ERROR: cannot override final method\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): final means the reference is fixed, not the object",
+      description: "<p>A common misconception - a <code>final</code> reference can't be reassigned, but the object it points to can still be mutated.</p>",
+      code: "final List<Integer> xs = new ArrayList<>();\n" +
+        "xs.add(1);          // OK - mutating the object is fine\n" +
+        "xs = new ArrayList<>(); // ERROR - cannot reassign the final variable\n" +
+        "// For true immutability use List.of(...) or an unmodifiable wrapper."
     }
   ],
   whenToUse: "<p>Use <code>final</code> liberally for variables that shouldn't change (clearer intent, safer " +
@@ -406,6 +696,26 @@ C["nested-classes"] = {
       title: "Example 2: Anonymous class",
       description: "<p>Inline one-off implementation of an interface.</p>",
       code: "Runnable r = new Runnable() {\n  public void run() { System.out.println(\"running\"); }\n};\n// Modern equivalent with a lambda:\nRunnable r2 = () -> System.out.println(\"running\");"
+    },
+    {
+      title: "Example 3: anonymous class vs lambda",
+      description: "<p>An anonymous class implements an interface inline; for a single-method interface a lambda is shorter.</p>",
+      code: "Runnable r1 = new Runnable() {        // anonymous class\n" +
+        "  public void run() { System.out.println(\"hi\"); }\n" +
+        "};\n" +
+        "Runnable r2 = () -> System.out.println(\"hi\"); // lambda - same effect\n" +
+        "// Use an anonymous class when you need state or multiple methods."
+    },
+    {
+      title: "Example 4 (edge case): a non-static inner class holds the outer reference",
+      description: "<p>An inner (non-static) class keeps an implicit reference to its enclosing instance - a subtle memory-leak source.</p>",
+      code: "class Outer {\n" +
+        "  class Inner {}             // implicitly references Outer.this\n" +
+        "  static class Nested {}     // independent - no outer reference\n" +
+        "}\n" +
+        "// new Outer().new Inner();  // odd syntax: needs an Outer instance\n" +
+        "// If an Inner outlives its Outer (e.g. stored in a cache), Outer can't be GC'd.\n" +
+        "// Prefer 'static' nested classes unless you truly need the outer instance."
     }
   ],
   whenToUse: "<p>Use <strong>static nested</strong> classes for helpers that logically belong to the outer " +
@@ -432,6 +742,25 @@ C["packages"] = {
       title: "Example 2: Fully-qualified names + structure",
       description: "<p>Packages map to folders.</p>",
       code: "// File path mirrors the package:\n//   src/com/example/orders/OrderService.java\n// Use fully-qualified name to avoid a clash:\njava.util.Date d1;\njava.sql.Date d2;   // two different Date classes"
+    },
+    {
+      title: "Example 3: imports, including static import",
+      description: "<p>Import brings a type into scope by simple name; a static import brings in static members.</p>",
+      code: "import java.util.List;            // single type\n" +
+        "import java.util.*;               // whole package (avoid in large code)\n" +
+        "import static java.lang.Math.*;   // static members\n" +
+        "\n" +
+        "double h = sqrt(pow(3, 2) + pow(4, 2)); // no 'Math.' prefix needed"
+    },
+    {
+      title: "Example 4 (edge case): package must match the directory, and name clashes need FQN",
+      description: "<p>The <code>package</code> statement must mirror the folder path; two same-named classes require a fully-qualified name.</p>",
+      code: "// File at src/com/acme/Order.java MUST start with:\n" +
+        "package com.acme;\n" +
+        "\n" +
+        "// java.util.Date vs java.sql.Date both imported? Import one, FQ the other:\n" +
+        "import java.util.Date;\n" +
+        "java.sql.Date sqlDate = new java.sql.Date(0L); // fully-qualified to disambiguate"
     }
   ],
   whenToUse: "<p>Organize every non-trivial project into packages by feature or layer. <strong>Conventions:</strong> " +
@@ -459,6 +788,26 @@ C["abstraction"] = {
       title: "Example 2: Abstract class with a template method",
       description: "<p>Define the skeleton; subclasses fill the gaps.</p>",
       code: "abstract class Report {\n  public final String generate() { return header() + body(); }\n  protected String header() { return \"REPORT\\n\"; }\n  protected abstract String body();   // subclasses implement\n}"
+    },
+    {
+      title: "Example 3: programming to an abstraction enables swapping implementations",
+      description: "<p>Depending on an interface (the abstraction) lets you change the concrete class without touching callers.</p>",
+      code: "interface PaymentGateway { void charge(int cents); }\n" +
+        "class StripeGateway implements PaymentGateway { public void charge(int c) {} }\n" +
+        "class FakeGateway implements PaymentGateway { public void charge(int c) {} }\n" +
+        "\n" +
+        "// Caller depends on the abstraction, not Stripe specifically:\n" +
+        "void checkout(PaymentGateway gw) { gw.charge(999); }\n" +
+        "// Swap StripeGateway for FakeGateway in tests with zero caller changes."
+    },
+    {
+      title: "Example 4 (edge case): leaky abstraction",
+      description: "<p>An abstraction that exposes implementation details (or throws implementation-specific errors) forces callers to know the internals - defeating the purpose.</p>",
+      code: "interface UserRepo {\n" +
+        "  User find(long id) throws java.sql.SQLException; // LEAK: SQL detail in the API\n" +
+        "}\n" +
+        "// Now every caller must handle SQLException even for an in-memory impl.\n" +
+        "// Better: throw a domain RepositoryException so the storage tech stays hidden."
     }
   ],
   whenToUse: "<p>Abstract at boundaries where implementations vary or you want to insulate callers (data " +
@@ -484,6 +833,28 @@ C["encapsulation"] = {
       title: "Example 2: Hiding implementation",
       description: "<p>Internals can change without affecting callers.</p>",
       code: "class Temperature {\n  private double celsius;\n  public double fahrenheit() { return celsius * 9/5 + 32; }\n  // Could store fahrenheit instead later - callers of fahrenheit() unaffected.\n}"
+    },
+    {
+      title: "Example 3: enforcing an invariant through a setter",
+      description: "<p>Encapsulation lets an object reject invalid state instead of trusting callers.</p>",
+      code: "class Account {\n" +
+        "  private int balanceCents = 0;\n" +
+        "  void withdraw(int cents) {\n" +
+        "    if (cents <= 0) throw new IllegalArgumentException(\"positive only\");\n" +
+        "    if (cents > balanceCents) throw new IllegalStateException(\"insufficient\");\n" +
+        "    balanceCents -= cents;        // invariant: balance never goes negative\n" +
+        "  }\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): a getter can silently break encapsulation",
+      description: "<p>Exposing a mutable internal object via a getter lets outsiders bypass your invariants entirely.</p>",
+      code: "class Order {\n" +
+        "  private final List<Item> items = new ArrayList<>();\n" +
+        "  List<Item> getItems() { return items; }   // anyone can add/remove!\n" +
+        "  List<Item> getItemsSafe() { return Collections.unmodifiableList(items); }\n" +
+        "}\n" +
+        "order.getItems().clear(); // bypasses any 'addItem' validation you wrote"
     }
   ],
   whenToUse: "<p>Encapsulate whenever an object has rules about its state &mdash; nearly always. " +
@@ -509,6 +880,31 @@ C["inheritance"] = {
       title: "Example 2: Polymorphic use",
       description: "<p>Treat subclasses through the base type.</p>",
       code: "Animal a = new Dog(\"Rex\");\na.speak();   // \"Woof\" - the override runs (dynamic dispatch)"
+    },
+    {
+      title: "Example 3: super() and constructor chaining",
+      description: "<p>A subclass constructor must initialize its parent first via <code>super(...)</code> (implicit if omitted).</p>",
+      code: "class Animal {\n" +
+        "  final String name;\n" +
+        "  Animal(String name) { this.name = name; }\n" +
+        "}\n" +
+        "class Dog extends Animal {\n" +
+        "  Dog(String name) { super(name); }  // must call - Animal has no no-arg ctor\n" +
+        "  String speak() { return name + \" says woof\"; }\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): prefer composition - the fragile base class",
+      description: "<p>Deep inheritance couples subclasses to the parent's internals; a base-class change can silently break them.</p>",
+      code: "// Classic trap: extending ArrayList to 'count adds'\n" +
+        "class CountingList<E> extends ArrayList<E> {\n" +
+        "  int added = 0;\n" +
+        "  public boolean add(E e) { added++; return super.add(e); }\n" +
+        "  public boolean addAll(Collection<? extends E> c) {\n" +
+        "    added += c.size(); return super.addAll(c); // BUG: addAll calls add too -> double count\n" +
+        "  }\n" +
+        "}\n" +
+        "// Composition (wrap a List in a field) avoids depending on internal call patterns."
     }
   ],
   whenToUse: "<p>Use inheritance for genuine, stable 'is-a' relationships where the subclass is substitutable " +
@@ -535,6 +931,26 @@ C["interfaces"] = {
       title: "Example 2: Default methods + multiple interfaces",
       description: "<p>Interfaces can provide default behavior; a class implements many.</p>",
       code: "interface Loggable { default void log(String m) { System.out.println(m); } }\ninterface Serializable2 { String serialize(); }\nclass Order implements Loggable, Serializable2 {\n  public String serialize() { return \"{}\"; }\n}"
+    },
+    {
+      title: "Example 3: default and static methods in interfaces",
+      description: "<p>Since Java 8, interfaces can carry <code>default</code> implementations (added without breaking implementers) and <code>static</code> helpers.</p>",
+      code: "interface Greeter {\n" +
+        "  String name();\n" +
+        "  default String greet() { return \"Hi, \" + name(); } // default impl\n" +
+        "  static Greeter of(String n) { return () -> n; }      // static factory\n" +
+        "}\n" +
+        "Greeter.of(\"Sam\").greet(); // \"Hi, Sam\""
+    },
+    {
+      title: "Example 4 (edge case): the diamond problem with default methods",
+      description: "<p>If two interfaces provide the same default method, the implementing class must override to resolve the conflict.</p>",
+      code: "interface A { default String id() { return \"A\"; } }\n" +
+        "interface B { default String id() { return \"B\"; } }\n" +
+        "class C implements A, B {\n" +
+        "  // ERROR unless you override:\n" +
+        "  public String id() { return A.super.id(); } // explicitly pick A's version\n" +
+        "}"
     }
   ],
   whenToUse: "<p>Use interfaces to define capabilities, decouple callers from implementations, enable testing " +
@@ -560,6 +976,27 @@ C["enums"] = {
       title: "Example 2: Enum in switch + iteration",
       description: "<p>Type-safe branching and listing values.</p>",
       code: "Day d = Day.MON;\nint hours = switch (d) {\n  case MON, TUE, WED -> 8;\n};\nfor (Day day : Day.values()) System.out.println(day);"
+    },
+    {
+      title: "Example 3: enums with fields, constructors, and methods",
+      description: "<p>Each enum constant can carry data and behavior - far richer than plain int constants.</p>",
+      code: "enum Planet {\n" +
+        "  EARTH(5.97e24, 6.37e6), MARS(6.42e23, 3.39e6);\n" +
+        "  private final double mass, radius;\n" +
+        "  Planet(double m, double r) { mass = m; radius = r; }\n" +
+        "  double gravity() { return 6.67e-11 * mass / (radius * radius); }\n" +
+        "}\n" +
+        "Planet.EARTH.gravity(); // ~9.8"
+    },
+    {
+      title: "Example 4 (edge case): enums in switch and the EnumSet/EnumMap pair",
+      description: "<p>Switching on an enum needs the unqualified constant name; <code>EnumSet</code>/<code>EnumMap</code> are the efficient collections for enums.</p>",
+      code: "enum Day { MON, TUE, SAT, SUN }\n" +
+        "String kind = switch (d) {\n" +
+        "  case SAT, SUN -> \"weekend\";   // NOT Day.SAT - just SAT\n" +
+        "  default -> \"weekday\";\n" +
+        "};\n" +
+        "EnumSet<Day> weekend = EnumSet.of(Day.SAT, Day.SUN); // compact bitset-backed set"
     }
   ],
   whenToUse: "<p>Use enums for any fixed set of related constants &mdash; statuses, types, days, modes &mdash; " +
@@ -585,6 +1022,28 @@ C["record"] = {
       title: "Example 2: Validation in the compact constructor",
       description: "<p>Add invariants without writing the full constructor.</p>",
       code: "record Range(int lo, int hi) {\n  Range {   // compact constructor\n    if (lo > hi) throw new IllegalArgumentException(\"lo > hi\");\n  }\n}"
+    },
+    {
+      title: "Example 3: compact canonical constructor for validation",
+      description: "<p>A record can validate or normalize its components in a compact constructor.</p>",
+      code: "record Range(int low, int high) {\n" +
+        "  Range {                              // compact canonical constructor\n" +
+        "    if (low > high) throw new IllegalArgumentException(\"low > high\");\n" +
+        "  }\n" +
+        "}\n" +
+        "new Range(1, 5);   // ok\n" +
+        "new Range(5, 1);   // throws - invariant enforced at construction"
+    },
+    {
+      title: "Example 4 (edge case): records are shallowly immutable",
+      description: "<p>The record reference fields are final, but a mutable component (like a List) can still be changed - copy defensively if it matters.</p>",
+      code: "record Team(String name, List<String> members) {}\n" +
+        "var t = new Team(\"A\", new ArrayList<>(List.of(\"Sam\")));\n" +
+        "t.members().add(\"Jo\"); // mutates the inner list - record can't prevent this\n" +
+        "\n" +
+        "record SafeTeam(String name, List<String> members) {\n" +
+        "  SafeTeam { members = List.copyOf(members); } // defensive immutable copy\n" +
+        "}"
     }
   ],
   whenToUse: "<p>Use records for immutable data carriers &mdash; DTOs, value objects, API responses, map keys, " +
@@ -610,6 +1069,23 @@ C["object-lifecycle"] = {
       title: "Example 2: Cleanup with try-with-resources",
       description: "<p>Deterministic release of external resources (not memory).</p>",
       code: "// For resources (files, connections), use AutoCloseable:\ntry (var reader = new BufferedReader(new FileReader(\"f.txt\"))) {\n  reader.readLine();\n}  // close() called automatically, even on exception"
+    },
+    {
+      title: "Example 3: try-with-resources for deterministic cleanup",
+      description: "<p>Since finalizers are unreliable, use <code>AutoCloseable</code> + try-with-resources to release resources promptly.</p>",
+      code: "try (var in = Files.newInputStream(path)) {\n" +
+        "  in.read();\n" +
+        "} // in.close() called automatically, even on exception\n" +
+        "// This - not finalize()/GC - is how you manage files, sockets, connections."
+    },
+    {
+      title: "Example 4 (edge case): a lingering reference prevents garbage collection",
+      description: "<p>Objects live as long as something reachable references them; forgotten references in long-lived collections are the classic Java 'memory leak'.</p>",
+      code: "static final Map<String, byte[]> cache = new HashMap<>();\n" +
+        "void handle(String id) { cache.put(id, load(id)); } // never evicted -> grows forever\n" +
+        "\n" +
+        "// Fixes: bound the cache (e.g. LinkedHashMap LRU), or use WeakHashMap so\n" +
+        "// entries become collectable when keys are no longer referenced elsewhere."
     }
   ],
   whenToUse: "<p>Understanding the lifecycle helps you avoid memory leaks and manage resources. " +
@@ -634,6 +1110,29 @@ C["method-chaining"] = {
       title: "Example 2: Built-in fluent APIs",
       description: "<p>Streams and StringBuilder chain naturally.</p>",
       code: "String r = new StringBuilder().append(\"a\").append(\"b\").reverse().toString();\nList<Integer> evens = nums.stream().filter(n -> n % 2 == 0).sorted().toList();"
+    },
+    {
+      title: "Example 3: the builder pattern",
+      description: "<p>Returning <code>this</code> from each setter creates a readable, order-independent way to construct objects with many optional fields.</p>",
+      code: "class Pizza {\n" +
+        "  static class Builder {\n" +
+        "    private boolean cheese, bacon;\n" +
+        "    Builder cheese() { this.cheese = true; return this; }\n" +
+        "    Builder bacon()  { this.bacon = true;  return this; }\n" +
+        "    Pizza build() { return new Pizza(/* ... */); }\n" +
+        "  }\n" +
+        "}\n" +
+        "new Pizza.Builder().cheese().bacon().build();"
+    },
+    {
+      title: "Example 4 (edge case): NPE risk in a chain",
+      description: "<p>Any link returning <code>null</code> breaks the whole chain with an NPE that's hard to localize - chain only over non-null returns or use Optional.</p>",
+      code: "// If getAddress() can be null, this NPEs with no clue which call failed:\n" +
+        "String city = user.getAddress().getCity().toUpperCase();\n" +
+        "\n" +
+        "// Safer with Optional:\n" +
+        "String city2 = Optional.ofNullable(user.getAddress())\n" +
+        "    .map(Address::getCity).map(String::toUpperCase).orElse(\"unknown\");"
     }
   ],
   whenToUse: "<p>Use chaining for builders, configuration objects, and data pipelines where it improves " +
@@ -659,6 +1158,25 @@ C["method-overloading-overriding"] = {
       title: "Example 2: Overriding (same signature, subclass)",
       description: "<p>Runtime picks the method by actual type.</p>",
       code: "class Animal { String speak() { return \"...\"; } }\nclass Cat extends Animal {\n  @Override String speak() { return \"Meow\"; }  // override\n}\nAnimal a = new Cat();\na.speak();   // \"Meow\" (dynamic dispatch)"
+    },
+    {
+      title: "Example 3: @Override catches a broken override",
+      description: "<p>Annotating an override makes a signature mismatch a compile error instead of an accidental overload.</p>",
+      code: "class Base { boolean equals(Object o) { return true; } }\n" +
+        "class Sub extends Base {\n" +
+        "  @Override boolean equals(Sub s) { return true; } // ERROR: doesn't override\n" +
+        "  // (param is Sub, not Object -> it's an OVERLOAD; @Override flags the mistake)\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): overload resolution is by COMPILE-TIME type",
+      description: "<p>Overloading is chosen statically; overriding is dispatched dynamically. Mixing them surprises people.</p>",
+      code: "void print(Object o) { System.out.println(\"Object\"); }\n" +
+        "void print(String s) { System.out.println(\"String\"); }\n" +
+        "\n" +
+        "Object x = \"hello\";\n" +
+        "print(x); // prints \"Object\" - chosen by x's declared type, not its runtime type\n" +
+        "// Overriding would use the runtime type; overloading does not."
     }
   ],
   whenToUse: "<p>Overload when an operation logically applies to different argument types/counts (e.g. " +
@@ -685,6 +1203,25 @@ C["static-vs-dynamic-binding"] = {
       title: "Example 2: Static binding (overloading/fields)",
       description: "<p>Declared type decides at compile time.</p>",
       code: "// Overloaded methods + fields use the DECLARED (compile-time) type:\nclass A { int x = 1; }\nclass B extends A { int x = 2; }\nA obj = new B();\nSystem.out.println(obj.x);  // 1 (fields are NOT polymorphic - static binding)"
+    },
+    {
+      title: "Example 3: overridden methods use dynamic (late) binding",
+      description: "<p>Instance method calls resolve to the object's runtime type - the basis of polymorphism.</p>",
+      code: "class Shape { double area() { return 0; } }\n" +
+        "class Circle extends Shape { double area() { return 3.14; } }\n" +
+        "\n" +
+        "Shape s = new Circle();\n" +
+        "s.area(); // 3.14 - dynamically bound to Circle.area() at runtime"
+    },
+    {
+      title: "Example 4 (edge case): fields and statics are bound statically",
+      description: "<p>Only instance methods are dynamically dispatched - field access and static methods use the compile-time type, a frequent trap.</p>",
+      code: "class A { int x = 1; static String tag() { return \"A\"; } }\n" +
+        "class B extends A { int x = 2; static String tag() { return \"B\"; } }\n" +
+        "\n" +
+        "A ref = new B();\n" +
+        "System.out.println(ref.x);     // 1 - fields are NOT polymorphic\n" +
+        "System.out.println(ref.tag()); // \"A\" - statics resolve by declared type"
     }
   ],
   whenToUse: "<p>This is conceptual &mdash; understanding it explains Java's behavior. <strong>Gotchas:</strong> " +
@@ -711,6 +1248,26 @@ C["initializer-block"] = {
       title: "Example 2: Initialization order",
       description: "<p>Static first (once), then per-instance.</p>",
       code: "// Order on first use + each new:\n// 1. static fields + static blocks (once, in source order)\n// 2. for each new(): instance fields + instance blocks (in source order)\n// 3. then the constructor body"
+    },
+    {
+      title: "Example 3: instance initializer blocks run before the constructor body",
+      description: "<p>An instance <code>{ ... }</code> block runs on every construction, after <code>super()</code> and before the constructor body - useful for shared init across overloaded constructors.</p>",
+      code: "class Widget {\n" +
+        "  List<String> log = new ArrayList<>();\n" +
+        "  { log.add(\"init\"); }      // instance initializer - runs for EVERY constructor\n" +
+        "  Widget() { log.add(\"ctor\"); }\n" +
+        "}\n" +
+        "// new Widget().log -> [\"init\", \"ctor\"]"
+    },
+    {
+      title: "Example 4 (edge case): an exception in a static initializer is fatal",
+      description: "<p>If a static block throws, the class fails to initialize and you get an <code>ExceptionInInitializerError</code> - then <code>NoClassDefFoundError</code> on later use.</p>",
+      code: "class Config {\n" +
+        "  static final String URL;\n" +
+        "  static { URL = System.getenv(\"URL\").trim(); } // NPE if URL unset\n" +
+        "}\n" +
+        "// First access throws ExceptionInInitializerError; the class is now\n" +
+        "// permanently unusable in this JVM - subsequent uses throw NoClassDefFoundError."
     }
   ],
   whenToUse: "<p>Use static initializers for one-time, complex class-level setup (loading config, building " +
@@ -736,6 +1293,23 @@ C["pass-by-value-pass-by-reference"] = {
       title: "Example 2: Object references are copied (but point to the same object)",
       description: "<p>Mutation is visible; reassignment is not.</p>",
       code: "void mutate(List<String> l) { l.add(\"x\"); }     // affects caller's list\nvoid reassign(List<String> l) { l = new ArrayList<>(); } // does NOT\nList<String> list = new ArrayList<>();\nmutate(list);    list.size();  // 1 - mutation visible\nreassign(list);  list.size();  // still 1 - reassignment local only"
+    },
+    {
+      title: "Example 3: reassigning a parameter doesn't affect the caller",
+      description: "<p>Java passes the reference <em>by value</em>: the method gets a copy of the reference, so reassigning it is invisible outside.</p>",
+      code: "static void swap(int[] a, int[] b) { int[] t = a; a = b; b = t; } // no effect\n" +
+        "int[] x = {1}, y = {2};\n" +
+        "swap(x, y);\n" +
+        "System.out.println(x[0]); // still 1 - the local copies were swapped, not x/y"
+    },
+    {
+      title: "Example 4 (edge case): you CAN mutate the pointed-to object",
+      description: "<p>The copied reference still points at the same object, so mutating its contents is visible to the caller.</p>",
+      code: "static void fill(int[] a) { a[0] = 99; } // mutates the shared array object\n" +
+        "int[] x = {1};\n" +
+        "fill(x);\n" +
+        "System.out.println(x[0]); // 99 - same object, modified in place\n" +
+        "// Distinction: reassign reference = local only; mutate object = shared."
     }
   ],
   whenToUse: "<p>Knowing this prevents real bugs. <strong>Gotchas:</strong> mutating an object passed to a " +
@@ -765,6 +1339,28 @@ C["exception-handling"] = {
       title: "Example 2: Throwing and custom exceptions",
       description: "<p>Signal errors with meaningful types.</p>",
       code: "class InsufficientFundsException extends RuntimeException {\n  InsufficientFundsException(String m) { super(m); }\n}\nvoid withdraw(double amt) {\n  if (amt > balance) throw new InsufficientFundsException(\"too much\");\n}"
+    },
+    {
+      title: "Example 3: checked vs unchecked, and try-with-resources",
+      description: "<p>Checked exceptions must be declared or caught; unchecked (RuntimeException) need not be. try-with-resources auto-closes and suppresses secondary exceptions.</p>",
+      code: "// checked: compiler forces handling\n" +
+        "void read() throws IOException { Files.readString(path); }\n" +
+        "\n" +
+        "// unchecked: no declaration needed\n" +
+        "int parse(String s) { return Integer.parseInt(s); } // throws NumberFormatException\n" +
+        "\n" +
+        "try (var c = open()) { c.use(); } // c.close() runs even if use() throws"
+    },
+    {
+      title: "Example 4 (edge case): swallowing exceptions and finally overriding returns",
+      description: "<p>Two anti-patterns: catching and ignoring loses the failure; a <code>return</code> in <code>finally</code> silently discards exceptions and earlier returns.</p>",
+      code: "try { risky(); } catch (Exception e) { } // SWALLOWED - bug becomes invisible\n" +
+        "\n" +
+        "int bad() {\n" +
+        "  try { throw new RuntimeException(); }\n" +
+        "  finally { return 1; } // hides the exception AND any try-block return!\n" +
+        "}\n" +
+        "// Always at least log e; never return/throw from finally."
     }
   ],
   whenToUse: "<p>Use exceptions for exceptional conditions, not normal control flow. <strong>Gotchas:</strong> " +
@@ -791,6 +1387,23 @@ C["lambda-expressions"] = {
       title: "Example 2: Lambdas with collections/streams",
       description: "<p>Pass behavior into higher-order methods.</p>",
       code: "list.forEach(x -> System.out.println(x));\nlist.removeIf(x -> x.isEmpty());\nnames.stream().filter(n -> n.startsWith(\"A\")).forEach(System.out::println);"
+    },
+    {
+      title: "Example 3: method references as lambda shorthand",
+      description: "<p>When a lambda just calls an existing method, a method reference is cleaner.</p>",
+      code: "List<String> names = List.of(\"sam\", \"jo\");\n" +
+        "names.forEach(System.out::println);     // instance method ref\n" +
+        "names.stream().map(String::toUpperCase); // unbound instance method ref\n" +
+        "names.stream().map(String::new);         // constructor ref"
+    },
+    {
+      title: "Example 4 (edge case): lambdas capture effectively-final variables only",
+      description: "<p>A lambda can read enclosing locals but they must be (effectively) final - reassigning a captured variable won't compile.</p>",
+      code: "int total = 0;\n" +
+        "List.of(1, 2, 3).forEach(n -> total += n); // ERROR: total must be effectively final\n" +
+        "\n" +
+        "// Workarounds: a reduction, or an array/atomic holder:\n" +
+        "int sum = List.of(1, 2, 3).stream().mapToInt(Integer::intValue).sum(); // 6"
     }
   ],
   whenToUse: "<p>Use lambdas for short, behavior-passing tasks: stream operations, callbacks, comparators, " +
@@ -817,6 +1430,25 @@ C["annotations"] = {
       title: "Example 2: A custom annotation",
       description: "<p>Define metadata read via reflection.</p>",
       code: "@Retention(RetentionPolicy.RUNTIME)\n@Target(ElementType.METHOD)\n@interface Audited { String value(); }\n\nclass Service {\n  @Audited(\"transfer\") void transfer() {}\n}"
+    },
+    {
+      title: "Example 3: a custom annotation with retention and target",
+      description: "<p>Annotations need a retention policy (when they're visible) and optional target restriction; <code>RUNTIME</code> retention is required for reflection-based frameworks.</p>",
+      code: "@Retention(RetentionPolicy.RUNTIME)  // visible via reflection at runtime\n" +
+        "@Target(ElementType.METHOD)          // only allowed on methods\n" +
+        "@interface Audited { String value() default \"\"; }\n" +
+        "\n" +
+        "class Service { @Audited(\"transfer\") void transfer() {} }"
+    },
+    {
+      title: "Example 4 (edge case): SOURCE/CLASS retention isn't readable at runtime",
+      description: "<p>A common mistake - an annotation without <code>RUNTIME</code> retention is invisible to reflection, so frameworks can't find it.</p>",
+      code: "// Default retention is CLASS -> NOT available via reflection:\n" +
+        "@interface Marker {}\n" +
+        "\n" +
+        "boolean has = obj.getClass().isAnnotationPresent(Marker.class); // always false!\n" +
+        "// Add @Retention(RetentionPolicy.RUNTIME) for reflection to see it.\n" +
+        "// @Override / @SuppressWarnings are SOURCE-only - used by the compiler, then gone."
     }
   ],
   whenToUse: "<p>You'll mostly <em>consume</em> annotations (Spring, JPA, JUnit, validation). Write custom ones " +
@@ -843,6 +1475,26 @@ C["modules"] = {
       title: "Example 2: Strong encapsulation",
       description: "<p>Non-exported packages are inaccessible even via reflection.</p>",
       code: "// Only com.example.orders.api is usable by other modules.\n// com.example.orders.internal is hidden - can't be imported OR\n//   accessed by reflection (unless 'opens').\n// This is stronger than package-private visibility."
+    },
+    {
+      title: "Example 3: exports vs requires in module-info.java",
+      description: "<p>A module declares what it needs (<code>requires</code>) and what it exposes (<code>exports</code>); everything else is strongly encapsulated.</p>",
+      code: "// module-info.java\n" +
+        "module com.acme.app {\n" +
+        "  requires com.acme.core;        // depend on another module\n" +
+        "  requires transitive java.sql;  // re-export to my consumers\n" +
+        "  exports com.acme.app.api;      // make ONLY this package public\n" +
+        "}\n" +
+        "// Packages not exported are invisible to other modules - even if public."
+    },
+    {
+      title: "Example 4 (edge case): reflection needs 'opens', not 'exports'",
+      description: "<p>Frameworks that reflect into your classes (Spring, Jackson) need <code>opens</code>; <code>exports</code> only grants compile-time access.</p>",
+      code: "module com.acme.app {\n" +
+        "  exports com.acme.model;             // compile-time access only\n" +
+        "  opens com.acme.model to com.fasterxml.jackson.databind; // reflective access\n" +
+        "}\n" +
+        "// Without 'opens', Jackson throws InaccessibleObjectException at runtime."
     }
   ],
   whenToUse: "<p>Modules matter for large applications and libraries wanting strong encapsulation, explicit " +
@@ -869,6 +1521,26 @@ C["optionals"] = {
       title: "Example 2: Avoiding null chains",
       description: "<p>Compose safely without nested null checks.</p>",
       code: "// Instead of: if (u != null && u.getAddress() != null) ...\nString city = findUser(1)\n  .map(User::getAddress)\n  .map(Address::getCity)\n  .orElse(\"N/A\");"
+    },
+    {
+      title: "Example 3: map/filter/orElseGet pipeline",
+      description: "<p>Optional's functional methods express 'if present, transform' without explicit null checks.</p>",
+      code: "String city = findUser(id)\n" +
+        "    .map(User::address)\n" +
+        "    .filter(a -> a.country().equals(\"NL\"))\n" +
+        "    .map(Address::city)\n" +
+        "    .orElseGet(() -> lookupDefaultCity()); // lazy default (not always computed)\n" +
+        "// orElse(x) evaluates x eagerly; orElseGet(supplier) only if empty."
+    },
+    {
+      title: "Example 4 (edge case): Optional anti-patterns",
+      description: "<p>Don't use Optional for fields, parameters, or collections, and never call <code>get()</code> without checking - it defeats the purpose.</p>",
+      code: "Optional<String> name = find();\n" +
+        "name.get(); // throws NoSuchElementException if empty - same risk as null!\n" +
+        "\n" +
+        "// Avoid: fields like 'private Optional<X> x;' (serialization/memory cost),\n" +
+        "// and 'Optional<List<T>>' - return an empty List instead.\n" +
+        "name.ifPresent(System.out::println); // safe consumption"
     }
   ],
   whenToUse: "<p>Use <code>Optional</code> as a <strong>return type</strong> for methods that may not produce a " +
@@ -897,6 +1569,27 @@ C["array-vs-arraylist"] = {
       title: "Example 2: When each wins",
       description: "<p>Performance/primitives vs flexibility.</p>",
       code: "// Array: int[] for performance-critical primitive data (no boxing)\n// ArrayList: when size is unknown/changes, or you need List methods\nList<String> names = new ArrayList<>(List.of(\"a\", \"b\"));"
+    },
+    {
+      title: "Example 3: converting between array and list",
+      description: "<p>Common interop - but the wrappers have sharp edges.</p>",
+      code: "String[] arr = {\"a\", \"b\"};\n" +
+        "List<String> view = Arrays.asList(arr); // FIXED-SIZE view, backed by arr\n" +
+        "// view.add(\"c\");  // UnsupportedOperationException\n" +
+        "List<String> real = new ArrayList<>(Arrays.asList(arr)); // resizable copy\n" +
+        "\n" +
+        "String[] back = real.toArray(new String[0]); // list -> array"
+    },
+    {
+      title: "Example 4 (edge case): List.of is immutable; primitive arrays don't autobox",
+      description: "<p><code>List.of</code> rejects mutation and nulls; and <code>Arrays.asList</code> on an <code>int[]</code> gives a single-element list of the array, not of ints.</p>",
+      code: "List<Integer> xs = List.of(1, 2);\n" +
+        "xs.add(3);                 // UnsupportedOperationException (immutable)\n" +
+        "List.of(1, null);          // NullPointerException - nulls not allowed\n" +
+        "\n" +
+        "int[] nums = {1, 2, 3};\n" +
+        "var bad = Arrays.asList(nums);   // List<int[]> of size 1, NOT List<Integer>!\n" +
+        "var ok = Arrays.stream(nums).boxed().toList(); // [1, 2, 3]"
     }
   ],
   whenToUse: "<p>Default to <code>ArrayList</code> (or another <code>List</code>) for most app code &mdash; " +
@@ -923,6 +1616,25 @@ C["set"] = {
       title: "Example 2: Ordered and sorted sets",
       description: "<p>Choose by ordering needs.</p>",
       code: "Set<Integer> ins = new LinkedHashSet<>();  // keeps insertion order\nSet<Integer> sorted = new TreeSet<>();     // keeps sorted order\nsorted.add(3); sorted.add(1); sorted.add(2);\n// iterates 1, 2, 3"
+    },
+    {
+      title: "Example 3: choosing the right Set implementation",
+      description: "<p>HashSet (fast, unordered), LinkedHashSet (insertion order), TreeSet (sorted) trade speed for ordering.</p>",
+      code: "Set<String> h = new HashSet<>();       // O(1), no order guarantee\n" +
+        "Set<String> l = new LinkedHashSet<>(); // O(1), preserves insertion order\n" +
+        "Set<String> t = new TreeSet<>();       // O(log n), sorted order\n" +
+        "t.addAll(List.of(\"c\", \"a\", \"b\"));\n" +
+        "System.out.println(t); // [a, b, c]"
+    },
+    {
+      title: "Example 4 (edge case): HashSet relies on equals/hashCode",
+      description: "<p>A mutable element changed after insertion, or a class without proper <code>equals</code>/<code>hashCode</code>, breaks set membership.</p>",
+      code: "class P { int x; P(int x){this.x=x;} } // no equals/hashCode override\n" +
+        "Set<P> s = new HashSet<>();\n" +
+        "s.add(new P(1));\n" +
+        "System.out.println(s.contains(new P(1))); // false! identity-based hashCode\n" +
+        "// Fix: override equals+hashCode (or use a record). Also: never mutate a field\n" +
+        "// used in hashCode while the object is in a HashSet - it becomes unfindable."
     }
   ],
   whenToUse: "<p>Use a <code>Set</code> when uniqueness matters or you need fast membership checks. " +
@@ -949,6 +1661,26 @@ C["map"] = {
       title: "Example 2: Counting / merge / computeIfAbsent",
       description: "<p>Common idioms for aggregation.</p>",
       code: "Map<String, Integer> counts = new HashMap<>();\nfor (String w : words)\n  counts.merge(w, 1, Integer::sum);   // increment count\nMap<String, List<String>> groups = new HashMap<>();\ngroups.computeIfAbsent(\"a\", k -> new ArrayList<>()).add(\"x\");"
+    },
+    {
+      title: "Example 3: the modern map idioms",
+      description: "<p><code>computeIfAbsent</code>, <code>merge</code>, and <code>getOrDefault</code> replace verbose null-check patterns.</p>",
+      code: "Map<String, List<String>> byCity = new HashMap<>();\n" +
+        "byCity.computeIfAbsent(\"NYC\", k -> new ArrayList<>()).add(\"Sam\"); // group\n" +
+        "\n" +
+        "Map<String, Integer> counts = new HashMap<>();\n" +
+        "for (String w : words) counts.merge(w, 1, Integer::sum);          // frequency count\n" +
+        "\n" +
+        "int n = counts.getOrDefault(\"missing\", 0);                       // safe lookup"
+    },
+    {
+      title: "Example 4 (edge case): iteration order and the null-key rules differ",
+      description: "<p>HashMap order is unspecified; TreeMap is sorted; and the implementations disagree on null keys/values.</p>",
+      code: "Map<String,Integer> hm = new HashMap<>();  hm.put(null, 1); // allowed (one null key)\n" +
+        "Map<String,Integer> tm = new TreeMap<>();  tm.put(null, 1); // NullPointerException\n" +
+        "Map<String,Integer> cm = new java.util.concurrent.ConcurrentHashMap<>();\n" +
+        "cm.put(null, 1); // NullPointerException - no nulls at all\n" +
+        "// Never rely on HashMap iteration order; use LinkedHashMap/TreeMap if order matters."
     }
   ],
   whenToUse: "<p>Use maps for lookups by key, caches, counting, grouping, and associating data. Pick " +
@@ -977,6 +1709,25 @@ C["queue"] = {
       title: "Example 2: PriorityQueue",
       description: "<p>Elements come out in priority order, not insertion order.</p>",
       code: "Queue<Integer> pq = new PriorityQueue<>();\npq.offer(3); pq.offer(1); pq.offer(2);\npq.poll();   // 1 (smallest first by default)\npq.poll();   // 2"
+    },
+    {
+      title: "Example 3: PriorityQueue orders by priority, not insertion",
+      description: "<p>A <code>PriorityQueue</code> always dequeues the smallest element per its comparator - the heart of Dijkstra, scheduling, top-K.</p>",
+      code: "PriorityQueue<Integer> pq = new PriorityQueue<>(); // min-heap\n" +
+        "pq.add(5); pq.add(1); pq.add(3);\n" +
+        "pq.poll(); // 1 (smallest first, NOT insertion order)\n" +
+        "\n" +
+        "var maxHeap = new PriorityQueue<Integer>(Comparator.reverseOrder()); // largest first"
+    },
+    {
+      title: "Example 4 (edge case): add/remove throw, offer/poll return signals",
+      description: "<p>The two method families behave differently on a full/empty queue - mixing them up causes surprise exceptions.</p>",
+      code: "Queue<Integer> q = new LinkedList<>();\n" +
+        "q.poll();    // returns null when empty (no exception)\n" +
+        "q.remove();  // throws NoSuchElementException when empty\n" +
+        "\n" +
+        "// On a bounded BlockingQueue: add() throws if full, offer() returns false.\n" +
+        "// PriorityQueue is NOT thread-safe; use PriorityBlockingQueue for concurrency."
     }
   ],
   whenToUse: "<p>Use queues for task scheduling, buffering, BFS, producer-consumer patterns, and any " +
@@ -1003,6 +1754,26 @@ C["dequeue"] = {
       title: "Example 2: Deque as a stack",
       description: "<p>Prefer ArrayDeque over the legacy Stack class.</p>",
       code: "Deque<String> stack = new ArrayDeque<>();\nstack.push(\"a\");   // addFirst\nstack.push(\"b\");\nstack.pop();        // \"b\" (LIFO)\nstack.peek();       // \"a\""
+    },
+    {
+      title: "Example 3: ArrayDeque as a stack (preferred over Stack)",
+      description: "<p>Use <code>push</code>/<code>pop</code>/<code>peek</code> on an ArrayDeque instead of the legacy synchronized <code>Stack</code> class.</p>",
+      code: "Deque<Integer> stack = new ArrayDeque<>();\n" +
+        "stack.push(1); stack.push(2);\n" +
+        "stack.pop();   // 2 (LIFO)\n" +
+        "\n" +
+        "Deque<Integer> queue = new ArrayDeque<>();\n" +
+        "queue.offer(1); queue.offer(2);\n" +
+        "queue.poll();  // 1 (FIFO) - same class, both roles"
+    },
+    {
+      title: "Example 4 (edge case): ArrayDeque forbids null elements",
+      description: "<p>Because it uses null internally as an 'empty' sentinel, storing null is rejected - unlike LinkedList.</p>",
+      code: "Deque<String> d = new ArrayDeque<>();\n" +
+        "d.add(null); // NullPointerException\n" +
+        "\n" +
+        "// peek/poll return null to signal 'empty', so a stored null would be ambiguous.\n" +
+        "// If you genuinely need null elements, use LinkedList instead."
     }
   ],
   whenToUse: "<p>Use <code>ArrayDeque</code> as your go-to for both stacks and queues &mdash; it's faster than " +
@@ -1029,6 +1800,27 @@ C["stack"] = {
       title: "Example 2: Classic use - balanced brackets",
       description: "<p>Push opens, pop on closes.</p>",
       code: "boolean balanced(String s) {\n  Deque<Character> st = new ArrayDeque<>();\n  for (char c : s.toCharArray()) {\n    if (c == '(') st.push(c);\n    else if (c == ')') { if (st.isEmpty()) return false; st.pop(); }\n  }\n  return st.isEmpty();\n}"
+    },
+    {
+      title: "Example 3: balanced-brackets check with a stack",
+      description: "<p>The canonical stack use - push openers, pop and match on closers.</p>",
+      code: "boolean balanced(String s) {\n" +
+        "  Deque<Character> st = new ArrayDeque<>();\n" +
+        "  for (char c : s.toCharArray()) {\n" +
+        "    if (c == '(') st.push(c);\n" +
+        "    else if (c == ')') { if (st.isEmpty()) return false; st.pop(); }\n" +
+        "  }\n" +
+        "  return st.isEmpty();\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): avoid the legacy java.util.Stack",
+      description: "<p>The old <code>Stack</code> extends <code>Vector</code>, so it's synchronized (slow) and even iterates in the wrong (bottom-up) order.</p>",
+      code: "Stack<Integer> s = new Stack<>();\n" +
+        "s.push(1); s.push(2);\n" +
+        "for (int x : s) System.out.print(x); // prints 1 2 - BOTTOM-up, not LIFO!\n" +
+        "\n" +
+        "// Prefer ArrayDeque: faster, not synchronized, iterates top-first as expected."
     }
   ],
   whenToUse: "<p>Use a stack for LIFO needs: DFS, backtracking, undo, parsing/expression evaluation, and " +
@@ -1054,6 +1846,25 @@ C["iterator"] = {
       title: "Example 2: Safe removal during iteration",
       description: "<p>Use the iterator's remove(), not the collection's.</p>",
       code: "List<Integer> nums = new ArrayList<>(List.of(1, 2, 3, 4));\nIterator<Integer> it = nums.iterator();\nwhile (it.hasNext()) {\n  if (it.next() % 2 == 0) it.remove();  // safe\n}\n// nums -> [1, 3]   (list.remove() in a for-each would throw)"
+    },
+    {
+      title: "Example 3: safe removal during iteration",
+      description: "<p>The iterator's own <code>remove()</code> is the only safe way to delete while traversing.</p>",
+      code: "List<Integer> xs = new ArrayList<>(List.of(1, 2, 3, 4));\n" +
+        "Iterator<Integer> it = xs.iterator();\n" +
+        "while (it.hasNext()) {\n" +
+        "  if (it.next() % 2 == 0) it.remove(); // removes via the iterator - safe\n" +
+        "}\n" +
+        "// xs -> [1, 3].  (Or just: xs.removeIf(n -> n % 2 == 0);)"
+    },
+    {
+      title: "Example 4 (edge case): fail-fast iterators throw on external modification",
+      description: "<p>Modifying the collection directly (not via the iterator) during iteration triggers <code>ConcurrentModificationException</code>.</p>",
+      code: "for (Integer x : xs) {\n" +
+        "  if (x == 2) xs.add(99); // ConcurrentModificationException on next hasNext()\n" +
+        "}\n" +
+        "// The exception is best-effort, not guaranteed - never rely on NOT getting it.\n" +
+        "// For concurrent iteration use CopyOnWriteArrayList or explicit locking."
     }
   ],
   whenToUse: "<p>Use the for-each loop for simple traversal (it uses an iterator). Use an explicit iterator " +
@@ -1080,6 +1891,29 @@ C["generic-collections"] = {
       title: "Example 2: Generic methods and bounds",
       description: "<p>Write reusable, type-safe code.</p>",
       code: "static <T extends Comparable<T>> T max(List<T> list) {\n  T best = list.get(0);\n  for (T x : list) if (x.compareTo(best) > 0) best = x;\n  return best;\n}\nmax(List.of(3, 1, 2));   // 3, fully typed"
+    },
+    {
+      title: "Example 3: bounded wildcards - PECS (Producer Extends, Consumer Super)",
+      description: "<p><code>? extends T</code> for reading, <code>? super T</code> for writing - the rule that makes generic APIs flexible.</p>",
+      code: "// Producer: read Numbers out -> use 'extends'\n" +
+        "double sum(List<? extends Number> xs) {\n" +
+        "  double t = 0; for (Number n : xs) t += n.doubleValue(); return t;\n" +
+        "}\n" +
+        "sum(List.of(1, 2, 3));      // List<Integer> accepted\n" +
+        "\n" +
+        "// Consumer: write Integers in -> use 'super'\n" +
+        "void fill(List<? super Integer> xs) { xs.add(1); }"
+    },
+    {
+      title: "Example 4 (edge case): type erasure and raw types",
+      description: "<p>Generics are erased at runtime, so you can't check a generic type with <code>instanceof</code> or create generic arrays; raw types silently disable checking.</p>",
+      code: "List<String> xs = new ArrayList<>();\n" +
+        "// if (xs instanceof List<String>) {}   // won't compile - erased\n" +
+        "System.out.println(xs instanceof List); // only the raw type is checkable\n" +
+        "\n" +
+        "List raw = xs;          // raw type - compiles with a warning\n" +
+        "raw.add(42);            // no check! later: ClassCastException on read\n" +
+        "String s = xs.get(0);   // ClassCastException - an Integer was smuggled in"
     }
   ],
   whenToUse: "<p>Always use generics with collections (raw types are legacy and unsafe). Use generic methods/" +
@@ -1109,6 +1943,24 @@ C["high-order-functions"] = {
       title: "Example 2: Returning a function",
       description: "<p>A method that produces a function.</p>",
       code: "static Function<Integer, Integer> adder(int n) {\n  return x -> x + n;   // returns a function\n}\nFunction<Integer,Integer> add5 = adder(5);\nadd5.apply(10);   // 15"
+    },
+    {
+      title: "Example 3: returning a function (closure factory)",
+      description: "<p>A higher-order function can also <em>return</em> a function, capturing parameters in a closure.</p>",
+      code: "Function<Integer, Integer> adder(int by) {\n" +
+        "  return x -> x + by;   // captures 'by'\n" +
+        "}\n" +
+        "var add10 = adder(10);\n" +
+        "add10.apply(5); // 15"
+    },
+    {
+      title: "Example 4 (edge case): passing a method that fits the shape",
+      description: "<p>Any method matching the functional interface's signature can be passed as a method reference - including comparators built from key extractors.</p>",
+      code: "List<String> names = new ArrayList<>(List.of(\"bb\", \"a\", \"ccc\"));\n" +
+        "names.sort(Comparator.comparingInt(String::length)); // [a, bb, ccc]\n" +
+        "names.sort(Comparator.comparingInt(String::length).reversed());\n" +
+        "// A checked-exception-throwing method, though, won't fit a non-throwing\n" +
+        "// functional interface - you must wrap it."
     }
   ],
   whenToUse: "<p>Use higher-order functions to abstract over behavior &mdash; custom comparators, callbacks, " +
@@ -1136,6 +1988,24 @@ C["functional-interfaces"] = {
       title: "Example 2: A custom functional interface",
       description: "<p>Define your own SAM type.</p>",
       code: "@FunctionalInterface\ninterface Validator<T> { boolean validate(T input); }\nValidator<String> notBlank = s -> !s.isBlank();\nnotBlank.validate(\"x\");   // true"
+    },
+    {
+      title: "Example 3: the core built-in interfaces",
+      description: "<p>Most lambdas target one of <code>Function</code>, <code>Predicate</code>, <code>Consumer</code>, <code>Supplier</code>, or <code>BiFunction</code>.</p>",
+      code: "Function<String, Integer> len = String::length;       // T -> R\n" +
+        "Predicate<String> empty = String::isEmpty;            // T -> boolean\n" +
+        "Consumer<String> print = System.out::println;         // T -> void\n" +
+        "Supplier<Double> rnd = Math::random;                  // () -> T\n" +
+        "BiFunction<Integer,Integer,Integer> add = Integer::sum; // (T,U) -> R"
+    },
+    {
+      title: "Example 4 (edge case): use primitive specializations to avoid boxing",
+      description: "<p><code>IntPredicate</code>/<code>ToIntFunction</code> etc. avoid autoboxing overhead in hot paths; and <code>@FunctionalInterface</code> guards your custom ones.</p>",
+      code: "IntUnaryOperator sq = x -> x * x;   // no Integer boxing\n" +
+        "ToIntFunction<String> len = String::length;\n" +
+        "\n" +
+        "@FunctionalInterface            // compile error if it gets a 2nd abstract method\n" +
+        "interface Validator { boolean test(String s); }"
     }
   ],
   whenToUse: "<p>Use built-in functional interfaces for stream operations, callbacks, and strategy patterns; " +
@@ -1162,6 +2032,26 @@ C["functional-composition"] = {
       title: "Example 2: Composing comparators",
       description: "<p>Multi-key sorting.</p>",
       code: "people.sort(\n  Comparator.comparing(Person::lastName)\n    .thenComparing(Person::firstName)\n);"
+    },
+    {
+      title: "Example 3: andThen vs compose ordering",
+      description: "<p><code>f.andThen(g)</code> runs f then g; <code>f.compose(g)</code> runs g then f - the order is the usual gotcha.</p>",
+      code: "Function<Integer,Integer> plus1 = x -> x + 1;\n" +
+        "Function<Integer,Integer> times2 = x -> x * 2;\n" +
+        "\n" +
+        "plus1.andThen(times2).apply(3); // (3+1)*2 = 8\n" +
+        "plus1.compose(times2).apply(3); // (3*2)+1 = 7"
+    },
+    {
+      title: "Example 4 (edge case): composing predicates",
+      description: "<p>Predicates compose with <code>and</code>/<code>or</code>/<code>negate</code> to build readable complex conditions.</p>",
+      code: "Predicate<String> nonEmpty = s -> !s.isEmpty();\n" +
+        "Predicate<String> shortStr = s -> s.length() < 5;\n" +
+        "Predicate<String> valid = nonEmpty.and(shortStr);\n" +
+        "\n" +
+        "valid.test(\"hi\");    // true\n" +
+        "valid.test(\"\");      // false\n" +
+        "nonEmpty.negate().test(\"\"); // true - 'isEmpty'"
     }
   ],
   whenToUse: "<p>Use composition to build pipelines and complex conditions from small functions, and for " +
@@ -1188,6 +2078,28 @@ C["stream-api"] = {
       title: "Example 2: Reduce, group, count",
       description: "<p>Aggregations with collectors.</p>",
       code: "int total = orders.stream().mapToInt(Order::total).sum();\nMap<String, List<Person>> byCity =\n  people.stream().collect(Collectors.groupingBy(Person::city));\nlong adults = people.stream().filter(p -> p.age() >= 18).count();"
+    },
+    {
+      title: "Example 3: grouping and summarizing with collectors",
+      description: "<p><code>Collectors.groupingBy</code> and downstream collectors turn a flat stream into structured aggregates.</p>",
+      code: "record Emp(String dept, int salary) {}\n" +
+        "var emps = List.of(new Emp(\"eng\", 100), new Emp(\"eng\", 120), new Emp(\"hr\", 90));\n" +
+        "\n" +
+        "Map<String, Double> avg = emps.stream()\n" +
+        "    .collect(Collectors.groupingBy(Emp::dept,\n" +
+        "             Collectors.averagingInt(Emp::salary)));\n" +
+        "// {eng=110.0, hr=90.0}"
+    },
+    {
+      title: "Example 4 (edge case): streams are single-use, lazy, and bad for side effects",
+      description: "<p>A stream can be traversed once; intermediate ops are lazy (nothing runs without a terminal op); mutating shared state in a stream is an anti-pattern.</p>",
+      code: "var s = List.of(1, 2, 3).stream();\n" +
+        "s.forEach(x -> {});\n" +
+        "s.count(); // IllegalStateException: stream has already been operated upon\n" +
+        "\n" +
+        "List.of(1,2,3).stream().map(x -> { System.out.println(x); return x; }); // prints NOTHING\n" +
+        "// no terminal op -> the lazy pipeline never executes. Don't mutate external\n" +
+        "// collections from forEach (esp. in parallel) - collect into a result instead."
     }
   ],
   whenToUse: "<p>Use streams for transforming, filtering, and aggregating collections declaratively &mdash; " +
@@ -1217,6 +2129,24 @@ C["threads"] = {
       title: "Example 2: Async with CompletableFuture",
       description: "<p>Compose asynchronous tasks.</p>",
       code: "CompletableFuture.supplyAsync(() -> fetchData())\n  .thenApply(data -> transform(data))\n  .thenAccept(result -> save(result));"
+    },
+    {
+      title: "Example 3: prefer ExecutorService over raw threads",
+      description: "<p>A thread pool reuses threads and returns <code>Future</code>s - far better than <code>new Thread()</code> per task.</p>",
+      code: "try (var pool = Executors.newFixedThreadPool(4)) { // Java 19+ AutoCloseable\n" +
+        "  Future<Integer> f = pool.submit(() -> expensive());\n" +
+        "  System.out.println(f.get()); // blocks for the result\n" +
+        "} // pool shut down automatically"
+    },
+    {
+      title: "Example 4 (edge case): a data race on shared mutable state",
+      description: "<p>Unsynchronized <code>count++</code> from multiple threads loses updates because it's not atomic (read-modify-write).</p>",
+      code: "int[] count = {0};\n" +
+        "Runnable r = () -> { for (int i=0;i<100000;i++) count[0]++; }; // RACE\n" +
+        "// running r on many threads yields < expected total\n" +
+        "\n" +
+        "AtomicInteger safe = new AtomicInteger();\n" +
+        "Runnable r2 = () -> { for (int i=0;i<100000;i++) safe.incrementAndGet(); }; // correct"
     }
   ],
   whenToUse: "<p>Use concurrency to keep apps responsive and utilize multiple cores &mdash; parallel " +
@@ -1244,6 +2174,25 @@ C["virtual-threads"] = {
       title: "Example 2: Platform vs virtual threads",
       description: "<p>OS-backed vs JVM-managed.</p>",
       code: "// Platform thread: backed by an OS thread (heavy, ~1MB, limited count)\nThread.ofPlatform().start(() -> {});\n// Virtual thread: JVM-managed (light, can have millions)\nThread.ofVirtual().start(() -> {});"
+    },
+    {
+      title: "Example 3: a virtual thread per task",
+      description: "<p>Virtual threads are cheap enough to create millions; the executor gives each task its own.</p>",
+      code: "try (var exec = Executors.newVirtualThreadPerTaskExecutor()) {\n" +
+        "  for (int i = 0; i < 10_000; i++) {\n" +
+        "    exec.submit(() -> { Thread.sleep(1000); return fetch(); });\n" +
+        "  }\n" +
+        "} // 10k concurrent blocking calls, backed by only a few OS threads"
+    },
+    {
+      title: "Example 4 (edge case): pinning negates the benefit",
+      description: "<p>A virtual thread that blocks inside a <code>synchronized</code> block 'pins' its carrier OS thread, defeating scalability - use <code>ReentrantLock</code> instead.</p>",
+      code: "synchronized (lock) { io.read(); } // PINS the carrier thread during blocking I/O\n" +
+        "\n" +
+        "// Prefer:\n" +
+        "lock.lock();\n" +
+        "try { io.read(); } finally { lock.unlock(); } // carrier freed while parked\n" +
+        "// Also: don't pool virtual threads - create one per task; they're disposable."
     }
   ],
   whenToUse: "<p>Use virtual threads for <strong>I/O-bound, high-concurrency</strong> workloads &mdash; web " +
@@ -1272,6 +2221,28 @@ C["java-memory-model"] = {
       title: "Example 2: happens-before via synchronization",
       description: "<p>Locks/volatile establish visibility guarantees.</p>",
       code: "// Writes inside a synchronized block are visible to the next thread\n// that enters a block on the SAME lock (happens-before).\nsynchronized (lock) { sharedData = compute(); }\n// volatile writes are visible to subsequent volatile reads."
+    },
+    {
+      title: "Example 3: happens-before via synchronization",
+      description: "<p>A write before releasing a lock is visible to a thread that later acquires the same lock - the JMM's core guarantee.</p>",
+      code: "private int data; private boolean ready;\n" +
+        "synchronized void publish() { data = 42; ready = true; }   // write under lock\n" +
+        "synchronized int read() { return ready ? data : -1; }       // read under lock\n" +
+        "// The lock establishes happens-before: the reader sees data=42 when ready=true."
+    },
+    {
+      title: "Example 4 (edge case): reordering breaks naive double-checked locking",
+      description: "<p>Without <code>volatile</code>, the JMM allows the constructor to be reordered after the reference assignment, exposing a half-built object.</p>",
+      code: "private static volatile Singleton instance; // 'volatile' is REQUIRED here\n" +
+        "static Singleton get() {\n" +
+        "  if (instance == null) {\n" +
+        "    synchronized (Singleton.class) {\n" +
+        "      if (instance == null) instance = new Singleton();\n" +
+        "    }\n" +
+        "  }\n" +
+        "  return instance;\n" +
+        "}\n" +
+        "// Drop 'volatile' and another thread can see a non-null but uninitialized instance."
     }
   ],
   whenToUse: "<p>You must understand the JMM whenever multiple threads share mutable data. <strong>Gotchas:</strong> " +
@@ -1299,6 +2270,26 @@ C["volatile-keyword"] = {
       title: "Example 2: volatile is NOT enough for compound ops",
       description: "<p>count++ is read-modify-write; use atomics.</p>",
       code: "volatile int count = 0;\n// count++;   // NOT atomic: read, increment, write -> race condition!\n// Use AtomicInteger instead:\nAtomicInteger atomic = new AtomicInteger();\natomic.incrementAndGet();   // atomic"
+    },
+    {
+      title: "Example 3: a volatile stop flag",
+      description: "<p>The textbook use - one thread signals another to stop; without <code>volatile</code> the loop may never see the change.</p>",
+      code: "class Worker implements Runnable {\n" +
+        "  private volatile boolean running = true; // visibility guaranteed\n" +
+        "  public void run() { while (running) doWork(); }\n" +
+        "  public void stop() { running = false; }   // seen promptly by run()\n" +
+        "}\n" +
+        "// Without 'volatile', the JIT may hoist the flag into a register and loop forever."
+    },
+    {
+      title: "Example 4 (edge case): volatile does NOT make compound actions atomic",
+      description: "<p>It guarantees visibility, not atomicity - <code>count++</code> is still a race even when <code>count</code> is volatile.</p>",
+      code: "volatile int count;\n" +
+        "count++; // read-modify-write: still loses updates under contention\n" +
+        "\n" +
+        "// For atomic compound ops use AtomicInteger or a lock:\n" +
+        "AtomicInteger c = new AtomicInteger();\n" +
+        "c.incrementAndGet(); // atomic"
     }
   ],
   whenToUse: "<p>Use <code>volatile</code> for simple flags/state read and written by multiple threads where " +
@@ -1328,6 +2319,28 @@ C["i-o-operations"] = {
       title: "Example 2: Modern convenience methods",
       description: "<p>NIO helpers for common cases.</p>",
       code: "import java.nio.file.*;\nString content = Files.readString(Path.of(\"data.txt\"));\nList<String> lines = Files.readAllLines(Path.of(\"data.txt\"));\nFiles.writeString(Path.of(\"out.txt\"), \"hello\");"
+    },
+    {
+      title: "Example 3: byte streams vs character readers",
+      description: "<p>Use <code>InputStream</code>/<code>OutputStream</code> for binary data, <code>Reader</code>/<code>Writer</code> for text - and always specify the charset.</p>",
+      code: "// binary copy\n" +
+        "try (var in = Files.newInputStream(src); var out = Files.newOutputStream(dst)) {\n" +
+        "  in.transferTo(out);\n" +
+        "}\n" +
+        "// text, explicit charset (don't rely on the platform default!)\n" +
+        "try (var r = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {\n" +
+        "  r.lines().forEach(System.out::println);\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): unbuffered I/O and default-charset bugs",
+      description: "<p>Reading a byte at a time is brutally slow; and relying on the platform default charset makes files unportable across machines.</p>",
+      code: "// SLOW: a syscall per byte\n" +
+        "int b; while ((b = rawStream.read()) != -1) { /* ... */ }\n" +
+        "// FAST: wrap in BufferedInputStream, or use transferTo / readAllBytes\n" +
+        "\n" +
+        "new String(bytes);                       // uses PLATFORM default - varies by OS\n" +
+        "new String(bytes, StandardCharsets.UTF_8); // explicit and portable"
     }
   ],
   whenToUse: "<p>Use I/O for files, network, and data exchange. Prefer <strong>buffered</strong> streams (raw " +
@@ -1355,6 +2368,28 @@ C["file-operations"] = {
       title: "Example 2: Directories and walking",
       description: "<p>Create dirs and traverse trees.</p>",
       code: "Files.createDirectories(Path.of(\"a/b/c\"));\ntry (var stream = Files.walk(Path.of(\"src\"))) {\n  stream.filter(Files::isRegularFile)\n        .filter(f -> f.toString().endsWith(\".java\"))\n        .forEach(System.out::println);\n}"
+    },
+    {
+      title: "Example 3: small-file convenience and directory walking",
+      description: "<p><code>Files</code> has one-liners for small files and a stream for traversing trees.</p>",
+      code: "String text = Files.readString(path);            // whole small file\n" +
+        "Files.writeString(out, text);                    // write it back\n" +
+        "List<String> lines = Files.readAllLines(path);\n" +
+        "\n" +
+        "try (var walk = Files.walk(dir)) {               // recursive traversal\n" +
+        "  walk.filter(p -> p.toString().endsWith(\".java\")).forEach(System.out::println);\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): readString loads everything, and you must close walk()",
+      description: "<p><code>readAllLines</code>/<code>readString</code> OOM on huge files; <code>Files.lines</code>/<code>walk</code> return streams that hold OS handles and must be closed.</p>",
+      code: "// DON'T on a multi-GB file:\n" +
+        "List<String> all = Files.readAllLines(huge); // OutOfMemoryError\n" +
+        "\n" +
+        "// DO - lazy + closed:\n" +
+        "try (var lines = Files.lines(huge)) {\n" +
+        "  long n = lines.filter(s -> s.contains(\"ERROR\")).count();\n" +
+        "} // closing the stream releases the file handle"
     }
   ],
   whenToUse: "<p>Use <code>java.nio.file</code> (<code>Path</code>/<code>Files</code>) for all file work in " +
@@ -1381,6 +2416,27 @@ C["networking"] = {
       title: "Example 2: Low-level TCP socket",
       description: "<p>Raw socket (rarely needed directly).</p>",
       code: "try (Socket socket = new Socket(\"example.com\", 80);\n     var out = new PrintWriter(socket.getOutputStream())) {\n  out.println(\"GET / HTTP/1.1\");\n}  // most apps use HttpClient/frameworks instead"
+    },
+    {
+      title: "Example 3: async requests with HttpClient",
+      description: "<p><code>sendAsync</code> returns a <code>CompletableFuture</code>, freeing the calling thread while the request is in flight.</p>",
+      code: "var client = HttpClient.newHttpClient();\n" +
+        "var req = HttpRequest.newBuilder(URI.create(\"https://api.example.com\")).build();\n" +
+        "\n" +
+        "client.sendAsync(req, HttpResponse.BodyHandlers.ofString())\n" +
+        "      .thenApply(HttpResponse::body)\n" +
+        "      .thenAccept(System.out::println);\n" +
+        "// non-blocking; combine many with CompletableFuture.allOf(...)"
+    },
+    {
+      title: "Example 4 (edge case): always set timeouts",
+      description: "<p>Without explicit timeouts a slow or hung server can block a thread (or exhaust the pool) indefinitely.</p>",
+      code: "var client = HttpClient.newBuilder()\n" +
+        "    .connectTimeout(Duration.ofSeconds(5)).build();   // connect phase\n" +
+        "var req = HttpRequest.newBuilder(uri)\n" +
+        "    .timeout(Duration.ofSeconds(10))                  // whole request\n" +
+        "    .build();\n" +
+        "// Omitting these is a leading cause of production thread-pool exhaustion."
     }
   ],
   whenToUse: "<p>Use <code>HttpClient</code> for calling HTTP services (supports sync, async, HTTP/2). Use raw " +
@@ -1408,6 +2464,26 @@ C["date-and-time"] = {
       title: "Example 2: Durations, comparison, formatting",
       description: "<p>Amounts of time and parsing/formatting.</p>",
       code: "Duration d = Duration.between(start, end);\nboolean overdue = due.isBefore(LocalDate.now());\nString s = dt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);\nLocalDate parsed = LocalDate.parse(\"2026-06-14\");"
+    },
+    {
+      title: "Example 3: instants, zones, and formatting",
+      description: "<p>Use <code>Instant</code> for machine time (UTC), <code>ZonedDateTime</code> for human time in a zone, and <code>DateTimeFormatter</code> for I/O.</p>",
+      code: "Instant now = Instant.now();                       // UTC timestamp\n" +
+        "ZonedDateTime ams = now.atZone(ZoneId.of(\"Europe/Amsterdam\"));\n" +
+        "String s = ams.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);\n" +
+        "\n" +
+        "LocalDate due = LocalDate.now().plusDays(30);      // date math is immutable\n" +
+        "long days = ChronoUnit.DAYS.between(LocalDate.now(), due); // 30"
+    },
+    {
+      title: "Example 4 (edge case): java.time objects are immutable; legacy Date is not",
+      description: "<p>Mutating methods return a new object - ignoring the result is a classic bug. Also avoid the old <code>Date</code>/<code>Calendar</code>.</p>",
+      code: "LocalDate d = LocalDate.of(2026, 1, 1);\n" +
+        "d.plusDays(1);              // BUG: result discarded, d unchanged\n" +
+        "d = d.plusDays(1);          // correct - reassign\n" +
+        "\n" +
+        "// Legacy traps: java.util.Date is mutable, months are 0-based in Calendar,\n" +
+        "// and SimpleDateFormat is NOT thread-safe. Prefer java.time everywhere."
     }
   ],
   whenToUse: "<p>Always use <code>java.time</code> for new code. <strong>Gotchas:</strong> avoid the legacy " +
@@ -1435,6 +2511,26 @@ C["regular-expressions"] = {
       title: "Example 2: String convenience methods",
       description: "<p>Validate, replace, split.</p>",
       code: "\"a1b2\".replaceAll(\"\\\\d\", \"#\");   // \"a#b#\"\n\"a,b,c\".split(\",\");               // [a, b, c]\n\"2026\".matches(\"\\\\d{4}\");           // true (whole-string match)"
+    },
+    {
+      title: "Example 3: compile once, capture groups",
+      description: "<p>Pre-compile a <code>Pattern</code> for reuse and pull out captured groups with a <code>Matcher</code>.</p>",
+      code: "Pattern P = Pattern.compile(\"(\\\\d{4})-(\\\\d{2})-(\\\\d{2})\"); // reuse this\n" +
+        "Matcher m = P.matcher(\"2026-06-15\");\n" +
+        "if (m.matches()) {\n" +
+        "  System.out.println(m.group(1)); // 2026 (year)\n" +
+        "  System.out.println(m.group(3)); // 15   (day)\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): catastrophic backtracking (ReDoS)",
+      description: "<p>Nested/ambiguous quantifiers can blow up to exponential time on certain inputs - a denial-of-service risk on untrusted input.</p>",
+      code: "// DANGEROUS: (a+)+ on a long non-matching string hangs the thread\n" +
+        "Pattern.compile(\"(a+)+$\").matcher(\"aaaaaaaaaaaaaaaaaaaa!\").matches();\n" +
+        "\n" +
+        "// Mitigations: avoid nested quantifiers, anchor the pattern, use possessive\n" +
+        "// quantifiers (a++), or validate length/use a real parser for complex formats.\n" +
+        "// Also recompiling the same Pattern in a loop is a needless perf hit."
     }
   ],
   whenToUse: "<p>Use regex for pattern matching/validation (emails, phone formats), extracting structured " +
@@ -1462,6 +2558,26 @@ C["cryptography"] = {
       title: "Example 2: Password hashing (not plain SHA!)",
       description: "<p>Use a slow, salted password hash.</p>",
       code: "// Passwords: NOT SHA-256 (too fast for brute force).\n// Use bcrypt/argon2/PBKDF2 (slow, salted) - via a vetted library:\n//   String hash = BCrypt.hashpw(password, BCrypt.gensalt());\n//   boolean ok = BCrypt.checkpw(input, hash);"
+    },
+    {
+      title: "Example 3: hash a password with a slow, salted algorithm",
+      description: "<p>Passwords need a deliberately slow, salted hash (bcrypt/argon2/PBKDF2) - never a fast general-purpose digest.</p>",
+      code: "// PBKDF2 via the JDK (bcrypt/argon2 via a library like Spring Security is common):\n" +
+        "var spec = new PBEKeySpec(password, salt, 210_000, 256); // high iteration count\n" +
+        "byte[] hash = SecretKeyFactory.getInstance(\"PBKDF2WithHmacSHA256\")\n" +
+        "    .generateSecret(spec).getEncoded();\n" +
+        "// Store salt + iterations + hash. Verify by re-deriving and constant-time compare."
+    },
+    {
+      title: "Example 4 (edge case): don't roll your own / common crypto mistakes",
+      description: "<p>The dangerous defaults: SHA-256 for passwords, ECB mode, hardcoded keys/IVs, and timing-unsafe comparisons.</p>",
+      code: "// WRONG for passwords - far too fast, brute-forceable:\n" +
+        "MessageDigest.getInstance(\"SHA-256\").digest(pw.getBytes());\n" +
+        "\n" +
+        "// WRONG cipher mode - ECB leaks patterns; use AES/GCM with a random IV:\n" +
+        "Cipher.getInstance(\"AES/ECB/PKCS5Padding\");      // avoid\n" +
+        "Cipher.getInstance(\"AES/GCM/NoPadding\");         // authenticated, use a fresh IV\n" +
+        "// Use SecureRandom (not Random) for keys/IVs, and MessageDigest.isEqual for compares."
     }
   ],
   whenToUse: "<p>Use crypto for passwords (slow hash), data encryption, tokens, signatures, and secure " +
@@ -1491,6 +2607,26 @@ C["dependency-injection"] = {
       title: "Example 2: DI enables easy testing",
       description: "<p>Inject a fake/mock in tests.</p>",
       code: "// In tests, inject a controlled fake instead of the real gateway:\nPaymentGateway fake = amount -> { /* record call */ };\nvar service = new OrderService(fake);\n// No real Stripe call - fast, deterministic test."
+    },
+    {
+      title: "Example 3: constructor injection beats field injection",
+      description: "<p>Constructor injection makes dependencies explicit, allows <code>final</code> fields, and needs no framework to test.</p>",
+      code: "class OrderService {\n" +
+        "  private final PaymentGateway gateway;        // final = guaranteed set\n" +
+        "  OrderService(PaymentGateway gateway) { this.gateway = gateway; }\n" +
+        "}\n" +
+        "// In a test, just: new OrderService(new FakeGateway()); no Spring needed.\n" +
+        "// Field injection (@Autowired on a field) can't be final and hides the dependency."
+    },
+    {
+      title: "Example 4 (edge case): DI doesn't remove the need to manage scope/lifecycle",
+      description: "<p>Injecting a request-scoped or stateful bean into a singleton can leak state or capture a stale instance.</p>",
+      code: "// Singleton holding a per-request bean directly = bug:\n" +
+        "@Component class Cache {\n" +
+        "  @Autowired RequestContext ctx; // captured ONCE; same instance for all requests!\n" +
+        "}\n" +
+        "// Fix: inject a Provider<RequestContext> / ObjectFactory and resolve per use,\n" +
+        "// or rethink the scope. DI wires objects; it doesn't fix scope mismatches."
     }
   ],
   whenToUse: "<p>Use DI throughout application code with collaborators &mdash; it's central to testable, " +
@@ -1520,6 +2656,32 @@ C["jdbc"] = {
       title: "Example 2: Never concatenate user input",
       description: "<p>The classic SQL injection mistake.</p>",
       code: "// VULNERABLE - SQL injection:\n// \"SELECT * FROM users WHERE name = '\" + input + \"'\"\n// input = \"'; DROP TABLE users; --\"  -> disaster\n// ALWAYS use ? placeholders + setXxx (PreparedStatement)."
+    },
+    {
+      title: "Example 3: PreparedStatement prevents SQL injection",
+      description: "<p>Always bind parameters with <code>?</code> placeholders - never concatenate user input into SQL.</p>",
+      code: "// VULNERABLE:\n" +
+        "stmt.executeQuery(\"SELECT * FROM users WHERE name = '\" + name + \"'\");\n" +
+        "\n" +
+        "// SAFE - parameter is bound, not interpolated:\n" +
+        "try (var ps = conn.prepareStatement(\"SELECT * FROM users WHERE name = ?\")) {\n" +
+        "  ps.setString(1, name);\n" +
+        "  try (var rs = ps.executeQuery()) { while (rs.next()) { /* ... */ } }\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): leaked connections and unmanaged transactions",
+      description: "<p>Forgetting to close Connection/Statement/ResultSet exhausts the pool; and auto-commit means each statement is its own transaction.</p>",
+      code: "conn.setAutoCommit(false);          // group statements into one transaction\n" +
+        "try {\n" +
+        "  // ... multiple updates ...\n" +
+        "  conn.commit();\n" +
+        "} catch (SQLException e) {\n" +
+        "  conn.rollback();                  // all-or-nothing\n" +
+        "  throw e;\n" +
+        "}\n" +
+        "// Use try-with-resources for conn/ps/rs - a leaked Connection eventually\n" +
+        "// hangs the app when the pool is empty."
     }
   ],
   whenToUse: "<p>Use raw JDBC when you want fine control, minimal dependencies, or maximum performance for " +
@@ -1547,6 +2709,26 @@ C["hibernate"] = {
       title: "Example 2: Dirty checking (auto-update)",
       description: "<p>Changes to managed entities sync automatically.</p>",
       code: "@Transactional\nvoid rename(Long id, String newName) {\n  User u = em.find(User.class, id);  // now 'managed'\n  u.setName(newName);                // no explicit save needed!\n}  // Hibernate issues UPDATE at commit (dirty checking)"
+    },
+    {
+      title: "Example 3: entity mapping and a lazy association",
+      description: "<p>Annotations map a class to a table; relationships default to lazy/eager depending on cardinality.</p>",
+      code: "@Entity\n" +
+        "class Order {\n" +
+        "  @Id @GeneratedValue Long id;\n" +
+        "  @ManyToOne(fetch = FetchType.LAZY) Customer customer; // loaded on access\n" +
+        "  @OneToMany(mappedBy = \"order\") List<Item> items;\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): the N+1 select problem and LazyInitializationException",
+      description: "<p>The two most common Hibernate pains - per-row queries for associations, and touching a lazy field after the session closes.</p>",
+      code: "// N+1: 1 query for orders + 1 per order for its customer\n" +
+        "orders.forEach(o -> System.out.println(o.customer.name)); // 1 + N queries\n" +
+        "// Fix: fetch join -> \"SELECT o FROM Order o JOIN FETCH o.customer\"\n" +
+        "\n" +
+        "// LazyInitializationException: accessing 'items' after the tx/session ended.\n" +
+        "// Fix: fetch within the transaction, or use a DTO projection."
     }
   ],
   whenToUse: "<p>Use Hibernate/JPA for the bulk of CRUD persistence &mdash; it removes tedious JDBC and maps " +
@@ -1574,6 +2756,27 @@ C["spring-data-jpa"] = {
       title: "Example 2: Custom query + pagination",
       description: "<p>Explicit JPQL and paged results.</p>",
       code: "interface OrderRepository extends JpaRepository<Order, Long> {\n  @Query(\"SELECT o FROM Order o WHERE o.total > :min\")\n  List<Order> findBigOrders(@Param(\"min\") BigDecimal min);\n  Page<Order> findByCustomerId(Long id, Pageable page);\n}"
+    },
+    {
+      title: "Example 3: derived queries, @Query, and Pageable",
+      description: "<p>Method names generate queries; <code>@Query</code> handles custom JPQL; <code>Pageable</code> adds paging/sorting for free.</p>",
+      code: "interface UserRepo extends JpaRepository<User, Long> {\n" +
+        "  List<User> findByLastNameAndActiveTrue(String last); // parsed from name\n" +
+        "  Optional<User> findByEmail(String email);\n" +
+        "\n" +
+        "  @Query(\"select u from User u where u.age > :min\")\n" +
+        "  Page<User> olderThan(int min, Pageable page);          // paginated\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): typo'd property names fail at startup, and save() updates",
+      description: "<p>A misspelled field in a derived query throws on context startup (good - fail fast); and <code>save</code> on an entity with an existing id is an update, not an insert.</p>",
+      code: "List<User> findByemial(String e); // startup error: no property 'emial' on User\n" +
+        "\n" +
+        "var u = repo.findById(1L).get();\n" +
+        "u.setName(\"new\");\n" +
+        "repo.save(u); // UPDATE (id present) - within a tx, a dirty entity flushes anyway\n" +
+        "// Derived queries also can't express everything - reach for @Query or Specifications."
     }
   ],
   whenToUse: "<p>Use Spring Data JPA for standard data access in Spring apps &mdash; it removes huge amounts of " +
@@ -1601,6 +2804,23 @@ C["ebean"] = {
       title: "Example 2: Active Record style",
       description: "<p>Entities can save themselves.</p>",
       code: "User u = new User();\nu.setName(\"Sam\");\nu.save();         // Active Record convenience\nUser found = DB.find(User.class, id);"
+    },
+    {
+      title: "Example 3: Ebean's active-record style queries",
+      description: "<p>Ebean offers a fluent query API directly on entities, with explicit fetch paths to control loading.</p>",
+      code: "List<Customer> list = DB.find(Customer.class)\n" +
+        "    .where().eq(\"status\", Status.ACTIVE)\n" +
+        "    .fetch(\"orders\")              // explicit: avoids surprise N+1\n" +
+        "    .orderBy(\"name\")\n" +
+        "    .findList();"
+    },
+    {
+      title: "Example 4 (edge case): smaller ecosystem and build-time enhancement",
+      description: "<p>Ebean enhances entity bytecode at build time, so a misconfigured enhancer plugin causes lazy loading and dirty checking to silently fail.</p>",
+      code: "// Requires the Ebean enhancer (Maven/Gradle plugin or agent).\n" +
+        "// Symptom of a missing enhancer: lazy associations come back null and\n" +
+        "// updates aren't detected. Verify the plugin is wired before debugging logic.\n" +
+        "// Trade-off vs Hibernate/JPA: far fewer integrations, tutorials, and hires."
     }
   ],
   whenToUse: "<p>Consider Ebean when you want an ORM that's simpler and more predictable than Hibernate, with a " +
@@ -1629,6 +2849,26 @@ C["spring-spring-boot"] = {
       title: "Example 2: DI + layered structure",
       description: "<p>Constructor injection across layers.</p>",
       code: "@Service\nclass OrderService {\n  private final OrderRepository repo;\n  OrderService(OrderRepository repo) { this.repo = repo; } // injected\n}\ninterface OrderRepository extends JpaRepository<Order, Long> {}"
+    },
+    {
+      title: "Example 3: a REST endpoint in a few lines",
+      description: "<p>Auto-configuration plus annotations get a working HTTP endpoint with almost no boilerplate.</p>",
+      code: "@RestController\n" +
+        "class HelloController {\n" +
+        "  @GetMapping(\"/hello/{name}\")\n" +
+        "  String hello(@PathVariable String name) { return \"Hi \" + name; }\n" +
+        "}\n" +
+        "// @SpringBootApplication + an embedded Tomcat = run with `java -jar app.jar`."
+    },
+    {
+      title: "Example 4 (edge case): component scanning and startup cost",
+      description: "<p>Beans are only found under the main class's package; and 'magic' auto-config can slow startup or wire something unexpected.</p>",
+      code: "// If @SpringBootApplication is in com.acme.app, a @Component in com.other\n" +
+        "// is NOT scanned -> 'No qualifying bean' at runtime.\n" +
+        "// Fix: move it under the base package or add @ComponentScan(\"com.other\").\n" +
+        "//\n" +
+        "// Auto-config pulls in a lot; use 'spring.main.lazy-initialization' or trim\n" +
+        "// starters if startup time matters (or consider Quarkus/native image)."
     }
   ],
   whenToUse: "<p>Use Spring Boot for essentially any Java backend &mdash; REST APIs, microservices, web apps, " +
@@ -1655,6 +2895,25 @@ C["quarkus"] = {
       title: "Example 2: Native image advantage",
       description: "<p>Compile to a native binary for tiny footprint.</p>",
       code: "// Build a native executable (GraalVM):\n//   ./mvnw package -Pnative\n// Result: ~tens of ms startup, ~tens of MB memory\n//   -> excellent for serverless / scale-to-zero / containers"
+    },
+    {
+      title: "Example 3: a Quarkus REST resource (JAX-RS style)",
+      description: "<p>Quarkus uses standard MicroProfile/JAX-RS annotations and does heavy lifting at build time.</p>",
+      code: "@Path(\"/hello\")\n" +
+        "public class GreetingResource {\n" +
+        "  @GET @Path(\"/{name}\")\n" +
+        "  public String hello(@PathParam(\"name\") String name) { return \"Hi \" + name; }\n" +
+        "}\n" +
+        "// `./mvnw quarkus:dev` gives live reload; build a native image with -Pnative."
+    },
+    {
+      title: "Example 4 (edge case): native image reflection config",
+      description: "<p>GraalVM native images do ahead-of-time compilation, so anything using runtime reflection must be registered or it fails only in the native build.</p>",
+      code: "// Works on the JVM, fails in native unless registered:\n" +
+        "@RegisterForReflection\n" +
+        "class MyDto { /* fields used reflectively by serialization */ }\n" +
+        "// Quarkus extensions handle most of this, but third-party libs may need\n" +
+        "// explicit reflect-config.json. Bugs often appear ONLY in the native build."
     }
   ],
   whenToUse: "<p>Choose Quarkus for cloud-native, serverless, or container workloads where <strong>fast startup " +
@@ -1681,6 +2940,26 @@ C["play-framework"] = {
       title: "Example 2: Reactive/async strength",
       description: "<p>Non-blocking by design for high concurrency.</p>",
       code: "// Play is built on a non-blocking, reactive model (Akka).\n// Async actions return CompletionStage<Result> -> handle many\n//   concurrent requests with few threads."
+    },
+    {
+      title: "Example 3: a non-blocking Play action",
+      description: "<p>Play actions return a <code>Result</code> (or <code>CompletionStage&lt;Result&gt;</code>) and route via a routes file.</p>",
+      code: "public class HomeController extends Controller {\n" +
+        "  public CompletionStage<Result> index() {\n" +
+        "    return service.loadAsync()                 // non-blocking\n" +
+        "        .thenApply(data -> ok(views.html.index.render(data)));\n" +
+        "  }\n" +
+        "}\n" +
+        "// conf/routes:  GET  /   controllers.HomeController.index()"
+    },
+    {
+      title: "Example 4 (edge case): blocking inside an async action starves the pool",
+      description: "<p>Play's default execution context is small; a blocking JDBC call inside an async action exhausts it and tanks throughput.</p>",
+      code: "// BAD: blocking call on the default (rendering) dispatcher\n" +
+        "public Result bad() { return ok(jdbc.querySync()); }\n" +
+        "\n" +
+        "// Run blocking work on a dedicated dispatcher / CompletableFuture pool instead.\n" +
+        "// Also: Play's stack and conventions differ from Spring - smaller talent pool."
     }
   ],
   whenToUse: "<p>Consider Play for reactive, high-concurrency, or real-time web apps, or in Scala/mixed shops " +
@@ -1707,6 +2986,25 @@ C["javalin"] = {
       title: "Example 2: Lightweight vs full framework",
       description: "<p>Thin layer, you assemble what you need.</p>",
       code: "// Javalin gives routing + request/response handling.\n// You add only the libraries you want (JSON, DI, DB) -\n//   no large opinionated stack imposed."
+    },
+    {
+      title: "Example 3: a minimal Javalin app",
+      description: "<p>Javalin is code-first and explicit - no annotations or component scanning, just register handlers.</p>",
+      code: "var app = Javalin.create().start(7070);\n" +
+        "app.get(\"/hello/{name}\", ctx -> ctx.result(\"Hi \" + ctx.pathParam(\"name\")));\n" +
+        "app.post(\"/users\", ctx -> {\n" +
+        "  User u = ctx.bodyAsClass(User.class);\n" +
+        "  ctx.status(201).json(create(u));\n" +
+        "});"
+    },
+    {
+      title: "Example 4 (edge case): you wire up what Spring Boot gives for free",
+      description: "<p>The flip side of minimalism - DI, validation, security, metrics, and config are your responsibility (libraries or hand-rolled).</p>",
+      code: "// No built-in DI: you construct and pass dependencies yourself.\n" +
+        "var repo = new UserRepo(dataSource);\n" +
+        "var app = Javalin.create();\n" +
+        "app.get(\"/users\", ctx -> ctx.json(repo.all())); // you own the wiring\n" +
+        "// Great for small/edge services; for a large app the missing batteries add up."
     }
   ],
   whenToUse: "<p>Choose Javalin for small services, microservices, prototypes, or when you want a simple, " +
@@ -1735,6 +3033,28 @@ C["maven"] = {
       title: "Example 2: Lifecycle commands",
       description: "<p>Standard build phases.</p>",
       code: "mvn compile       # compile source\nmvn test          # run tests\nmvn package       # build a jar/war\nmvn install       # install to local repo\nmvn clean package # clean then build"
+    },
+    {
+      title: "Example 3: a dependency and the build lifecycle",
+      description: "<p>Dependencies go in <code>pom.xml</code>; the lifecycle phases run in order (<code>validate &rarr; compile &rarr; test &rarr; package &rarr; install</code>).</p>",
+      code: "<!-- pom.xml -->\n" +
+        "<dependency>\n" +
+        "  <groupId>org.junit.jupiter</groupId>\n" +
+        "  <artifactId>junit-jupiter</artifactId>\n" +
+        "  <version>5.10.2</version>\n" +
+        "  <scope>test</scope>           <!-- only on the test classpath -->\n" +
+        "</dependency>\n" +
+        "<!-- mvn package runs validate->compile->test->package automatically -->"
+    },
+    {
+      title: "Example 4 (edge case): transitive dependency conflicts",
+      description: "<p>Two libraries pulling different versions of the same dependency cause runtime errors; <code>mvn dependency:tree</code> diagnoses it.</p>",
+      code: "# See who brings in which version:\n" +
+        "mvn dependency:tree\n" +
+        "\n" +
+        "<!-- Pin the winner explicitly in <dependencyManagement> to resolve the clash. -->\n" +
+        "<!-- Symptom: NoSuchMethodError / NoClassDefFoundError at runtime despite a\n" +
+        "     clean compile - classic 'JAR hell' from a transitive version mismatch. -->"
     }
   ],
   whenToUse: "<p>Use Maven for most Java projects &mdash; it's the standard, with massive tooling/IDE support " +
@@ -1761,6 +3081,28 @@ C["gradle"] = {
       title: "Example 2: Tasks and custom logic",
       description: "<p>Programmable builds.</p>",
       code: "// Run tasks:\n//   ./gradlew build      # compile + test + package\n//   ./gradlew test\n// Custom task (real code, not just config):\ntasks.register(\"hello\") { doLast { println(\"Hi\") } }"
+    },
+    {
+      title: "Example 3: a concise build.gradle(.kts)",
+      description: "<p>Gradle uses a Groovy/Kotlin DSL - more flexible and far less verbose than XML.</p>",
+      code: "plugins { id(\"java\") }\n" +
+        "repositories { mavenCentral() }\n" +
+        "dependencies {\n" +
+        "  implementation(\"com.google.guava:guava:33.0.0-jre\")\n" +
+        "  testImplementation(\"org.junit.jupiter:junit-jupiter:5.10.2\")\n" +
+        "}\n" +
+        "// ./gradlew build  - incremental and cached by default"
+    },
+    {
+      title: "Example 4 (edge case): the build script is code - and that's a double-edged sword",
+      description: "<p>Imperative build logic is powerful but can become unmaintainable; and the long-lived Gradle daemon occasionally needs clearing.</p>",
+      code: "# Flaky/stale build? Stop the daemon and rebuild clean:\n" +
+        "./gradlew --stop\n" +
+        "./gradlew clean build --no-daemon\n" +
+        "\n" +
+        "// Avoid arbitrary logic in configuration phase (slows every build); prefer\n" +
+        "// declarative plugins. 'implementation' vs 'api' controls dependency leakage\n" +
+        "// to consumers - using 'api' everywhere defeats Gradle's faster incremental builds."
     }
   ],
   whenToUse: "<p>Use Gradle for complex, multi-module, or performance-sensitive builds, Android projects, or " +
@@ -1787,6 +3129,26 @@ C["bazel"] = {
       title: "Example 2: Scale + caching strength",
       description: "<p>Only rebuild what changed; cache the rest.</p>",
       code: "// Bazel rebuilds ONLY affected targets (fine-grained graph)\n//   + reuses cached build outputs (local + remote)\n//   + can distribute the build across machines\n// -> fast builds even in huge monorepos."
+    },
+    {
+      title: "Example 3: explicit targets in a BUILD file",
+      description: "<p>Bazel requires you to declare each target's sources and dependencies explicitly - which is what enables precise, cacheable, incremental builds.</p>",
+      code: "# BUILD\n" +
+        "java_library(\n" +
+        "    name = \"orders\",\n" +
+        "    srcs = glob([\"src/main/java/orders/*.java\"]),\n" +
+        "    deps = [\"//common:util\"],   # explicit, fine-grained dependency\n" +
+        ")\n" +
+        "# bazel build //orders:orders - rebuilds ONLY what changed, hermetically."
+    },
+    {
+      title: "Example 4 (edge case): steep cost for small/standard projects",
+      description: "<p>Bazel's hermeticity and explicit deps are overkill for a typical app - the BUILD-file maintenance and ecosystem gaps outweigh the gains below monorepo scale.</p>",
+      code: "# Every new dependency must be declared/pinned; IDE and library integration\n" +
+        "# is weaker than Maven/Gradle. Migrating an existing Maven app is significant.\n" +
+        "#\n" +
+        "# Rule of thumb: choose Bazel for multi-language monorepos and remote-cache\n" +
+        "# CI at org scale; for a single Spring Boot service, Maven/Gradle is simpler."
     }
   ],
   whenToUse: "<p>Use Bazel for <strong>large monorepos</strong>, multi-language codebases, and organizations " +
@@ -1816,6 +3178,27 @@ C["junit"] = {
       title: "Example 2: Lifecycle + parameterized tests",
       description: "<p>Setup hooks and data-driven tests.</p>",
       code: "@BeforeEach void setup() { /* runs before each test */ }\n\n@ParameterizedTest\n@ValueSource(ints = {2, 4, 6})\nvoid isEven(int n) { assertTrue(n % 2 == 0); }\n\n@Test void throwsOnBadInput() {\n  assertThrows(IllegalArgumentException.class, () -> svc.process(null));\n}"
+    },
+    {
+      title: "Example 3: parameterized tests and assertThrows",
+      description: "<p>JUnit 5 runs one test over many inputs and asserts on thrown exceptions.</p>",
+      code: "@ParameterizedTest\n" +
+        "@ValueSource(strings = {\"\", \" \", \"\\t\"})\n" +
+        "void blankIsRejected(String input) {\n" +
+        "  assertThrows(IllegalArgumentException.class, () -> validate(input));\n" +
+        "}\n" +
+        "\n" +
+        "@Test void addsUp() { assertEquals(5, calc.add(2, 3)); }"
+    },
+    {
+      title: "Example 4 (edge case): test isolation and the assertEquals argument order",
+      description: "<p>Shared mutable static state leaks between tests; and JUnit's <code>assertEquals(expected, actual)</code> order matters for readable failure messages.</p>",
+      code: "static List<String> cache = new ArrayList<>(); // leaks across tests!\n" +
+        "// Use @BeforeEach to reset state, or avoid shared statics entirely.\n" +
+        "\n" +
+        "assertEquals(expected, actual); // CORRECT order\n" +
+        "assertEquals(actual, expected); // message reads backwards: 'expected X but was Y'\n" +
+        "// Each @Test should pass when run alone AND in any order (don't rely on order)."
     }
   ],
   whenToUse: "<p>Use JUnit for all unit testing &mdash; run on every commit/CI. Test business logic, edge " +
@@ -1841,6 +3224,27 @@ C["testng"] = {
       title: "Example 2: Data providers + parallelism",
       description: "<p>Parameterized tests and parallel runs.</p>",
       code: "@DataProvider\nObject[][] data() { return new Object[][]{ {2,3,5}, {1,1,2} }; }\n@Test(dataProvider = \"data\")\nvoid adds(int a, int b, int sum) { assertEquals(svc.add(a,b), sum); }\n// TestNG can run tests in parallel out of the box."
+    },
+    {
+      title: "Example 3: data providers and groups",
+      description: "<p>TestNG's <code>@DataProvider</code> feeds parameterized runs, and <code>groups</code> let you select subsets (smoke, regression).</p>",
+      code: "@DataProvider Object[][] ages() { return new Object[][]{{17,false},{18,true}}; }\n" +
+        "\n" +
+        "@Test(dataProvider = \"ages\", groups = \"smoke\")\n" +
+        "void adult(int age, boolean expected) {\n" +
+        "  assertEquals(isAdult(age), expected);\n" +
+        "}\n" +
+        "// Run a subset:  testng with <groups><run><include name=\"smoke\"/>"
+    },
+    {
+      title: "Example 4 (edge case): dependent tests and parallel state",
+      description: "<p>TestNG's <code>dependsOnMethods</code> creates ordering many consider an anti-pattern; and its built-in parallelism exposes shared-state bugs.</p>",
+      code: "@Test void login() {}\n" +
+        "@Test(dependsOnMethods = \"login\") void dashboard() {} // skipped if login fails\n" +
+        "// Convenient, but couples tests; JUnit deliberately avoids easy ordering.\n" +
+        "//\n" +
+        "// parallel=\"methods\" runs tests concurrently - any shared @BeforeClass state\n" +
+        "// or static field becomes a race. Most teams now default to JUnit 5."
     }
   ],
   whenToUse: "<p>Consider TestNG when you need its advanced features &mdash; built-in parallel execution, test " +
@@ -1867,6 +3271,27 @@ C["rest-assured"] = {
       title: "Example 2: POST with body validation",
       description: "<p>Send JSON, assert the created resource.</p>",
       code: "given()\n  .contentType(\"application/json\")\n  .body(\"{\\\"name\\\":\\\"Sam\\\"}\")\n.when()\n  .post(\"/api/users\")\n.then()\n  .statusCode(201)\n  .body(\"id\", notNullValue());"
+    },
+    {
+      title: "Example 3: given/when/then fluent API test",
+      description: "<p>REST Assured reads like a BDD spec - set up the request, fire it, assert on the response.</p>",
+      code: "given()\n" +
+        "  .contentType(\"application/json\")\n" +
+        "  .body(\"{\\\"name\\\":\\\"Sam\\\"}\")\n" +
+        ".when()\n" +
+        "  .post(\"/users\")\n" +
+        ".then()\n" +
+        "  .statusCode(201)\n" +
+        "  .body(\"id\", notNullValue())\n" +
+        "  .body(\"name\", equalTo(\"Sam\"));"
+    },
+    {
+      title: "Example 4 (edge case): it tests a running server, not your code in isolation",
+      description: "<p>REST Assured needs a live endpoint, so failures may be environment/network issues, and tests are slower and flakier than unit tests.</p>",
+      code: "RestAssured.baseURI = \"http://localhost:8080\"; // must actually be up\n" +
+        "// In Spring, combine with @SpringBootTest(webEnvironment = RANDOM_PORT) so a\n" +
+        "// real server starts for the test. Keep these as a thin integration layer\n" +
+        "// ON TOP of fast unit tests - don't push all logic checks through HTTP."
     }
   ],
   whenToUse: "<p>Use REST Assured for integration/E2E testing of HTTP APIs &mdash; verifying real endpoints' " +
@@ -1893,6 +3318,23 @@ C["jmeter"] = {
       title: "Example 2: Headless run in CI",
       description: "<p>Automate performance checks.</p>",
       code: "# Run without GUI (for CI/automation):\njmeter -n -t loadtest.jmx -l results.jtl\n# Fail the build if p95 latency or error rate exceeds a threshold."
+    },
+    {
+      title: "Example 3: scripting a load test (CLI / non-GUI mode)",
+      description: "<p>Run JMeter headless in CI; the GUI is for building the test plan, not executing it.</p>",
+      code: "# Run a saved plan non-GUI (the GUI itself can't sustain high load):\n" +
+        "jmeter -n -t loadtest.jmx -l results.jtl -e -o report/\n" +
+        "#  -n non-GUI  -t plan  -l raw results  -e/-o generate HTML dashboard\n" +
+        "# Define users/ramp-up in a Thread Group; assert p95 latency and error rate."
+    },
+    {
+      title: "Example 4 (edge case): the load generator can be the bottleneck",
+      description: "<p>Misleading results come from an undersized client, GUI-mode runs, or co-locating JMeter with the system under test.</p>",
+      code: "# Symptoms of a client-side bottleneck (not the server):\n" +
+        "#  - latency rises but server CPU is idle\n" +
+        "#  - JMeter host CPU/heap maxed out\n" +
+        "# Fixes: run -n (non-GUI), raise -Xmx, distribute across multiple injectors,\n" +
+        "#        and NEVER run the generator on the same machine as the target."
     }
   ],
   whenToUse: "<p>Use JMeter to validate performance and capacity before release &mdash; finding bottlenecks, " +
@@ -1921,6 +3363,28 @@ C["cucumber-jvm"] = {
       title: "Example 2: Java step definitions",
       description: "<p>Glue Gherkin steps to test code.</p>",
       code: "@Given(\"my balance is {int}\")\npublic void balanceIs(int b) { account = new Account(b); }\n@When(\"I withdraw {int}\")\npublic void withdraw(int a) { account.withdraw(a); }\n@Then(\"my balance should be {int}\")\npublic void check(int b) { assertEquals(b, account.balance()); }"
+    },
+    {
+      title: "Example 3: a Gherkin scenario bound to step definitions",
+      description: "<p>Plain-language <code>.feature</code> steps map to Java methods via regex/expressions.</p>",
+      code: "# login.feature\n" +
+        "Scenario: Successful login\n" +
+        "  Given a registered user \"sam\"\n" +
+        "  When they log in with the correct password\n" +
+        "  Then they see the dashboard\n" +
+        "\n" +
+        "// Steps.java\n" +
+        "@Given(\"a registered user {string}\")\n" +
+        "public void registered(String name) { /* set up */ }"
+    },
+    {
+      title: "Example 4 (edge case): the overhead only pays off with real collaboration",
+      description: "<p>If non-technical stakeholders never read the features, Gherkin is just a slow, brittle indirection over plain JUnit.</p>",
+      code: "// Anti-pattern: developers writing AND only reading the .feature files ->\n" +
+        "// you've added a regex-binding layer for no collaboration benefit.\n" +
+        "//\n" +
+        "// Also: vague steps like 'When the user does stuff' defeat BDD. Keep steps\n" +
+        "// reusable and declarative; avoid leaking UI/implementation detail into them."
     }
   ],
   whenToUse: "<p>Use Cucumber for BDD when collaboration with non-technical stakeholders (product, QA, business) " +
@@ -1950,6 +3414,24 @@ C["slf4j"] = {
       title: "Example 2: Parameterized logging",
       description: "<p>Avoid string concatenation; use placeholders.</p>",
       code: "// GOOD (lazy - only builds the string if the level is enabled):\nlog.debug(\"user {} did {}\", userId, action);\n// AVOID (always concatenates, even when debug is off):\n// log.debug(\"user \" + userId + \" did \" + action);"
+    },
+    {
+      title: "Example 3: parameterized logging avoids string cost",
+      description: "<p>Use <code>{}</code> placeholders so the message is only built when the level is enabled.</p>",
+      code: "private static final Logger log = LoggerFactory.getLogger(MyClass.class);\n" +
+        "\n" +
+        "log.debug(\"processing order {} for {}\", orderId, userId); // lazy formatting\n" +
+        "// vs the wasteful: log.debug(\"processing order \" + orderId + ...) which\n" +
+        "// concatenates even when DEBUG is off."
+    },
+    {
+      title: "Example 4 (edge case): one (and only one) binding on the classpath",
+      description: "<p>SLF4J needs exactly one backend; zero gives a no-op logger, multiple cause a warning and unpredictable selection.</p>",
+      code: "// Zero bindings:\n" +
+        "//   SLF4J: No SLF4J providers were found -> logs silently go nowhere\n" +
+        "// Multiple bindings:\n" +
+        "//   SLF4J: Class path contains multiple SLF4J providers -> one picked at random\n" +
+        "// Fix: depend on exactly one (e.g. logback-classic) and exclude transitive ones."
     }
   ],
   whenToUse: "<p>Always log through SLF4J (the facade), not directly against a specific framework &mdash; this " +
@@ -1976,6 +3458,31 @@ C["logback"] = {
       title: "Example 2: Rolling file appender",
       description: "<p>Rotate logs by size/time.</p>",
       code: "<appender name=\"FILE\" class=\"ch.qos.logback.core.rolling.RollingFileAppender\">\n  <file>app.log</file>\n  <rollingPolicy class=\"...TimeBasedRollingPolicy\">\n    <fileNamePattern>app-%d{yyyy-MM-dd}.log</fileNamePattern>\n    <maxHistory>30</maxHistory>\n  </rollingPolicy>\n</appender>"
+    },
+    {
+      title: "Example 3: rolling file appender in logback.xml",
+      description: "<p>Logback's XML config defines appenders, patterns, and rotation policies.</p>",
+      code: "<configuration>\n" +
+        "  <appender name=\"FILE\" class=\"ch.qos.logback.core.rolling.RollingFileAppender\">\n" +
+        "    <file>app.log</file>\n" +
+        "    <rollingPolicy class=\"...TimeBasedRollingPolicy\">\n" +
+        "      <fileNamePattern>app.%d{yyyy-MM-dd}.log</fileNamePattern>\n" +
+        "      <maxHistory>30</maxHistory>\n" +
+        "    </rollingPolicy>\n" +
+        "    <encoder><pattern>%d %-5level %logger - %msg%n</pattern></encoder>\n" +
+        "  </appender>\n" +
+        "  <root level=\"INFO\"><appender-ref ref=\"FILE\"/></root>\n" +
+        "</configuration>"
+    },
+    {
+      title: "Example 4 (edge case): synchronous logging can throttle throughput",
+      description: "<p>High-volume synchronous file logging blocks request threads; wrap appenders in an <code>AsyncAppender</code> (and beware lost logs on crash).</p>",
+      code: "<appender name=\"ASYNC\" class=\"ch.qos.logback.classic.AsyncAppender\">\n" +
+        "  <appender-ref ref=\"FILE\"/>\n" +
+        "  <queueSize>512</queueSize>\n" +
+        "  <discardingThreshold>0</discardingThreshold> <!-- 0 = don't drop on full -->\n" +
+        "</appender>\n" +
+        "<!-- Trade-off: async can lose buffered events on abrupt JVM exit. -->"
     }
   ],
   whenToUse: "<p>Use Logback (via SLF4J) as a solid default logging backend &mdash; it's mature, fast, and the " +
@@ -2002,6 +3509,27 @@ C["log4j2"] = {
       title: "Example 2: Configuration (log4j2.xml)",
       description: "<p>Appenders + levels, like other frameworks.</p>",
       code: "<Configuration>\n  <Appenders>\n    <Console name=\"Console\"><PatternLayout pattern=\"%d %-5p %c - %m%n\"/></Console>\n  </Appenders>\n  <Loggers>\n    <Root level=\"info\"><AppenderRef ref=\"Console\"/></Root>\n  </Loggers>\n</Configuration>"
+    },
+    {
+      title: "Example 3: async loggers for high throughput",
+      description: "<p>Log4j2's LMAX Disruptor-based async loggers give very high throughput and low latency under load.</p>",
+      code: "# Enable all-async via a system property:\n" +
+        "-Dlog4j2.contextSelector=org.apache.logging.log4j.core.async.AsyncLoggerContextSelector\n" +
+        "\n" +
+        "<!-- log4j2.xml -->\n" +
+        "<Configuration>\n" +
+        "  <Appenders><Console name=\"C\"><PatternLayout pattern=\"%d %p %c - %m%n\"/></Console></Appenders>\n" +
+        "  <Loggers><Root level=\"info\"><AppenderRef ref=\"C\"/></Root></Loggers>\n" +
+        "</Configuration>"
+    },
+    {
+      title: "Example 4 (edge case): remember Log4Shell - keep it patched",
+      description: "<p>The 2021 Log4Shell (CVE-2021-44228) RCE came from JNDI lookups in messages; use a patched version and disable lookups on untrusted input.</p>",
+      code: "// Vulnerable pattern (old Log4j2): user input flowed into a message that\n" +
+        "// triggered a JNDI lookup like ${jndi:ldap://attacker/...}\n" +
+        "log.info(userControlledInput); // never log untrusted input via a format lookup\n" +
+        "// Use Log4j2 >= 2.17.1; treat any logging dependency as a supply-chain risk\n" +
+        "// and keep it current. Prefer parameterized messages over interpolating input."
     }
   ],
   whenToUse: "<p>Use Log4j2 (via SLF4J) when you want top-tier performance &mdash; especially its async logging " +
@@ -2028,6 +3556,23 @@ C["tinylog"] = {
       title: "Example 2: Minimal configuration",
       description: "<p>Small footprint, simple properties config.</p>",
       code: "# tinylog.properties\nwriter        = console\nwriter.format = {date} {level}: {message}\nlevel         = info\n// Far less configuration than Logback/Log4j2."
+    },
+    {
+      title: "Example 3: tinylog's static logging API",
+      description: "<p>tinylog uses a simple static <code>Logger</code> - no per-class logger instance to declare.</p>",
+      code: "import org.tinylog.Logger;\n" +
+        "\n" +
+        "Logger.info(\"Started with {} workers\", count); // static call, lazy formatting\n" +
+        "Logger.error(ex, \"Job {} failed\", jobId);      // exception + message\n" +
+        "// Configured via a single tinylog.properties; no XML, tiny footprint."
+    },
+    {
+      title: "Example 4 (edge case): small ecosystem and facade considerations",
+      description: "<p>tinylog has fewer appenders/integrations than Logback/Log4j2; in a library, log through SLF4J instead so consumers choose the backend.</p>",
+      code: "// In a LIBRARY you publish, don't hard-code tinylog - depend on slf4j-api so\n" +
+        "// the consuming application picks the backend. tinylog shines in self-contained\n" +
+        "// apps/CLIs where you control the whole dependency set and want minimal weight.\n" +
+        "// Fewer third-party appenders (e.g. niche log aggregators) may be available."
     }
   ],
   whenToUse: "<p>Consider tinylog for small applications, libraries, CLIs, or Android where a small dependency " +
@@ -2054,6 +3599,28 @@ C["mockito"] = {
       title: "Example 2: Stubbing exceptions + argument matchers",
       description: "<p>Simulate failures and match arguments.</p>",
       code: "when(gateway.charge(anyDouble())).thenThrow(new PaymentException());\nverify(emailService).send(eq(\"a@x.com\"), contains(\"receipt\"));\n// @Mock fields + @ExtendWith(MockitoExtension.class) reduce boilerplate."
+    },
+    {
+      title: "Example 3: stub, verify, and argument capture",
+      description: "<p>Define behavior with <code>when().thenReturn()</code>, then assert interactions with <code>verify()</code>.</p>",
+      code: "PaymentGateway gw = mock(PaymentGateway.class);\n" +
+        "when(gw.charge(anyInt())).thenReturn(true);   // stub\n" +
+        "\n" +
+        "new OrderService(gw).checkout(999);\n" +
+        "\n" +
+        "verify(gw).charge(999);                        // was it called with 999?\n" +
+        "verify(gw, never()).refund(anyInt());          // and refund never called"
+    },
+    {
+      title: "Example 4 (edge case): don't mock what you don't own / over-mocking",
+      description: "<p>Mocking value objects or third-party types couples tests to implementation; and stubbing a method that's never called triggers a strict-stub error.</p>",
+      code: "// Smell: mocking a simple value/DTO - just construct a real one.\n" +
+        "// Smell: mocking a third-party class (e.g. the JDBC driver) - wrap it behind\n" +
+        "//        your own interface and mock THAT.\n" +
+        "when(gw.refund(1)).thenReturn(true); // if refund() is never called ->\n" +
+        "//   UnnecessaryStubbingException (Mockito strict stubs). Remove unused stubs.\n" +
+        "// Tests full of mocks often test the mocks, not the behavior - prefer real\n" +
+        "// collaborators where cheap."
     }
   ],
   whenToUse: "<p>Use Mockito in unit tests to isolate the class under test from its collaborators (DBs, APIs, " +

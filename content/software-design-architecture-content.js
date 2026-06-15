@@ -42,6 +42,24 @@ C["cqrs"] = {
         "bus.subscribe('OrderCancelled', e =>\n" +
         "  readDb.updateOrderView(e.orderId, { status: 'cancelled' }));\n" +
         "// Reads are now fast; the read model lags writes by a short moment."
+    },
+    {
+      title: "Example 3: separate read and write data stores",
+      description: "<p>In its fuller form, each side gets a store tuned for its job - a normalized write DB and a denormalized read store.</p>",
+      code: "// WRITE store: normalized, transactional (Postgres)\n" +
+        "//   orders, order_items, customers (enforces invariants)\n" +
+        "// READ store: denormalized, query-optimized (Elasticsearch / a flat view table)\n" +
+        "//   order_summary { orderId, customerName, total, status }  // one row, no joins\n" +
+        "// Each scales independently: add read replicas without touching the write model."
+    },
+    {
+      title: "Example 4 (edge case): eventual consistency between the two sides",
+      description: "<p>The read model lags the write, so a user may not immediately see their own change - the dominant CQRS gotcha.</p>",
+      code: "// user cancels order -> write side commits -> read projection updates 200ms later\n" +
+        "// immediate refetch of the order list may STILL show 'active'\n" +
+        "// Mitigations: optimistic UI (show 'cancelled' locally), read-your-writes from\n" +
+        "//   the write side for that user, or a 'processing' state.\n" +
+        "// Don't adopt full CQRS for simple CRUD - the consistency complexity isn't worth it."
     }
   ],
   whenToUse: "<p>Reach for CQRS when reads and writes have genuinely different needs &mdash; a very high " +
@@ -96,6 +114,29 @@ C["programming-paradigms"] = {
         "  }\n" +
         "}\n" +
         "const total = new NumberSet(nums).sumEvens();"
+    },
+    {
+      title: "Example 3: the same task in three paradigms",
+      description: "<p>Sum even numbers - imperative (how), object-oriented (objects), functional (transform).</p>",
+      code: "// Imperative/structured: explicit loop + mutable accumulator\n" +
+        "let sum = 0; for (const n of nums) if (n % 2 === 0) sum += n;\n" +
+        "\n" +
+        "// Functional: declarative pipeline, no mutation\n" +
+        "const sum2 = nums.filter(n => n % 2 === 0).reduce((a, b) => a + b, 0);\n" +
+        "\n" +
+        "// OOP: behavior attached to an object\n" +
+        "class NumberSet { constructor(ns){this.ns=ns;} sumEven(){/* ... */} }"
+    },
+    {
+      title: "Example 4 (edge case): paradigms mix - most code is multi-paradigm",
+      description: "<p>Modern languages blend styles; dogmatic purity is usually counterproductive.</p>",
+      code: "// Idiomatic TS/Java/C#: OOP for structure, FP for data transforms, imperative\n" +
+        "//   for the hot loop. e.g. a class (OOP) whose method uses map/filter (FP):\n" +
+        "class Report {\n" +
+        "  build(rows) { return rows.filter(r => r.active).map(r => r.total); }\n" +
+        "}\n" +
+        "// Forcing one paradigm everywhere (pure FP in an OO codebase, or vice versa)\n" +
+        "// fights the language and your team. Use the style that fits each problem."
     }
   ],
   whenToUse: "<p>You rarely pick a paradigm in the abstract; the language and codebase usually lean one " +
@@ -152,6 +193,26 @@ C["structured-programming"] = {
         "  if (user.premium) return 0;\n" +
         "  return 10;\n" +
         "}"
+    },
+    {
+      title: "Example 3: structured control flow vs goto",
+      description: "<p>Structured programming replaced arbitrary jumps with sequence, selection, and iteration - making code analyzable.</p>",
+      code: "// Unstructured (goto spaghetti - avoid):\n" +
+        "//   if (x) goto cleanup; ... cleanup: free(); \n" +
+        "// Structured: the three building blocks\n" +
+        "if (cond) { ... } else { ... }     // selection\n" +
+        "for (const x of items) { ... }     // iteration\n" +
+        "doA(); doB(); doC();               // sequence\n" +
+        "// Every function has one entry; control flow is a readable tree, not a web."
+    },
+    {
+      title: "Example 4 (edge case): early returns vs single-exit dogma",
+      description: "<p>A modern nuance: structured programming favored single-exit, but guard-clause early returns are now preferred for readability.</p>",
+      code: "// Deep nesting (old single-exit style):\n" +
+        "function f(u){ let r; if(u){ if(u.active){ r = go(u); } } return r; }\n" +
+        "// Guard clauses (clearer): return early, keep the happy path flat\n" +
+        "function f2(u){ if(!u) return null; if(!u.active) return null; return go(u); }\n" +
+        "// The spirit (analyzable flow) matters more than literal one-return purity."
     }
   ],
   whenToUse: "<p>This isn't something you 'turn on' &mdash; it's the baseline of all modern code. The living " +
@@ -197,6 +258,28 @@ C["object-oriented-programming"] = {
         "    this.paid = true;\n" +
         "  }\n" +
         "}"
+    },
+    {
+      title: "Example 3: the four pillars together",
+      description: "<p>Encapsulation, inheritance, polymorphism, and abstraction working in one small example.</p>",
+      code: "abstract class Shape {            // abstraction\n" +
+        "  abstract area(): number;\n" +
+        "}\n" +
+        "class Circle extends Shape {     // inheritance\n" +
+        "  constructor(private r: number) { super(); }   // encapsulation (private)\n" +
+        "  area() { return Math.PI * this.r ** 2; }       // polymorphism (override)\n" +
+        "}\n" +
+        "const shapes: Shape[] = [new Circle(2)];\n" +
+        "shapes.forEach(s => s.area());   // calls the right area() per type"
+    },
+    {
+      title: "Example 4 (edge case): over-engineered OOP",
+      description: "<p>OOP can devolve into deep hierarchies, AbstractFactoryFactory patterns, and ceremony that obscures simple logic.</p>",
+      code: "// Smell: a 5-level class hierarchy + 3 interfaces to add two numbers.\n" +
+        "// Smell: anemic classes that are just data bags with getters/setters (no behavior)\n" +
+        "//   -> that's procedural code wearing an OOP costume.\n" +
+        "// Prefer composition over deep inheritance, keep hierarchies shallow, and don't\n" +
+        "//   model a simple calculation as an object graph. OOP is a tool, not a mandate."
     }
   ],
   whenToUse: "<p>OOP shines when you're modeling a domain full of <em>things with identity and lifecycle</em> " +
@@ -239,6 +322,28 @@ C["functional-programming"] = {
         "\n" +
         "const toSlug = compose(dashify, lower, trim);\n" +
         "console.log(toSlug('  Hello World ')); // 'hello-world'"
+    },
+    {
+      title: "Example 3: immutability and higher-order functions",
+      description: "<p>FP avoids mutation and passes behavior as values, composing small functions into pipelines.</p>",
+      code: "const orders = [{t:10,paid:true},{t:5,paid:false},{t:20,paid:true}];\n" +
+        "// no mutation, declarative transform:\n" +
+        "const revenue = orders\n" +
+        "  .filter(o => o.paid)\n" +
+        "  .map(o => o.t)\n" +
+        "  .reduce((a, b) => a + b, 0);   // 30\n" +
+        "// original 'orders' is untouched; each step returns a new value."
+    },
+    {
+      title: "Example 4 (edge case): the world isn't pure - isolate side effects",
+      description: "<p>Real programs must do I/O; FP doesn't ban effects, it pushes them to the edges so the core stays pure and testable.</p>",
+      code: "// Keep the core PURE (easy to test, no mocks):\n" +
+        "function priceCart(items, rules) { /* pure calculation */ }\n" +
+        "// Do effects at the EDGE:\n" +
+        "const items = await db.load();          // impure (boundary)\n" +
+        "const total = priceCart(items, rules);  // pure (core)\n" +
+        "await db.save(total);                   // impure (boundary)\n" +
+        "// Also: deep recursion can blow the stack in languages without TCO - know your runtime."
     }
   ],
   whenToUse: "<p>Reach for FP when you're <em>transforming data</em> &mdash; pipelines, parsing, mapping API " +
@@ -285,6 +390,30 @@ C["encapsulation"] = {
         "  // callers of fullName() would never notice.\n" +
         "  fullName() { return `${this.#first} ${this.#last}`; }\n" +
         "}"
+    },
+    {
+      title: "Example 3: hiding state behind behavior",
+      description: "<p>Encapsulation means the object guards its own data; callers go through methods that enforce invariants.</p>",
+      code: "class Thermostat {\n" +
+        "  #temp = 20;                       // private state\n" +
+        "  setTemp(t) {\n" +
+        "    if (t < 5 || t > 30) throw new Error('out of range'); // invariant\n" +
+        "    this.#temp = t;\n" +
+        "  }\n" +
+        "  get temp() { return this.#temp; }\n" +
+        "}\n" +
+        "// No way to put the object into an invalid state from outside."
+    },
+    {
+      title: "Example 4 (edge case): getters/setters that leak internals defeat it",
+      description: "<p>Auto-exposing every field, or returning mutable internal references, is encapsulation in name only.</p>",
+      code: "class Order {\n" +
+        "  #items = [];\n" +
+        "  get items() { return this.#items; }   // LEAK: caller can mutate internal array\n" +
+        "}\n" +
+        "order.items.push(x);  // bypasses any validation in addItem()\n" +
+        "// Fix: return a copy ([...this.#items]) or an unmodifiable view, and expose\n" +
+        "//   intent-revealing methods (addItem) rather than raw setters for everything."
     }
   ],
   whenToUse: "<p>Encapsulate whenever an object has rules about its own state &mdash; which is almost always. " +
@@ -336,6 +465,25 @@ C["abstraction"] = {
         "  #applyDiscount(x) { return x * 0.9; }  // hidden detail\n" +
         "  #applyTax(x)      { return x * 1.2; }  // hidden detail\n" +
         "}"
+    },
+    {
+      title: "Example 3: depend on the concept, not the implementation",
+      description: "<p>An abstraction names a capability so callers don't know or care which concrete thing fulfills it.</p>",
+      code: "interface Notifier { send(to: string, msg: string): void; }\n" +
+        "class EmailNotifier implements Notifier { send(t,m){/*...*/} }\n" +
+        "class SmsNotifier   implements Notifier { send(t,m){/*...*/} }\n" +
+        "\n" +
+        "function alert(n: Notifier) { n.send('sam', 'hi'); } // works with ANY notifier\n" +
+        "// callers code to 'something that notifies', not to email/SMS specifics."
+    },
+    {
+      title: "Example 4 (edge case): premature or leaky abstraction",
+      description: "<p>Abstracting with only one implementation (speculative) adds indirection for nothing, and an abstraction that exposes implementation details isn't really abstract.</p>",
+      code: "// Premature: a Repository interface with ONE impl 'in case we swap DBs' -> YAGNI\n" +
+        "//   indirection you'll likely never use. Wait for the second implementation.\n" +
+        "// Leaky: interface FileStore { getS3Url(): string } -> the S3 detail leaked into\n" +
+        "//   the abstraction, so callers are coupled to S3 anyway.\n" +
+        "// Good abstractions hide the 'how' and have a real reason to exist."
     }
   ],
   whenToUse: "<p>Introduce an abstraction when (a) you have multiple implementations of the same idea, or (b) " +
@@ -384,6 +532,27 @@ C["inheritance"] = {
         "    this.brand = brand;\n" +
         "  }\n" +
         "}"
+    },
+    {
+      title: "Example 3: reusing and specializing a base class",
+      description: "<p>A subclass inherits the base's state/behavior and extends or overrides it.</p>",
+      code: "class Employee {\n" +
+        "  constructor(public name: string, protected base: number) {}\n" +
+        "  pay() { return this.base; }\n" +
+        "}\n" +
+        "class Manager extends Employee {\n" +
+        "  constructor(name: string, base: number, private bonus: number) { super(name, base); }\n" +
+        "  pay() { return super.pay() + this.bonus; } // specialize via override + super\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): the fragile base class / wrong 'is-a'",
+      description: "<p>Inheritance tightly couples subclass to base internals; a base change can silently break subclasses, and a false 'is-a' violates LSP.</p>",
+      code: "// LSP violation: Square extends Rectangle, but setWidth must also change height\n" +
+        "//   -> code expecting a Rectangle breaks. They aren't substitutable.\n" +
+        "// Fragile base: subclass overrides one method that the base calls internally ->\n" +
+        "//   a later base refactor changes call order -> subclass breaks unexpectedly.\n" +
+        "// Prefer composition unless the 'is-a' is genuine, stable, and substitutable."
     }
   ],
   whenToUse: "<p>Use inheritance when there's a genuine, stable 'is-a' relationship <em>and</em> the subclass " +
@@ -429,6 +598,26 @@ C["polymorphism"] = {
         "function charge(payment, amount) {\n" +
         "  return amount + payment.fee(amount); // adding a new type needs no change here\n" +
         "}"
+    },
+    {
+      title: "Example 3: replacing a type switch with polymorphism",
+      description: "<p>Each type knows its own behavior, so adding a type doesn't mean editing a giant conditional.</p>",
+      code: "// Conditional version (must edit for every new shape):\n" +
+        "function area(s){ switch(s.kind){ case 'circle': ...; case 'square': ...; } }\n" +
+        "\n" +
+        "// Polymorphic: each shape implements area(); callers don't switch\n" +
+        "interface Shape { area(): number; }\n" +
+        "class Circle implements Shape { area(){ /*...*/ } }\n" +
+        "shapes.forEach(s => s.area());   // add a Triangle -> no caller changes (OCP)"
+    },
+    {
+      title: "Example 4 (edge case): runtime vs compile-time, and overuse",
+      description: "<p>Subtype (runtime) polymorphism differs from generics/overloading (compile-time); and not every conditional should become a class hierarchy.</p>",
+      code: "// Runtime (dynamic dispatch): s.area() resolves by the object's actual type.\n" +
+        "// Compile-time: generics <T> and method overloading resolve at compile time.\n" +
+        "// Overuse smell: a 2-branch if turned into 2 classes + a factory + an interface\n" +
+        "//   -> more indirection than the problem warrants. Use polymorphism when the set\n" +
+        "//   of variants grows or the conditional is duplicated across the codebase."
     }
   ],
   whenToUse: "<p>Use polymorphism whenever you catch yourself writing a <code>switch</code> or <code>if/else " +
@@ -477,6 +666,24 @@ C["interfaces"] = {
         "}\n" +
         "// A function needing only reading can ask for Readable -\n" +
         "// it won't depend on write() it doesn't use."
+    },
+    {
+      title: "Example 3: program to an interface to enable swapping/testing",
+      description: "<p>Depending on an interface lets you substitute real and fake implementations freely.</p>",
+      code: "interface Clock { now(): number; }\n" +
+        "class SystemClock implements Clock { now(){ return Date.now(); } }\n" +
+        "class FakeClock implements Clock { constructor(public t:number){} now(){ return this.t; } }\n" +
+        "\n" +
+        "function isExpired(token, clock: Clock) { return token.exp < clock.now(); }\n" +
+        "isExpired(tok, new FakeClock(0)); // deterministic test, no real time dependency"
+    },
+    {
+      title: "Example 4 (edge case): fat interfaces violate ISP",
+      description: "<p>A bloated interface forces implementers to stub methods they don't need; split into focused, role-based interfaces.</p>",
+      code: "// Fat: interface Worker { work(); eat(); sleep(); } -> a Robot must stub eat()/sleep()\n" +
+        "//   throw new Error('not supported') -> brittle, lying implementation.\n" +
+        "// ISP: split into Workable, Feedable, Sleepable; implement only what applies.\n" +
+        "// Keep interfaces small and cohesive (the 'I' in SOLID)."
     }
   ],
   whenToUse: "<p>Define an interface when callers should depend on a capability rather than a concrete class " +
@@ -524,6 +731,28 @@ C["abstract-classes"] = {
         "  constructor(color: string, private r: number) { super(color); }\n" +
         "  area() { return Math.PI * this.r ** 2; }\n" +
         "}"
+    },
+    {
+      title: "Example 3: shared implementation + required hooks (template method)",
+      description: "<p>An abstract class provides common logic and leaves abstract 'holes' subclasses must fill.</p>",
+      code: "abstract class DataExporter {\n" +
+        "  export(rows) { return this.header() + rows.map(r => this.row(r)).join('\\n'); }\n" +
+        "  protected abstract header(): string;   // subclass fills these\n" +
+        "  protected abstract row(r): string;\n" +
+        "}\n" +
+        "class CsvExporter extends DataExporter {\n" +
+        "  header(){ return 'id,name'; } row(r){ return `${r.id},${r.name}`; }\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): single inheritance limits abstract classes",
+      description: "<p>A class can extend only one abstract class but implement many interfaces - prefer interfaces when you only need a contract.</p>",
+      code: "// Can't extend two abstract classes:\n" +
+        "// class A extends Base1, Base2 {}   // ERROR (single inheritance)\n" +
+        "// But can implement several interfaces + extend one base:\n" +
+        "class A extends Base implements Serializable, Comparable {}\n" +
+        "// Rule of thumb: interface for 'can-do' capabilities and multiple contracts;\n" +
+        "//   abstract class only when subclasses share real STATE or implementation."
     }
   ],
   whenToUse: "<p>Choose an abstract class over an interface when subclasses genuinely <em>share</em> code or " +
@@ -568,6 +797,26 @@ C["concrete-classes"] = {
         "\n" +
         "// new Animal();  // ERROR - abstract, incomplete\n" +
         "const d = new Dog(); // OK - concrete and complete"
+    },
+    {
+      title: "Example 3: a concrete class implements the contracts",
+      description: "<p>Concrete classes are fully implemented and instantiable - the actual workhorses behind interfaces/abstractions.</p>",
+      code: "interface Repository<T> { findById(id: string): T | null; }\n" +
+        "\n" +
+        "class PostgresUserRepository implements Repository<User> { // concrete\n" +
+        "  findById(id) { /* real SQL */ return /* user */; }\n" +
+        "}\n" +
+        "const repo = new PostgresUserRepository(); // can be instantiated\n" +
+        "// abstractions describe; concrete classes DO."
+    },
+    {
+      title: "Example 4 (edge case): coupling callers to a concrete type",
+      description: "<p>Referencing a concrete class everywhere (instead of its interface) makes substitution and testing hard.</p>",
+      code: "// Rigid: every caller hard-codes the concrete type\n" +
+        "function svc(repo: PostgresUserRepository) { ... } // can't pass a fake/mock\n" +
+        "// Flexible: depend on the abstraction, inject the concrete at the edge\n" +
+        "function svc(repo: Repository<User>) { ... }\n" +
+        "// 'new' the concrete class only at the composition root (wiring), not deep in logic."
     }
   ],
   whenToUse: "<p>Concrete classes are simply where you put real, runnable logic &mdash; you'll write far more " +
@@ -613,6 +862,25 @@ C["pure-functions"] = {
         "const original = ['a'];\n" +
         "const updated = addItem(original, 'b');\n" +
         "// original is still ['a']; updated is ['a','b']"
+    },
+    {
+      title: "Example 3: pure vs impure",
+      description: "<p>A pure function depends only on its inputs and has no side effects - same input, same output, always.</p>",
+      code: "// PURE: deterministic, no side effects, trivially testable\n" +
+        "const taxed = (amount, rate) => amount * (1 + rate);\n" +
+        "\n" +
+        "// IMPURE: reads external state + mutates + does I/O\n" +
+        "let total = 0;\n" +
+        "function add(x) { total += x; console.log(total); return total; } // depends on/changes 'total'"
+    },
+    {
+      title: "Example 4 (edge case): hidden impurity and where purity ends",
+      description: "<p>Reading the clock, randomness, or shared mutable state secretly breaks purity; and effects must happen somewhere - push them to the edges.</p>",
+      code: "// Looks pure but ISN'T (depends on hidden global state):\n" +
+        "function isExpired(token){ return token.exp < Date.now(); } // Date.now() = impurity\n" +
+        "// Make it pure by injecting time:\n" +
+        "function isExpired(token, now){ return token.exp < now; }\n" +
+        "// I/O can't be pure -> keep a pure core, do db/network at the boundary."
     }
   ],
   whenToUse: "<p>Make functions pure by default, especially for business logic, calculations, validation, and " +
@@ -660,6 +928,26 @@ C["clean-code"] = {
         "  sendReceipt(user, discounted);\n" +
         "}\n" +
         "// You understand the WHAT here; drop into a helper only when you need the HOW."
+    },
+    {
+      title: "Example 3: readability is the point - code is read far more than written",
+      description: "<p>Clean code optimizes for the next human reader: clear names, small functions, obvious intent.</p>",
+      code: "// Unclear:\n" +
+        "function p(d){ return d.filter(x=>x.s===1).map(x=>x.a).reduce((a,b)=>a+b,0); }\n" +
+        "// Clean: intent reads off the page\n" +
+        "function totalPaidRevenue(orders) {\n" +
+        "  return orders.filter(isPaid).map(o => o.amount).reduce(sum, 0);\n" +
+        "}\n" +
+        "// Same behavior; the second is obvious in 2 seconds."
+    },
+    {
+      title: "Example 4 (edge case): 'clean' is contextual, not dogma",
+      description: "<p>Blindly applying rules (extract everything, zero comments) can hurt - and a hot path may justify less-pretty but faster code.</p>",
+      code: "// Over-extraction: 8 one-line functions called once each can be HARDER to follow\n" +
+        "//   than one cohesive 15-line function. Extract for reuse/clarity, not as a reflex.\n" +
+        "// Performance: a tight numeric loop may justify manual, less-elegant code with a\n" +
+        "//   comment explaining WHY. Clarity usually wins, but 'clean' serves the reader\n" +
+        "//   and the requirements - it's judgment, not a checklist to satisfy mechanically."
     }
   ],
   whenToUse: "<p>Clean code is a default posture, not a special-occasion activity &mdash; apply it to every " +
@@ -707,6 +995,25 @@ C["clean-code-principles"] = {
         "  newsletter: false,\n" +
         "  verified: true,\n" +
         "});"
+    },
+    {
+      title: "Example 3: a quick self-review checklist",
+      description: "<p>The principles distill into a handful of questions to ask before committing.</p>",
+      code: "// - Do names reveal intent? (no temp/data2/flag)\n" +
+        "// - Does each function do ONE thing, fit on a screen, few args?\n" +
+        "// - Any duplicated knowledge? (DRY)\n" +
+        "// - Any dead code / commented-out blocks? (delete it; git remembers)\n" +
+        "// - Are errors handled, not swallowed?\n" +
+        "// - Could a new teammate read this without you explaining it?"
+    },
+    {
+      title: "Example 4 (edge case): principles can conflict - balance them",
+      description: "<p>DRY vs decoupling, small functions vs readability - clean-code principles sometimes pull in opposite directions.</p>",
+      code: "// DRY pushes you to share code; but forcing two only-superficially-similar things\n" +
+        "//   into one abstraction creates harmful coupling (a wrong abstraction is worse\n" +
+        "//   than duplication). Sometimes 'WET' (write twice) is correct.\n" +
+        "// 'Small functions' vs 'don't over-fragment' also trade off.\n" +
+        "// Principles are heuristics, not laws - apply judgment for the specific code."
     }
   ],
   whenToUse: "<p>Treat these as a code-review and self-review checklist. They matter most in code that lives a " +
@@ -746,6 +1053,25 @@ C["use-meaningful-names"] = {
         "\n" +
         "function calculateTax() {}    // function -> verb phrase (an action)\n" +
         "function hasPermission() {}   // boolean-returning -> 'has/is/can' prefix"
+    },
+    {
+      title: "Example 3: names that reveal intent and units",
+      description: "<p>Good names answer why/what without a comment; include units and avoid disinformation.</p>",
+      code: "// Vague:\n" +
+        "let d; let list; function check(x){}\n" +
+        "// Intentful:\n" +
+        "let elapsedDays; let activeUsers; function isEligibleForRefund(order){}\n" +
+        "const timeoutMs = 5000;        // unit in the name\n" +
+        "const MAX_RETRIES = 3;         // named constant beats a magic number"
+    },
+    {
+      title: "Example 4 (edge case): misleading names are worse than vague ones",
+      description: "<p>A name that lies about type, scope, or behavior actively misleads the reader.</p>",
+      code: "const userList = new Set();     // it's a Set, not a List -> rename to 'users'\n" +
+        "function getUser(id){ db.delete(id); } // 'get' that DELETES -> dangerous lie\n" +
+        "// Also avoid: single-letter names beyond tiny loops, encodings (strName), and\n" +
+        "//   near-identical names (userData vs userInfo) that readers can't tell apart.\n" +
+        "// A name should match what the thing IS and DOES - exactly."
     }
   ],
   whenToUse: "<p>Every time you declare anything. The moment you write <code>temp</code>, <code>data2</code>, " +
@@ -787,6 +1113,26 @@ C["meaningful-names-over-comments"] = {
         "// We retry 3 times because the payment gateway has a known\n" +
         "// transient-failure rate during their nightly maintenance window.\n" +
         "const MAX_RETRIES = 3;"
+    },
+    {
+      title: "Example 3: extract-and-name instead of commenting",
+      description: "<p>A 'what' comment is a hint to extract a well-named function or variable.</p>",
+      code: "// Before: comment explains the condition\n" +
+        "if (u.age >= 18 && u.country === 'NL' && !u.banned) { /* eligible to vote */ }\n" +
+        "\n" +
+        "// After: the NAME explains it - no comment needed\n" +
+        "if (canVote(u)) { ... }\n" +
+        "function canVote(u){ return u.age >= 18 && u.country === 'NL' && !u.banned; }"
+    },
+    {
+      title: "Example 4 (edge case): comments that DO earn their place",
+      description: "<p>Names express 'what'; comments are still right for 'why', warnings, and external context a name can't carry.</p>",
+      code: "// Good comments explain WHY, not WHAT:\n" +
+        "// Stripe rounds half-up; we must match it or reconciliation fails. (link to docs)\n" +
+        "rounded = roundHalfUp(amount);\n" +
+        "\n" +
+        "// TODO/FIXME with context, legal/license headers, and regex explanations are fine.\n" +
+        "// What to delete: comments that restate code, and commented-OUT code (use git)."
     }
   ],
   whenToUse: "<p>Apply this whenever you reach for a 'what' comment. Extract-and-name first; comment only when " +
@@ -828,6 +1174,29 @@ C["keep-methods-classes-files-small"] = {
         "class UserController { /* handles HTTP in/out only */ }\n" +
         "class UserService    { /* business rules only */ }\n" +
         "class UserRepository { /* persistence only */ }"
+    },
+    {
+      title: "Example 3: split a function that does several things",
+      description: "<p>Small units that each do one thing read like prose and are easier to test and reuse.</p>",
+      code: "// One function doing parse + validate + save + notify:\n" +
+        "function handleSignup(req){ /* 60 lines, 4 responsibilities */ }\n" +
+        "\n" +
+        "// Decomposed - each name describes one step:\n" +
+        "function handleSignup(req){\n" +
+        "  const data = parseSignup(req);\n" +
+        "  validate(data);\n" +
+        "  const user = saveUser(data);\n" +
+        "  sendWelcome(user);\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): don't shred code into too many trivial units",
+      description: "<p>Over-fragmentation (a function per line, called once) scatters logic and can be harder to follow than one cohesive function.</p>",
+      code: "// Anti-pattern: extracting every line into its own one-call helper\n" +
+        "//   addOne(), then(), maybe(), reallyDoIt() ... reader hops across 8 functions.\n" +
+        "// Extract when it (a) names a meaningful step, (b) is reused, or (c) reduces\n" +
+        "//   nesting/complexity - not as a reflex to hit an arbitrary line count.\n" +
+        "// Cohesion matters more than a hard size limit; ~screen-sized is a guideline."
     }
   ],
   whenToUse: "<p>Refactor toward smaller units when a function won't fit on a screen, takes many arguments, " +
@@ -870,6 +1239,27 @@ C["avoid-passing-nulls-booleans"] = {
         "  const tags = lookup(id);\n" +
         "  return tags ?? [];   // never null; callers can always map/forEach\n" +
         "}"
+    },
+    {
+      title: "Example 3: a boolean flag hides two responsibilities",
+      description: "<p>A boolean argument usually means the function does two things - split it into two intent-revealing functions.</p>",
+      code: "// Opaque at the call site - what does 'true' mean?\n" +
+        "renderPage(user, true);\n" +
+        "\n" +
+        "// Two clear functions instead:\n" +
+        "renderPageForAdmin(user);\n" +
+        "renderPageForGuest(user);\n" +
+        "// If you must keep one entry point, pass an options object: render(user, {admin:true})."
+    },
+    {
+      title: "Example 4 (edge case): nulls as 'no value' invite NPEs",
+      description: "<p>Returning/accepting null forces callers to null-check everywhere; prefer Optional, empty collections, or a Null Object.</p>",
+      code: "// Null-returning API -> every caller must remember to check:\n" +
+        "User find(id){ return null; }  user.name; // NPE if forgotten\n" +
+        "// Better:\n" +
+        "//   return Optional<User> / User | null with the type forcing a check\n" +
+        "//   return an EMPTY collection instead of null for lists\n" +
+        "//   use a Null Object (a do-nothing default) where a 'missing' instance makes sense"
     }
   ],
   whenToUse: "<p>Apply when designing function signatures. If you're about to add a boolean parameter, ask " +
@@ -913,6 +1303,30 @@ C["minimize-cyclomatic-complexity"] = {
         "// Table-driven: zero branching, easy to extend\n" +
         "const ACCESS_LEVEL = { admin: 100, editor: 50, viewer: 10 };\n" +
         "function accessLevel(role) { return ACCESS_LEVEL[role] ?? 0; }"
+    },
+    {
+      title: "Example 3: flatten branching to lower complexity",
+      description: "<p>Cyclomatic complexity counts independent paths; guard clauses and lookup tables cut it dramatically.</p>",
+      code: "// High complexity: deep nested if/else (many paths to test)\n" +
+        "function role(u){ if(u){ if(u.admin){...} else { if(u.paid){...} else {...} } } }\n" +
+        "\n" +
+        "// Lower: guard clauses + early return\n" +
+        "function role(u){\n" +
+        "  if (!u) return 'anon';\n" +
+        "  if (u.admin) return 'admin';\n" +
+        "  return u.paid ? 'member' : 'free';\n" +
+        "}\n" +
+        "// Or replace a big switch with a lookup map."
+    },
+    {
+      title: "Example 4 (edge case): the metric is a smell, not a hard gate",
+      description: "<p>Some logic is irreducibly branchy; chasing a low number can scatter cohesive code or hide complexity rather than remove it.</p>",
+      code: "// A state machine / parser may legitimately have many branches - splitting it to\n" +
+        "//   satisfy a linter can SCATTER one coherent decision across files (harder to read).\n" +
+        "// Also, extracting branches into many tiny functions can move complexity around\n" +
+        "//   without reducing the real decision count.\n" +
+        "// Use the metric to FIND hotspots; then simplify genuinely (tables, polymorphism),\n" +
+        "//   don't just game the number."
     }
   ],
   whenToUse: "<p>Watch complexity on logic-heavy code &mdash; pricing, permissions, parsing, state machines. " +
@@ -956,6 +1370,24 @@ C["indentation-and-code-style"] = {
         "  \"printWidth\": 100\n" +
         "}\n" +
         "// Run on save / in CI -> every file is formatted identically, automatically."
+    },
+    {
+      title: "Example 3: let tools enforce style, not humans",
+      description: "<p>An auto-formatter + linter ends style debates and keeps diffs about logic, not whitespace.</p>",
+      code: "// commit the config so everyone (and CI) is identical:\n" +
+        "//   .prettierrc, .editorconfig, .eslintrc / spotless / gofmt / black\n" +
+        "// run on save + as a pre-commit hook + in CI:\n" +
+        "//   prettier --check .   eslint .\n" +
+        "// Consistent indentation/style makes code scannable and reduces cognitive load."
+    },
+    {
+      title: "Example 4 (edge case): noisy formatting changes and tool conflicts",
+      description: "<p>Introducing a formatter late creates huge diffs, and overlapping tools can fight each other.</p>",
+      code: "// Reformatting an old repo in a feature PR -> 2000-line diff that hides the real\n" +
+        "//   change + breaks git blame. Do a SEPARATE 'format everything' commit (and add\n" +
+        "//   it to .git-blame-ignore-revs).\n" +
+        "// ESLint stylistic rules vs Prettier conflict -> use eslint-config-prettier to\n" +
+        "//   disable formatting rules in the linter. One tool owns formatting, one owns bugs."
     }
   ],
   whenToUse: "<p>Set this up once, at the start of a project: adopt a formatter and linter, commit their config, " +
@@ -997,6 +1429,25 @@ C["use-correct-constructs"] = {
         "// Correct construct: a closed set the compiler can check (TypeScript)\n" +
         "type Status = 'active' | 'suspended' | 'closed';\n" +
         "function setStatus(s: Status) { /* only valid values get here */ }"
+    },
+    {
+      title: "Example 3: use the language feature built for the job",
+      description: "<p>Reaching for the right construct removes bookkeeping and bugs.</p>",
+      code: "// Manual index loop to transform -> use map\n" +
+        "const out = []; for (let i=0;i<xs.length;i++) out.push(xs[i]*2);\n" +
+        "const out2 = xs.map(x => x*2);\n" +
+        "// Manual resource close -> try-with-resources / using / defer\n" +
+        "// Sentinel/null return -> Optional / Result\n" +
+        "// Long if-else on a value -> switch / pattern matching / polymorphism"
+    },
+    {
+      title: "Example 4 (edge case): clever constructs that hurt readability",
+      description: "<p>The 'correct' construct is the clearest one - dense one-liners or obscure features can be worse than a plain loop.</p>",
+      code: "// Too clever: a nested ternary / reduce that nobody can parse\n" +
+        "const r = xs.reduce((a,x)=>({...a,[x.k]:(a[x.k]||0)+x.v}),{}); // takes a minute to read\n" +
+        "// A plain loop or a well-named helper can be the 'correct construct' here.\n" +
+        "// Also beware exotic language features that your team doesn't know -> readability\n" +
+        "//   for the team beats showing off. Right construct = clearest for THIS code."
     }
   ],
   whenToUse: "<p>Apply continuously as you write. When a piece of code feels clunky &mdash; lots of bookkeeping, " +
@@ -1041,6 +1492,28 @@ C["tests-should-be-fast-and-independent"] = {
         "const fakeApi = { fetchUser: async () => ({ id: 1, name: 'Test' }) };\n" +
         "const user = await getUserProfile(fakeApi, 1);\n" +
         "expect(user.name).toBe('Test');"
+    },
+    {
+      title: "Example 3: independent tests with no shared state or order",
+      description: "<p>Each test sets up its own data and passes in isolation and in any order - the F.I.R.S.T. properties.</p>",
+      code: "// Bad: tests share mutable state + depend on order\n" +
+        "let user;            // shared\n" +
+        "test('create', () => { user = create(); });   // test B relies on A running first\n" +
+        "test('update', () => { update(user); });\n" +
+        "\n" +
+        "// Good: each test is self-contained\n" +
+        "test('update', () => { const u = create(); expect(update(u)).toBe(...); });\n" +
+        "// reset state in beforeEach; no test depends on another."
+    },
+    {
+      title: "Example 4 (edge case): slow/flaky tests from real I/O",
+      description: "<p>Hitting real DBs, networks, or the clock makes tests slow and non-deterministic - the suite gets ignored.</p>",
+      code: "// Flaky: depends on the real network / current time / sleep()\n" +
+        "expect(await fetch(realApi)).toBe(...);   // breaks when the API/network blips\n" +
+        "// Fast+stable: inject fakes for unit tests\n" +
+        "expect(service.run(fakeClock, stubRepo)).toBe(...);\n" +
+        "// Keep a SMALL number of slower integration tests (real DB via Testcontainers)\n" +
+        "//   separate from the fast unit suite, so the inner loop stays quick."
     }
   ],
   whenToUse: "<p>Aim for fast+independent on your <em>unit</em> tests &mdash; the large base of the test " +
@@ -1077,6 +1550,26 @@ C["organize-code-by-actor-it-belongs-to"] = {
         "class EmployeeRepo   { save(employee)         { /* DB team */ } }\n" +
         "\n" +
         "// Now a change for one actor touches only that actor's class."
+    },
+    {
+      title: "Example 3: split a class by the actor it serves (SRP)",
+      description: "<p>The Single Responsibility Principle is really about actors: code should change for one reason / one stakeholder.</p>",
+      code: "// God class serving three actors - changes for THREE reasons:\n" +
+        "class Employee { calcPay(){/*finance*/} reportHours(){/*HR*/} save(){/*DBA*/} }\n" +
+        "// Split by actor: each changes for one stakeholder\n" +
+        "class PayCalculator {}   // finance rules\n" +
+        "class HoursReporter {}   // HR rules\n" +
+        "class EmployeeRepository {} // persistence\n" +
+        "// A finance change can't accidentally break an HR report."
+    },
+    {
+      title: "Example 4 (edge case): SRP is about reasons-to-change, not 'do one tiny thing'",
+      description: "<p>People over-split chasing 'one method per class'; the real test is whether two responsibilities answer to different actors.</p>",
+      code: "// Over-split: ten 1-method classes that always change together -> needless\n" +
+        "//   ceremony; they share ONE reason to change, so they belong together.\n" +
+        "// Under-split: methods edited by finance AND HR in the same class -> merge\n" +
+        "//   conflicts + accidental breakage. Group by ACTOR/reason-to-change, then keep\n" +
+        "//   cohesive things together."
     }
   ],
   whenToUse: "<p>Use this lens when deciding where code <em>belongs</em> and how to split a class that's grown " +
@@ -1121,6 +1614,27 @@ C["keep-framework-code-distant"] = {
         "// EDGE: the framework just translates HTTP <-> the core\n" +
         "app.post('/orders', (req, res) =>\n" +
         "  placeOrder(req.body.items, orderRepo).then(() => res.json({ ok: true })));"
+    },
+    {
+      title: "Example 3: business logic that doesn't import the framework",
+      description: "<p>Keep core domain code free of framework types so the framework is a replaceable detail (the dependency rule).</p>",
+      code: "// Core (no framework imports) - pure, portable, testable:\n" +
+        "class PricingService { price(cart) { /* business rules only */ } }\n" +
+        "\n" +
+        "// Framework layer adapts the web to the core:\n" +
+        "@RestController class PricingController {       // Spring lives ONLY here\n" +
+        "  PricingController(PricingService svc){...}\n" +
+        "  @PostMapping('/price') price(@RequestBody c){ return svc.price(c); }\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): purism vs pragmatism",
+      description: "<p>Total framework isolation costs adapters/mapping; for small or short-lived apps it's over-engineering.</p>",
+      code: "// Strict hexagonal/clean architecture means ports + adapters + DTO mapping for\n" +
+        "//   everything -> real boilerplate. Worth it for large, long-lived domains where\n" +
+        "//   the business logic outlives the framework.\n" +
+        "// For a CRUD app or prototype, leaning on the framework directly is fine.\n" +
+        "// The key win: don't let framework annotations/types bleed into CORE business rules."
     }
   ],
   whenToUse: "<p>Worth the effort on long-lived applications with substantial business logic, where frameworks " +
@@ -1158,6 +1672,23 @@ C["be-consistent"] = {
         "  return user;\n" +
         "}\n" +
         "// Because EVERY function does this, callers can rely on one handling strategy."
+    },
+    {
+      title: "Example 3: match the surrounding conventions",
+      description: "<p>Consistency means new code looks like the code around it - naming, structure, error handling, patterns.</p>",
+      code: "// If the codebase uses Result<T> for errors, don't throw in your new function.\n" +
+        "// If repositories are named XxxRepository, don't add an XxxDao.\n" +
+        "// If async uses async/await everywhere, don't introduce raw .then() chains.\n" +
+        "// A reader should not be able to tell WHO wrote a given file - the style is uniform."
+    },
+    {
+      title: "Example 4 (edge case): consistency vs improving a bad pattern",
+      description: "<p>Blind consistency perpetuates mistakes; sometimes the right move is to change the convention deliberately, not locally diverge.</p>",
+      code: "// If the existing pattern is genuinely bad (e.g. swallowing exceptions everywhere),\n" +
+        "//   don't silently do it differently in one file -> now there are TWO patterns.\n" +
+        "// Either follow the convention, OR change it across the codebase as a deliberate,\n" +
+        "//   agreed migration. One-off local 'improvements' create inconsistency, which is\n" +
+        "//   its own cost. Be consistent first; evolve the standard intentionally."
     }
   ],
   whenToUse: "<p>Lean on consistency constantly, and especially when joining or extending an existing codebase: " +
@@ -1200,6 +1731,25 @@ C["scope-visibility"] = {
         "  #subtotal(cart) { return cart.reduce((s, i) => s + i.price, 0); }\n" +
         "  #withTax(x)     { return x * 1.2; }\n" +
         "}"
+    },
+    {
+      title: "Example 3: start private, widen only when needed",
+      description: "<p>The smaller the scope, the less code can depend on (and break from) a change.</p>",
+      code: "class Cache {\n" +
+        "  #store = new Map();        // private: implementation detail, free to change\n" +
+        "  get(k){ return this.#store.get(k); }   // public: the intended surface\n" +
+        "}\n" +
+        "// A narrow public API = a small contract to keep stable; internals can evolve.\n" +
+        "// Same idea: declare variables in the tightest block scope that works."
+    },
+    {
+      title: "Example 4 (edge case): over-exposing creates a fragile public contract",
+      description: "<p>Making fields/classes public 'for convenience' or for tests turns internals into a contract you can't change without breaking callers.</p>",
+      code: "// Making a field public so a test can poke it -> the field is now part of your\n" +
+        "//   API; refactoring it breaks the test (and maybe consumers). Test via the\n" +
+        "//   public behavior instead.\n" +
+        "// 'public' everywhere = anyone can depend on anything = nothing is safe to change.\n" +
+        "// Default to private/package-private; widen deliberately when a real caller needs it."
     }
   ],
   whenToUse: "<p>Default to the most restrictive scope/visibility and widen only when a real need appears &mdash; " +
@@ -1243,6 +1793,25 @@ C["design-principles"] = {
         "const TAX_RATE = 0.2;\n" +
         "const withTax = amount => amount * (1 + TAX_RATE);\n" +
         "// Every caller now shares one definition."
+    },
+    {
+      title: "Example 3: the core principles at a glance",
+      description: "<p>Most design heuristics reduce to: reduce coupling, raise cohesion, and don't repeat knowledge.</p>",
+      code: "// SOLID  - five OOP guidelines for change-friendly code\n" +
+        "// DRY    - one authoritative source for each piece of knowledge\n" +
+        "// KISS   - prefer the simplest thing that works\n" +
+        "// YAGNI  - don't build for imagined future needs\n" +
+        "// Demeter- talk to friends, not strangers (avoid deep chains)\n" +
+        "// composition over inheritance; depend on abstractions"
+    },
+    {
+      title: "Example 4 (edge case): principles conflict - they're heuristics, not laws",
+      description: "<p>DRY can fight decoupling; SOLID can fight KISS. Good design balances them for the context.</p>",
+      code: "// DRY vs decoupling: merging two superficially-similar bits creates a WRONG\n" +
+        "//   abstraction + coupling -> sometimes duplication is the lesser evil.\n" +
+        "// SOLID vs KISS: full SOLID on a tiny script = over-engineering.\n" +
+        "// Apply judgment: these guide thinking, they don't substitute for it. The goal\n" +
+        "//   is code that's easy to change, not maximal rule compliance."
     }
   ],
   whenToUse: "<p>Keep these principles in mind during design and code review, especially for code you expect to " +
@@ -1284,6 +1853,25 @@ C["solid"] = {
         "interface Printer { print(): void; }\n" +
         "interface Scanner { scan(): void; }\n" +
         "class SimplePrinter implements Printer { print() {} } // no useless fax()"
+    },
+    {
+      title: "Example 3: the five principles, one line each",
+      description: "<p>SOLID is five guidelines that make OOP code easier to change.</p>",
+      code: "// S - Single Responsibility: a class changes for ONE reason/actor\n" +
+        "// O - Open/Closed: open to extension, closed to modification (add, don't edit)\n" +
+        "// L - Liskov Substitution: subtypes must be usable as their base type\n" +
+        "// I - Interface Segregation: many small interfaces > one fat one\n" +
+        "// D - Dependency Inversion: depend on abstractions, not concretions"
+    },
+    {
+      title: "Example 4 (edge case): Open/Closed via polymorphism, not editing",
+      description: "<p>OCP in action: adding a case shouldn't mean editing existing code - but applied dogmatically it can over-abstract.</p>",
+      code: "// Violates OCP: must EDIT this switch for every new shape\n" +
+        "function area(s){ switch(s.kind){ case 'circle':...; case 'square':... } }\n" +
+        "// Satisfies OCP: ADD a class, don't touch existing code\n" +
+        "interface Shape { area(): number; }\n" +
+        "class Triangle implements Shape { area(){...} }  // new file, nothing edited\n" +
+        "// Caveat: don't pre-build extension points for variation that may never come (YAGNI)."
     }
   ],
   whenToUse: "<p>SOLID earns its keep in medium-to-large OOP codebases that change often and have multiple " +
@@ -1326,6 +1914,26 @@ C["dry"] = {
         "  }\n" +
         "}\n" +
         "// Now every caller shares one definition of 'valid email'."
+    },
+    {
+      title: "Example 3: centralize a single source of truth",
+      description: "<p>DRY targets duplicated knowledge - one authoritative definition that everything references.</p>",
+      code: "// Duplicated rule -> drifts apart when one copy is updated:\n" +
+        "if (user.age >= 18) {...}   // here\n" +
+        "if (u.age >= 18) {...}      // and here, and 5 other places\n" +
+        "// One source of truth:\n" +
+        "const VOTING_AGE = 18;\n" +
+        "function isAdult(u){ return u.age >= VOTING_AGE; }  // referenced everywhere"
+    },
+    {
+      title: "Example 4 (edge case): false DRY - coincidental duplication",
+      description: "<p>Code that merely looks the same isn't the same knowledge; merging it couples unrelated things (a wrong abstraction is worse than duplication).</p>",
+      code: "// Two validators happen to both check 'length > 3' TODAY:\n" +
+        "function validUsername(s){ return s.length > 3; }\n" +
+        "function validTag(s){ return s.length > 3; }\n" +
+        "// 'DRY' them into one -> later usernames need length>5 but tags don't -> now the\n" +
+        "//   shared function has a flag/branch and couples two unrelated rules.\n" +
+        "// They represent DIFFERENT knowledge that coincidentally matches -> keep separate."
     }
   ],
   whenToUse: "<p>Apply DRY when the same <em>knowledge</em> appears in multiple places &mdash; a constant, a " +
@@ -1365,6 +1973,27 @@ C["kiss"] = {
         "function priceOrder(order) {\n" +
         "  return withTax(applyDiscount(order.total));\n" +
         "}"
+    },
+    {
+      title: "Example 3: prefer the simple solution",
+      description: "<p>KISS favors the most straightforward approach a reader can grasp immediately.</p>",
+      code: "// Over-engineered: a config-driven rules engine for 3 fixed cases\n" +
+        "// Simple: just write the 3 cases\n" +
+        "function shippingCost(weight) {\n" +
+        "  if (weight < 1) return 5;\n" +
+        "  if (weight < 5) return 10;\n" +
+        "  return 20;\n" +
+        "}\n" +
+        "// Reach for the framework/abstraction only when the simple version stops scaling."
+    },
+    {
+      title: "Example 4 (edge case): 'simple' is not 'simplistic' or terse",
+      description: "<p>KISS means low essential complexity, not fewest characters or skipping needed error handling.</p>",
+      code: "// Falsely 'simple': a dense one-liner that's hard to read, or code that ignores\n" +
+        "//   edge cases ('happy path only') -> that's simplistic, and it bites later.\n" +
+        "// Genuinely simple: clear, handles the real cases, no speculative machinery.\n" +
+        "// Also: some problems are irreducibly complex (crypto, concurrency) - KISS means\n" +
+        "//   don't ADD accidental complexity, not pretend essential complexity away."
     }
   ],
   whenToUse: "<p>KISS is a constant counterweight, most needed exactly when you feel the urge to be clever or " +
@@ -1404,6 +2033,24 @@ C["keep-it-simple-and-refactor-often"] = {
         "  expect(qualifiesForVip({ total: 150, customer: { years: 3 } })).toBe(true);\n" +
         "});\n" +
         "// 2. Restructure freely.  3. Tests still green => behavior preserved."
+    },
+    {
+      title: "Example 3: the boy-scout rule + red-green-refactor",
+      description: "<p>Continuous small refactors keep code healthy without big risky rewrites.</p>",
+      code: "// Leave each file a little cleaner than you found it:\n" +
+        "//   touching a function? rename a bad variable, extract a confusing block.\n" +
+        "// With tests: red (failing test) -> green (make it pass) -> REFACTOR (clean up,\n" +
+        "//   tests still green). The test safety net makes continuous cleanup safe.\n" +
+        "// Small, frequent improvements >> one heroic rewrite."
+    },
+    {
+      title: "Example 4 (edge case): refactoring without tests, or gold-plating",
+      description: "<p>Refactoring needs a safety net, and 'keep it simple' means not refactoring code that doesn't need it.</p>",
+      code: "// Refactoring untested legacy code = changing behavior blindly -> add\n" +
+        "//   characterization tests FIRST, then refactor.\n" +
+        "// Don't refactor for its own sake: rewriting stable, working code to be 'prettier'\n" +
+        "//   risks new bugs for no real gain (and isn't simple). Refactor when it eases an\n" +
+        "//   upcoming change or removes real friction - not as decoration."
     }
   ],
   whenToUse: "<p>Refactor continuously in small doses &mdash; the 'boy scout rule': leave each file a little " +
@@ -1443,6 +2090,24 @@ C["yagni"] = {
         "\n" +
         "// YAGNI: the only requirement is 'send a message'\n" +
         "function send(msg) { transport.write(msg); }"
+    },
+    {
+      title: "Example 3: build for today's requirement, not an imagined one",
+      description: "<p>YAGNI says don't add capability until there's a real, present need for it.</p>",
+      code: "// Speculative: a plugin system, generic config, and 3 DB adapters for an app\n" +
+        "//   that supports exactly ONE payment provider today.\n" +
+        "// YAGNI: implement the one provider behind a small interface; add the second\n" +
+        "//   adapter WHEN you actually integrate the second provider.\n" +
+        "// Unused flexibility is code to maintain, test, and read - for nothing."
+    },
+    {
+      title: "Example 4 (edge case): YAGNI is not an excuse to skip design",
+      description: "<p>Don't pre-build features, but DO leave seams; some decisions (security, data model) are expensive to retrofit.</p>",
+      code: "// YAGNI misused: hard-coding everything with no abstraction 'because YAGNI' ->\n" +
+        "//   a later change requires shotgun edits everywhere.\n" +
+        "// Balance: keep it simple AND keep clean boundaries so change is cheap.\n" +
+        "// Things NOT to defer: security, auditing, and core data-model choices - retrofitting\n" +
+        "//   these is painful. YAGNI targets speculative FEATURES, not basic good structure."
     }
   ],
   whenToUse: "<p>Invoke YAGNI whenever you're tempted to add something 'because we might need it later' &mdash; " +
@@ -1480,6 +2145,24 @@ C["law-of-demeter"] = {
         "\n" +
         "// Telling: the object that owns the balance enforces the rule\n" +
         "account.withdraw(amount); // account checks its own invariant"
+    },
+    {
+      title: "Example 3: talk to friends, not strangers",
+      description: "<p>The Law of Demeter says a method should only call its own fields, parameters, and objects it creates - not reach through them.</p>",
+      code: "// Violation - reaching through a chain (couples to deep structure):\n" +
+        "order.getCustomer().getAddress().getCity().toUpperCase();\n" +
+        "// any change to Customer/Address shape breaks this caller.\n" +
+        "// Tell, don't reach - let the object expose what you need:\n" +
+        "order.shippingCity();   // Order knows how to get its own city"
+    },
+    {
+      title: "Example 4 (edge case): fluent builders and data structures are fine",
+      description: "<p>Demeter targets behavioral coupling; chaining on builders or plain data (DTOs/query DSLs) is not a violation.</p>",
+      code: "// NOT a violation - a fluent builder returns 'this' by design:\n" +
+        "new QueryBuilder().select('*').from('users').where('id', 1).build();\n" +
+        "// NOT a violation - navigating a plain data tree you own (JSON/DTO).\n" +
+        "// Also don't over-apply: wrapping every chain in a delegating method can bloat\n" +
+        "//   classes with pass-through 'wrapper' methods. Apply to BEHAVIOR coupling."
     }
   ],
   whenToUse: "<p>Watch for Demeter violations whenever you see method chains that traverse several objects, or " +
@@ -1524,6 +2207,26 @@ C["composition-over-inheritance"] = {
         "}\n" +
         "const editor = new TextEditor(new MarkdownFormatter());\n" +
         "editor.setFormatter(new HtmlFormatter());  // impossible with fixed inheritance"
+    },
+    {
+      title: "Example 3: inject behavior instead of inheriting it",
+      description: "<p>Composition assembles behavior from parts you can swap, avoiding rigid class hierarchies.</p>",
+      code: "// Inheritance explosion: FlyingQuackingDuck, MuteFlyingDuck, ... per combo\n" +
+        "// Composition: plug in behaviors\n" +
+        "class Duck {\n" +
+        "  constructor(private fly: FlyBehavior, private sound: SoundBehavior) {}\n" +
+        "  perform() { return this.fly.fly() + this.sound.make(); }\n" +
+        "}\n" +
+        "new Duck(new NoFly(), new Quack());  // mix freely, even change at runtime"
+    },
+    {
+      title: "Example 4 (edge case): inheritance is still right for true 'is-a'",
+      description: "<p>'Prefer composition' isn't 'never inherit' - a genuine, stable, substitutable is-a relationship is a fine use of inheritance.</p>",
+      code: "// Reasonable inheritance: class IOException extends Exception {} (true is-a).\n" +
+        "// Composition shines for HAS-A / behavior reuse across unrelated types.\n" +
+        "// Over-composition can also fragment logic into many tiny collaborators that are\n" +
+        "//   hard to trace. Choose by the relationship: is-a + substitutable -> inherit;\n" +
+        "//   varying/shared behavior -> compose."
     }
   ],
   whenToUse: "<p>Default to composition for sharing or varying behavior &mdash; especially when you'd otherwise " +
@@ -1563,6 +2266,25 @@ C["program-against-abstractions"] = {
         "};\n" +
         "const service = new UserService(fakeRepo);\n" +
         "expect(service.getName('1')).toBe('Test User'); // no real database involved"
+    },
+    {
+      title: "Example 3: depend on an interface, inject the implementation",
+      description: "<p>High-level code references an abstraction; the concrete detail is supplied from outside (Dependency Inversion).</p>",
+      code: "// core depends on the ABSTRACTION:\n" +
+        "class ReportService { constructor(private store: BlobStore) {} }\n" +
+        "interface BlobStore { put(key, data): void; }\n" +
+        "// details implement it; wiring happens at the edge:\n" +
+        "class S3Store implements BlobStore { put(k,d){...} }\n" +
+        "new ReportService(new S3Store());   // swap to LocalStore in tests, no core change"
+    },
+    {
+      title: "Example 4 (edge case): don't abstract things that won't vary",
+      description: "<p>Abstraction is for boundaries that change (DB, HTTP, time); wrapping stable internals in interfaces is pointless indirection.</p>",
+      code: "// Worth abstracting: external/volatile boundaries (DB, payment, clock, filesystem).\n" +
+        "// NOT worth it: an interface over a pure helper that has one impl and never\n" +
+        "//   varies -> you've added a layer for nothing (and an extra file to open).\n" +
+        "// Program to abstractions WHERE substitution/testing matters; use concrete types\n" +
+        "//   freely for stable internal logic."
     }
   ],
   whenToUse: "<p>Apply this at the boundaries between your core logic and the outside world: databases, HTTP " +
@@ -1606,6 +2328,25 @@ C["encapsulate-what-varies"] = {
         "  }\n" +
         "}\n" +
         "// Checkout code calls policy.discountFor(c) and is insulated from changes."
+    },
+    {
+      title: "Example 3: isolate the part that varies behind an interface",
+      description: "<p>Identify what changes (algorithms, formats, providers) and put it behind a stable abstraction so the rest stays untouched.</p>",
+      code: "// Varying part = the payment provider -> encapsulate it:\n" +
+        "interface PaymentProvider { charge(cents): Result; }\n" +
+        "class Stripe implements PaymentProvider {}\n" +
+        "class Paypal implements PaymentProvider {}\n" +
+        "// stable code depends on PaymentProvider; adding a provider doesn't touch it.\n" +
+        "// This is the basis of Strategy, and the spirit of Open/Closed."
+    },
+    {
+      title: "Example 4 (edge case): guessing wrong about what varies",
+      description: "<p>If you encapsulate the wrong axis, you add abstraction that never flexes while the real change cuts across your boundaries.</p>",
+      code: "// You abstract 'storage backend' (never changes) but hard-code the report FORMAT\n" +
+        "//   (which is what actually keeps changing) -> the abstraction doesn't help.\n" +
+        "// Encapsulate variation you can OBSERVE (you've already changed it once, or a\n" +
+        "//   requirement clearly implies it) - not speculative axes (YAGNI). Refactor to\n" +
+        "//   introduce the boundary when the second variant actually arrives."
     }
   ],
   whenToUse: "<p>Use this when you can see a clear axis of change &mdash; multiple algorithms, formats, " +
@@ -1645,6 +2386,24 @@ C["command-query-separation"] = {
         "log('debug', `cart total is ${cart.total()}`);\n" +
         "if (cart.total() > 100) applyDiscount();\n" +
         "// If total() also mutated, this debug log would change program behavior!"
+    },
+    {
+      title: "Example 3: a method either changes state OR returns data, not both",
+      description: "<p>Commands mutate and return nothing; queries return data and cause no observable change.</p>",
+      code: "// Query: pure read, no side effects\n" +
+        "getBalance(): number { return this.balance; }\n" +
+        "// Command: mutates, returns void\n" +
+        "deposit(amount: number): void { this.balance += amount; }\n" +
+        "// Asking a question never changes the answer -> safe to call queries freely."
+    },
+    {
+      title: "Example 4 (edge case): pragmatic violations - pop(), and 'create' returning an id",
+      description: "<p>Some idiomatic APIs deliberately break CQS; that's acceptable when the combined operation is clearer or atomic.</p>",
+      code: "// stack.pop() both returns the top AND removes it - a well-understood exception.\n" +
+        "// createUser() often returns the new id (a command that yields a value) for\n" +
+        "//   convenience/atomicity. That's fine - just be consistent and intentional.\n" +
+        "// The thing to AVOID is a getter that secretly mutates (a hidden side effect in\n" +
+        "//   a 'query'), which surprises callers and breaks reasoning."
     }
   ],
   whenToUse: "<p>Follow CQS by default when designing methods &mdash; it makes code predictable and prevents the " +
@@ -1687,6 +2446,24 @@ C["tell-don-t-ask"] = {
         "    this.#temp = next;\n" +
         "  }\n" +
         "}"
+    },
+    {
+      title: "Example 3: tell the object what to do, don't pull out its data",
+      description: "<p>Move the logic to the object that owns the data instead of querying and deciding from outside.</p>",
+      code: "// Ask: caller reaches into the object's state and decides\n" +
+        "if (account.getBalance() >= amount) account.setBalance(account.getBalance()-amount);\n" +
+        "// Tell: the object enforces its own rule\n" +
+        "account.withdraw(amount);   // throws if insufficient - logic lives with the data\n" +
+        "// keeps invariants in one place and removes scattered get/check/set duplication."
+    },
+    {
+      title: "Example 4 (edge case): Tell-Don't-Ask vs CQS, and reporting/DTOs",
+      description: "<p>It can tension with 'queries return data', and pure read/reporting code legitimately asks for data.</p>",
+      code: "// You still NEED queries (getBalance for a UI/report) - Tell-Don't-Ask targets\n" +
+        "//   DECISIONS/behavior, not all reads.\n" +
+        "// Don't contort everything into 'tell': a reporting layer reading DTOs is fine.\n" +
+        "// Apply it where logic about an object's state belongs WITH that object; keep\n" +
+        "//   plain data access for genuine read/serialization needs."
     }
   ],
   whenToUse: "<p>Apply it when you notice callers doing 'get value &rarr; check it &rarr; set value' against the " +
@@ -1728,6 +2505,26 @@ C["hollywood-principle"] = {
         "  abstract up(): void;    // you implement only this\n" +
         "  after() {}\n" +
         "}"
+    },
+    {
+      title: "Example 3: 'don't call us, we'll call you' (inversion of control)",
+      description: "<p>The framework owns the flow and calls your code at the right time, rather than your code driving the framework.</p>",
+      code: "// You don't call the framework's main loop; it calls your hooks:\n" +
+        "class MyComponent {\n" +
+        "  onInit() {}        // framework calls this when ready\n" +
+        "  onClick(e) {}      // framework calls this on the event\n" +
+        "}\n" +
+        "// Same idea: DI containers construct + inject; test runners invoke your tests;\n" +
+        "//   template methods call your overridden steps."
+    },
+    {
+      title: "Example 4 (edge case): inverted control can obscure the flow",
+      description: "<p>When the framework drives everything, execution order and 'who called this?' become non-obvious - a debugging cost.</p>",
+      code: "// Lifecycle hooks fire in a framework-defined order you must LEARN (and that can\n" +
+        "//   change between versions) -> 'why did onX run before onY?' surprises.\n" +
+        "// Stack traces start in framework internals, not your main().\n" +
+        "// Benefit (decoupling/extensibility) usually wins, but be aware you've traded\n" +
+        "//   explicit control for convention - read the framework's lifecycle docs."
     }
   ],
   whenToUse: "<p>You consume this principle constantly (every framework, event system, and DI container uses " +
@@ -1769,6 +2566,24 @@ C["coupling-and-cohesion"] = {
         "  addDays(d, n) { /* ... */ },\n" +
         "  format(d)     { /* ... */ },\n" +
         "};"
+    },
+    {
+      title: "Example 3: low coupling + high cohesion",
+      description: "<p>Aim for modules whose insides belong together (cohesion) and that depend minimally on each other (coupling).</p>",
+      code: "// High cohesion: everything in OrderService is about orders.\n" +
+        "// Low coupling: it depends on a PaymentGateway INTERFACE, not Stripe's classes.\n" +
+        "//\n" +
+        "// Bad (low cohesion + high coupling): a 'Utils' god-class touched by everything,\n" +
+        "//   importing the DB, the mailer, and the HTTP layer -> a change anywhere ripples."
+    },
+    {
+      title: "Example 4 (edge case): they pull against each other - and DRY",
+      description: "<p>Maximizing cohesion can raise coupling; over-applying DRY couples modules that should stay independent.</p>",
+      code: "// Splitting one cohesive module into many to 'reduce its size' can INCREASE\n" +
+        "//   coupling (now they all call each other).\n" +
+        "// Sharing a 'common' module across services for DRY couples their release cycles.\n" +
+        "// Goal: each module changes for its own reasons with minimal ripple. Sometimes a\n" +
+        "//   little duplication keeps two modules decoupled - that's the right trade."
     }
   ],
   whenToUse: "<p>These are the lenses to evaluate almost any design decision: when splitting modules, drawing " +
@@ -1807,6 +2622,28 @@ C["component-principles"] = {
         "//   /pricing  -> PriceCalculator, Discount, TaxRule   (all change with pricing)\n" +
         "//   /shipping -> Carrier, Rate, Zone                  (all change with shipping)\n" +
         "// A pricing rule change never forces a shipping redeploy."
+    },
+    {
+      title: "Example 3: cohesion + coupling principles for components",
+      description: "<p>Robert Martin's component principles guide how to group classes into deployable units.</p>",
+      code: "// Cohesion (what goes in a component):\n" +
+        "//   REP - release together what's versioned together\n" +
+        "//   CCP - classes that change together belong together\n" +
+        "//   CRP - don't force users to depend on things they don't use\n" +
+        "// Coupling (relationships between components):\n" +
+        "//   ADP - no dependency cycles\n" +
+        "//   SDP - depend in the direction of stability\n" +
+        "//   SAP - the more stable, the more abstract"
+    },
+    {
+      title: "Example 4 (edge case): the cohesion principles tension",
+      description: "<p>REP/CCP/CRP pull against each other - you can't maximize all three, so the right grouping shifts as a project matures.</p>",
+      code: "// Early on: favor CCP (group by what changes together) for dev speed, accept some\n" +
+        "//   over-broad components.\n" +
+        "// Mature/widely-reused: favor CRP/REP (tight, stable, reusable units) so consumers\n" +
+        "//   aren't dragged along by unrelated changes.\n" +
+        "// A dependency CYCLE (ADP violation) is the one to fix unconditionally - break it\n" +
+        "//   with an interface (Dependency Inversion)."
     }
   ],
   whenToUse: "<p>These matter at the scale of modules, packages, and services &mdash; structuring a large " +
@@ -1846,6 +2683,24 @@ C["policy-vs-detail"] = {
         "//\n" +
         "// So you can replace Postgres, switch HTTP for a queue, or swap the UI\n" +
         "// without editing a single business rule."
+    },
+    {
+      title: "Example 3: policy (rules) shouldn't depend on detail (mechanism)",
+      description: "<p>High-level business policy is stable and valuable; low-level details (DB, UI, frameworks) are volatile - dependencies point inward, toward policy.</p>",
+      code: "// POLICY (core): how to price an order - no DB/HTTP/framework imports\n" +
+        "class Pricing { total(cart, rules) { /* pure business logic */ } }\n" +
+        "// DETAIL (edge): Postgres, REST, Stripe - implement interfaces the core defines\n" +
+        "//   detail -> depends on -> policy (never the reverse)\n" +
+        "// Swap Postgres for Mongo, REST for gRPC: policy doesn't change."
+    },
+    {
+      title: "Example 4 (edge case): not every app has rich policy",
+      description: "<p>For thin CRUD apps the 'policy' is trivial, so an elaborate inversion of detail-vs-policy is overkill.</p>",
+      code: "// A simple admin CRUD app is almost ALL 'detail' (DB <-> forms) with no real\n" +
+        "//   policy -> wrapping it in ports/adapters adds layers for no benefit.\n" +
+        "// The policy/detail split pays off when business RULES are substantial and\n" +
+        "//   long-lived (they outlive the DB/framework choices). Match the architecture\n" +
+        "//   to how much real policy exists."
     }
   ],
   whenToUse: "<p>Lean on this lens for applications where the business logic is the valuable, long-lived part " +
@@ -1887,6 +2742,25 @@ C["boundaries"] = {
         "export interface BillingApi { invoice(orderId: string): Invoice; }\n" +
         "// Other modules import ONLY this - never billing's internal classes.\n" +
         "// Billing can refactor its internals freely behind the boundary."
+    },
+    {
+      title: "Example 3: a boundary isolates a volatile dependency",
+      description: "<p>Wrap external/changeable things behind an interface your core owns, so they can be replaced without ripple.</p>",
+      code: "// core defines the port (boundary):\n" +
+        "interface EmailSender { send(to, subject, body): void; }\n" +
+        "// adapters live OUTSIDE the boundary:\n" +
+        "class SendgridSender implements EmailSender {}\n" +
+        "class SesSender implements EmailSender {}\n" +
+        "// switching providers = one new adapter; core code untouched. Same for DB, queues, time."
+    },
+    {
+      title: "Example 4 (edge case): boundaries cost mapping and can be drawn wrong",
+      description: "<p>Each boundary adds an interface + translation; too many fragments the system, and a misplaced boundary leaks the very detail it should hide.</p>",
+      code: "// Cost: DTO<->domain mapping, extra interfaces, more files to navigate.\n" +
+        "// Wrong boundary: interface PaymentPort { stripeChargeId(): string } -> Stripe\n" +
+        "//   leaked through the 'boundary', so it isn't isolating anything.\n" +
+        "// Draw boundaries around things that are VOLATILE or externally owned; don't\n" +
+        "//   ceremonially wrap stable internals. Fewer, well-placed boundaries > many leaky ones."
     }
   ],
   whenToUse: "<p>Draw firm boundaries around things that are volatile, externally owned, or likely to be " +
@@ -1932,6 +2806,24 @@ C["design-patterns"] = {
         "  constructor(thirdParty) { this.lib = thirdParty; }\n" +
         "  log(msg) { this.lib.writeEntry('INFO', msg); } // translate the call\n" +
         "}"
+    },
+    {
+      title: "Example 3: patterns are a shared vocabulary",
+      description: "<p>Naming a pattern communicates a whole design in one word to other developers.</p>",
+      code: "// 'Use a Strategy here' -> everyone knows: swap algorithms behind an interface.\n" +
+        "// 'That's an Observer' -> publish/subscribe to state changes.\n" +
+        "// 'Wrap it in an Adapter' -> make an incompatible interface fit.\n" +
+        "// 'Add a Facade' -> one simple entry point over a complex subsystem.\n" +
+        "// The value is communication + proven structure, not the code itself."
+    },
+    {
+      title: "Example 4 (edge case): pattern fever - forcing patterns where they don't fit",
+      description: "<p>Applying patterns for their own sake adds indirection and ceremony; recognize the problem first.</p>",
+      code: "// Smell: a SingletonFactoryStrategyBuilder to do something a function would do.\n" +
+        "// Smell: every class behind an interface 'because patterns'.\n" +
+        "// Many GoF patterns also exist to work around OLD language limits - in modern\n" +
+        "//   languages a Strategy is often just a passed-in function; a Singleton is often\n" +
+        "//   just a module. Reach for a pattern when its PROBLEM appears, not to use patterns."
     }
   ],
   whenToUse: "<p>Reach for a pattern when you recognize the <em>problem</em> it solves &mdash; not the other " +
@@ -1976,6 +2868,24 @@ C["gof-design-patterns"] = {
         "orders.subscribe(o => sendEmail(o));   // independent reactions\n" +
         "orders.subscribe(o => updateMetrics(o));\n" +
         "orders.notify({ id: 1 }); // both run; Subject is decoupled from them"
+    },
+    {
+      title: "Example 3: the three GoF categories",
+      description: "<p>The 23 patterns group by intent: creating objects, composing them, or coordinating their behavior.</p>",
+      code: "// Creational (object creation): Factory, Builder, Singleton, Prototype, Abstract Factory\n" +
+        "// Structural (composition):     Adapter, Decorator, Facade, Proxy, Composite, Bridge\n" +
+        "// Behavioral (interaction):     Strategy, Observer, Command, State, Iterator, Template Method\n" +
+        "// e.g. Decorator: wrap an object to add behavior without subclassing:\n" +
+        "//   new GzipStream(new BufferedStream(new FileStream(...)))"
+    },
+    {
+      title: "Example 4 (edge case): some GoF patterns are dated or language-specific",
+      description: "<p>Modern language features make several patterns trivial or unnecessary; Singleton in particular is often an anti-pattern.</p>",
+      code: "// Strategy -> often just pass a function (first-class functions).\n" +
+        "// Iterator -> built into the language (for-of, IEnumerable).\n" +
+        "// Singleton -> global mutable state: hurts testability + hides dependencies;\n" +
+        "//   prefer DI with a single instance managed by a container.\n" +
+        "// Use the INTENT; don't transcribe 1994 Java/C++ implementations literally."
     }
   ],
   whenToUse: "<p>Use a specific GoF pattern when its target problem appears: Singleton for a single shared " +
@@ -2019,6 +2929,25 @@ C["posa-patterns"] = {
         "  return pipeline.reduce((data, filter) => filter(data), input);\n" +
         "}\n" +
         "// Filters are reusable and reorderable - like Unix `cat | grep | sort`."
+    },
+    {
+      title: "Example 3: architecture-scale patterns (bigger than GoF)",
+      description: "<p>PoSA (Pattern-Oriented Software Architecture) catalogs patterns for whole-system structure, not single classes.</p>",
+      code: "// Layers           - stack of responsibility tiers (presentation/domain/data)\n" +
+        "// Pipes and Filters- a data-processing pipeline of stages\n" +
+        "// Broker           - decouple clients/servers via an intermediary\n" +
+        "// MVC              - separate model, view, controller\n" +
+        "// Microkernel      - minimal core + plug-in extensions\n" +
+        "// Blackboard       - shared knowledge space for ill-structured problems"
+    },
+    {
+      title: "Example 4 (edge case): architecture patterns are expensive to change later",
+      description: "<p>Unlike a class-level pattern, picking the wrong architectural pattern is costly to undo - choose against real, present forces.</p>",
+      code: "// Refactoring a class from Strategy to something else = local change.\n" +
+        "// Switching a system from Layers to Microservices = months + risk.\n" +
+        "// So: don't adopt a heavyweight architecture pattern speculatively. Start simple\n" +
+        "//   (often a layered monolith) and evolve toward Broker/Microkernel/etc. only\n" +
+        "//   when a concrete force (scale, team structure, extensibility) demands it."
     }
   ],
   whenToUse: "<p>PoSA patterns are the vocabulary for <em>system and subsystem structure</em> &mdash; reach for " +
@@ -2068,6 +2997,26 @@ C["model-driven-design"] = {
         "const sub = repo.findById(id);\n" +
         "sub.cancel();          // business rule enforced inside the model\n" +
         "repo.save(sub);        // persistence is downstream of the model"
+    },
+    {
+      title: "Example 3: code that mirrors the domain",
+      description: "<p>Model-driven design builds software around a model of the domain shared by developers and experts, so the code speaks the business's language.</p>",
+      code: "// The model in code matches how the business talks:\n" +
+        "class Policy {\n" +
+        "  renew(): void {}        // domain verbs, not 'updateRow'\n" +
+        "  lapse(): void {}\n" +
+        "  isInGracePeriod(): boolean {}\n" +
+        "}\n" +
+        "// A domain expert could read these method names and recognize their process."
+    },
+    {
+      title: "Example 4 (edge case): only worth it for complex domains",
+      description: "<p>For thin/CRUD domains the modeling overhead doesn't pay; and a model that drifts from the experts' language stops helping.</p>",
+      code: "// Simple CRUD (a form over a table) has little 'domain' to model -> a rich model\n" +
+        "//   is ceremony; Transaction Script / Active Record is fine.\n" +
+        "// If the model and the experts' vocabulary diverge over time, the shared\n" +
+        "//   understanding breaks -> keep refining the model WITH domain experts.\n" +
+        "// Model-driven design earns its cost when business RULES are the hard part."
     }
   ],
   whenToUse: "<p>Model-driven design pays off in applications with <strong>genuine domain complexity</strong> " +
@@ -2111,6 +3060,27 @@ C["domain-models"] = {
         "account.withdraw(money(30));\n" +
         "account.freeze('fraud suspected');\n" +
         "// Reads like a description of real banking actions, not data mutations."
+    },
+    {
+      title: "Example 3: behavior lives WITH the data (rich model)",
+      description: "<p>A domain model object owns both its state and the rules that operate on it.</p>",
+      code: "class BankAccount {\n" +
+        "  #balance = 0;\n" +
+        "  withdraw(amount) {\n" +
+        "    if (amount > this.#balance) throw new Error('insufficient funds'); // rule here\n" +
+        "    this.#balance -= amount;\n" +
+        "  }\n" +
+        "}\n" +
+        "// The rule can't be bypassed; the model is always in a valid state."
+    },
+    {
+      title: "Example 4 (edge case): the anemic-model trap",
+      description: "<p>A 'domain model' that's only getters/setters with all logic in services is procedural code in disguise.</p>",
+      code: "// Anemic: data bag + a service that manipulates it from outside\n" +
+        "class Account { balance = 0; }                 // no behavior\n" +
+        "class AccountService { withdraw(a, amt){ a.balance -= amt; } } // rule outside\n" +
+        "// -> rules get scattered/duplicated across services; invariants aren't protected.\n" +
+        "// Put behavior on the model. (Anemic is fine for true DTOs, just not for the DOMAIN.)"
     }
   ],
   whenToUse: "<p>Build rich domain models where the business logic is the valuable part of the system and you " +
@@ -2156,6 +3126,25 @@ C["anemic-models"] = {
         "  }\n" +
         "  get balance() { return this.#balance; }\n" +
         "}"
+    },
+    {
+      title: "Example 3: spotting an anemic model",
+      description: "<p>The tell-tale sign: objects are pure data with getters/setters, while all behavior sits in 'manager'/'service' classes.</p>",
+      code: "class Order { items=[]; status; get total(){...} set status(s){...} } // just data\n" +
+        "class OrderService {                 // ALL the logic, outside the object\n" +
+        "  cancel(o){ o.status = 'cancelled'; refund(o); }\n" +
+        "  addItem(o,i){ o.items.push(i); }\n" +
+        "}\n" +
+        "// Rules aren't enforced by Order itself -> any code can set an invalid status."
+    },
+    {
+      title: "Example 4 (edge case): anemic is the RIGHT choice for DTOs and simple CRUD",
+      description: "<p>Anemic models are only an anti-pattern in a rich domain; as data-transfer objects or for trivial CRUD they're correct.</p>",
+      code: "// Perfectly fine anemic objects:\n" +
+        "//   DTOs at API/message boundaries (just carry data, no behavior)\n" +
+        "//   a CRUD admin tool with no real business rules\n" +
+        "// 'Anemic' is a problem ONLY when there ARE domain rules and they got pushed into\n" +
+        "//   services. Don't force behavior onto a DTO to avoid the label."
     }
   ],
   whenToUse: "<p>This is mostly a 'what to avoid' topic: in a domain with real rules, prefer rich models over " +
@@ -2196,6 +3185,24 @@ C["domain-language"] = {
         "// Code mirrors that sentence exactly:\n" +
         "reservation.markNoShow();   // -> internally calls forfeitDeposit()\n" +
         "// No mental mapping between business speak and developer speak."
+    },
+    {
+      title: "Example 3: a ubiquitous language in the code",
+      description: "<p>The same terms the business uses appear in class/method names, so conversation and code stay in sync.</p>",
+      code: "// Business says: 'a policy lapses after the grace period'\n" +
+        "// Code says exactly that:\n" +
+        "class Policy { lapse(){...} isInGracePeriod(){...} }\n" +
+        "// NOT: class Record { setStatusFlag(2) } - which forces a mental translation\n" +
+        "//   between 'what the business means' and 'what the code does'."
+    },
+    {
+      title: "Example 4 (edge case): the language drifts or differs per context",
+      description: "<p>Terms mean different things in different parts of the business - forcing one global vocabulary causes confusion; bound the language per context.</p>",
+      code: "// 'Customer' in Sales (a lead) != 'Customer' in Support (an account with tickets).\n" +
+        "//   Forcing ONE Customer model muddies both -> use DDD Bounded Contexts: each\n" +
+        "//   context has its own consistent language + model.\n" +
+        "// Also: code drifts from current business terms over time -> rename deliberately\n" +
+        "//   when the language evolves, or comprehension erodes."
     }
   ],
   whenToUse: "<p>Cultivate a domain language on any project where developers and domain experts must " +
@@ -2244,6 +3251,26 @@ C["class-variants"] = {
         "    to.deposit(amount);\n" +
         "  }\n" +
         "}"
+    },
+    {
+      title: "Example 3: entity vs value object vs service",
+      description: "<p>Three roles: entities have identity, value objects are defined by their data, services hold logic that fits no single object.</p>",
+      code: "// Entity: identity matters, mutable over time\n" +
+        "class Order { id; status; }            // two orders with same data are DIFFERENT\n" +
+        "// Value object: defined by value, immutable, interchangeable\n" +
+        "class Money { constructor(readonly amount, readonly currency){} } // 5 EUR == 5 EUR\n" +
+        "// Domain service: logic spanning multiple entities, no natural home\n" +
+        "class TransferService { transfer(from: Account, to: Account, m: Money){} }"
+    },
+    {
+      title: "Example 4 (edge case): the same concept can be an entity OR a value object",
+      description: "<p>The classification depends on the domain - 'Address' is a value object in shipping but an entity in a property registry.</p>",
+      code: "// Address as VALUE object (shipping): we only care about the data; two identical\n" +
+        "//   addresses are the same -> immutable, no id.\n" +
+        "// Address as ENTITY (real-estate registry): each property address is tracked\n" +
+        "//   over time with its own identity/history.\n" +
+        "// Don't classify in the abstract - decide by whether IDENTITY/continuity matters\n" +
+        "//   in THIS domain."
     }
   ],
   whenToUse: "<p>Use these distinctions when modeling a non-trivial domain to decide <em>where each piece of " +
@@ -2289,6 +3316,25 @@ C["layered-architectures"] = {
         "//   Domain defines a Repository interface;\n" +
         "//   Infrastructure implements it -> Domain stays pure & DB-agnostic.\n" +
         "// Either way, the Domain never reaches UP into Presentation."
+    },
+    {
+      title: "Example 3: the classic three (or four) layers",
+      description: "<p>Each layer has one responsibility and depends only on the layer below.</p>",
+      code: "// presentation (controllers/UI)\n" +
+        "//    -> application/business (services, domain logic)\n" +
+        "//        -> persistence (repositories)\n" +
+        "//            -> database\n" +
+        "// a request flows down; each layer talks only to the next. Swapping the UI or DB\n" +
+        "//   ideally doesn't touch the business layer."
+    },
+    {
+      title: "Example 4 (edge case): the 'sinkhole' and skipped layers",
+      description: "<p>Layers that just pass calls through add ceremony without value, and reaching past a layer breaks the architecture's guarantees.</p>",
+      code: "// Sinkhole anti-pattern: controller -> service -> repo where service does NOTHING\n" +
+        "//   but forward calls -> pure boilerplate. Allow some layers to be 'open' (skippable)\n" +
+        "//   for simple read-throughs, or collapse needless layers.\n" +
+        "// Layer skipping: controller reaching straight into the DB bypasses business rules\n" +
+        "//   -> inconsistent behavior. If you enforce layering, enforce it consistently."
     }
   ],
   whenToUse: "<p>Layering is a sensible default for most business and web applications &mdash; it's familiar, " +
@@ -2329,6 +3375,25 @@ C["architectural-principles"] = {
         "interface EventStore { append(e: Event): void; read(id: string): Event[]; }\n" +
         "// Start with an in-memory or file store; swap in Postgres/Kafka later\n" +
         "// without touching any business logic that depends only on EventStore."
+    },
+    {
+      title: "Example 3: principles that hold at architecture scale",
+      description: "<p>The same ideas as code-level design, applied to modules/services/systems.</p>",
+      code: "// separation of concerns - each part has one job\n" +
+        "// high cohesion / low coupling - between modules and services\n" +
+        "// dependency rule - dependencies point toward stable policy\n" +
+        "// design for change - isolate what's volatile behind boundaries\n" +
+        "// keep it as simple as the requirements allow (architecture YAGNI)"
+    },
+    {
+      title: "Example 4 (edge case): architecture is about trade-offs, not 'best practices'",
+      description: "<p>Every architectural choice trades qualities (scalability vs simplicity, consistency vs availability) - there's no universally correct answer.</p>",
+      code: "// Microservices: + independent scaling/deploys  - ops complexity, distributed bugs\n" +
+        "// Monolith:     + simple, fast to build       - one big deploy, shared scaling\n" +
+        "// Strong consistency: + correctness           - latency/availability cost\n" +
+        "// The skill is choosing trade-offs that fit THIS system's forces (team, scale,\n" +
+        "//   change rate) - and revisiting them as forces change. Copying FAANG\n" +
+        "//   architecture onto a 5-person team is a classic mismatch."
     }
   ],
   whenToUse: "<p>These principles guide every significant structural decision: how to split a system into " +
@@ -2372,6 +3437,26 @@ C["architectural-styles"] = {
         "// Event-driven: Orders just announces; subscribers react independently\n" +
         "bus.publish('OrderPlaced', { orderId: 1 });\n" +
         "// Email, Analytics, Inventory each subscribe - Orders doesn't know them."
+    },
+    {
+      title: "Example 3: common styles and what drives each",
+      description: "<p>An architectural style is a family of structures suited to particular forces.</p>",
+      code: "// monolithic    - one deployable; simplest, great default\n" +
+        "// layered       - tiers by responsibility (most business apps)\n" +
+        "// microservices - independent services; many teams / independent scaling\n" +
+        "// event-driven  - react to events; loose coupling, async workflows\n" +
+        "// client-server - shared backend for many clients\n" +
+        "// serverless    - functions on demand; spiky/event workloads"
+    },
+    {
+      title: "Example 4 (edge case): styles combine, and the wrong one is costly",
+      description: "<p>Real systems blend styles, and committing to a heavy style prematurely is a classic, expensive mistake.</p>",
+      code: "// Typical blend: a layered monolith that emits events to async workers, with a\n" +
+        "//   couple of serverless functions for glue.\n" +
+        "// Anti-pattern: greenfield microservices for a tiny app/team -> you pay the\n" +
+        "//   distributed-systems tax (deploys, tracing, eventual consistency) with no\n" +
+        "//   benefit. Start monolithic; extract services when a real boundary needs\n" +
+        "//   independence. Pick for PRESENT forces, evolve later."
     }
   ],
   whenToUse: "<p>Pick a style based on real, present forces: team size and structure, scale and load, " +
@@ -2413,6 +3498,25 @@ C["monolithic"] = {
         "//   /modules/inventory\n" +
         "// Modules talk only via published interfaces -> easy to later split out\n" +
         "// into services IF and WHEN scaling actually demands it."
+    },
+    {
+      title: "Example 3: one deployable, in-process calls",
+      description: "<p>A monolith packages all modules into a single deployable; modules call each other in-process - simple and fast.</p>",
+      code: "// one app, internal module boundaries (a 'modular monolith'):\n" +
+        "//   orders/   payments/   users/   (clear packages, but ONE build/deploy)\n" +
+        "// calls between them are plain function calls (no network) -> easy to refactor,\n" +
+        "//   one transaction can span modules, trivial local debugging.\n" +
+        "// Deploy = ship one artifact. Best default for new projects + small teams."
+    },
+    {
+      title: "Example 4 (edge case): the 'big ball of mud' and scaling limits",
+      description: "<p>Monoliths rot without internal discipline, and the whole app scales/deploys as one unit.</p>",
+      code: "// Without enforced module boundaries -> everything imports everything -> a tangled\n" +
+        "//   'big ball of mud' that's scary to change. Keep clear internal seams (modular\n" +
+        "//   monolith) so you COULD extract a service later.\n" +
+        "// Scaling: you scale the whole app even if only one part is hot, and one bad\n" +
+        "//   deploy takes everything down. These limits (not size alone) are when to\n" +
+        "//   consider splitting - not before."
     }
   ],
   whenToUse: "<p>Start here for almost every new project: monoliths have the lowest operational overhead, the " +
@@ -2451,6 +3555,25 @@ C["layered"] = {
       code: "// Business depends on a repository CONTRACT, not a concrete DB\n" +
         "interface UserRepository { findById(id: string): User; }\n" +
         "// Replace SqlUserRepository with MongoUserRepository -> UserService unchanged."
+    },
+    {
+      title: "Example 3: a request flowing down the layers",
+      description: "<p>Each layer transforms the request and delegates downward; responses bubble back up.</p>",
+      code: "// HTTP POST /orders\n" +
+        "//   Controller   : parse + validate request, map to a command\n" +
+        "//   Service      : business rules, orchestrate, transaction boundary\n" +
+        "//   Repository   : persist via the DB\n" +
+        "//   (response maps back up: entity -> DTO -> JSON)\n" +
+        "// Each layer is replaceable/testable in isolation (mock the layer below)."
+    },
+    {
+      title: "Example 4 (edge case): leaky layers and the pass-through tax",
+      description: "<p>Layering helps only if dependencies stay one-directional and each layer adds value; otherwise it's overhead.</p>",
+      code: "// Leak: a DB entity (with lazy fields) returned straight to the controller/JSON\n" +
+        "//   -> persistence concerns leak into presentation. Map to a DTO at the boundary.\n" +
+        "// Pass-through: a service layer that only forwards to the repo adds nothing ->\n" +
+        "//   for trivial reads, allow the layer to be skipped rather than writing empty\n" +
+        "//   delegations. Layering is a default, not a law for every call path."
     }
   ],
   whenToUse: "<p>Use layering as the default internal structure for typical business and web applications, " +
@@ -2493,6 +3616,24 @@ C["client-server"] = {
         "  if (req.body.amount > dailyLimit(req.user)) return res.status(403).end();\n" +
         "  // a policy change here instantly applies to every client\n" +
         "});"
+    },
+    {
+      title: "Example 3: shared server, many clients",
+      description: "<p>Clients (web, mobile, desktop) talk to a central server that owns the data and shared logic.</p>",
+      code: "//   [web]   \\\n" +
+        "//   [iOS]    >--HTTP/API-->  [server] --> [database]\n" +
+        "//   [Android]/\n" +
+        "// the server is the single source of truth; clients are interchangeable front-ends.\n" +
+        "// keep authoritative logic + validation on the SERVER (clients can be tampered with)."
+    },
+    {
+      title: "Example 4 (edge case): trusting the client, and server as bottleneck/SPOF",
+      description: "<p>Client-side checks can be bypassed, and the central server must be scaled and made redundant.</p>",
+      code: "// NEVER trust client-side validation/authz alone -> an attacker calls your API\n" +
+        "//   directly, bypassing the UI. Re-validate + authorize on the server, always.\n" +
+        "// The server is shared infrastructure -> a single instance is a SPOF + capacity\n" +
+        "//   ceiling. Scale it (LB + multiple instances) and make it HA. Offline-capable\n" +
+        "//   clients also need sync/conflict handling."
     }
   ],
   whenToUse: "<p>Client-server is the natural fit whenever multiple users/devices need to share data or logic, " +
@@ -2536,6 +3677,26 @@ C["event-driven"] = {
         "await queue.send('OrderPlaced', { orderId: 1 });\n" +
         "// A slow consumer (e.g. generating a PDF invoice) processes later,\n" +
         "// at its own pace, without making the user wait."
+    },
+    {
+      title: "Example 3: components react to events, not direct calls",
+      description: "<p>A producer emits an event; consumers react independently, so adding a reaction needs no change to the producer.</p>",
+      code: "// producer just announces a fact:\n" +
+        "bus.emit('OrderPlaced', { orderId: 42 });\n" +
+        "// independent consumers react:\n" +
+        "on('OrderPlaced', reserveInventory);\n" +
+        "on('OrderPlaced', sendConfirmation);\n" +
+        "on('OrderPlaced', updateAnalytics);   // add later, producer untouched"
+    },
+    {
+      title: "Example 4 (edge case): eventual consistency and hard-to-trace flows",
+      description: "<p>Async events bring duplicate/out-of-order delivery and an implicit, scattered control flow that's hard to debug.</p>",
+      code: "// 'What happens after an order?' has no single answer -> it's spread across N\n" +
+        "//   handlers (and possibly event loops A->B->A).\n" +
+        "// Events are usually at-least-once + unordered -> consumers must be idempotent\n" +
+        "//   and tolerate reordering.\n" +
+        "// Mitigate with correlation/trace ids, event schemas, and a DLQ. For a strictly\n" +
+        "//   ordered, must-see-immediately workflow, synchronous calls may fit better."
     }
   ],
   whenToUse: "<p>Use event-driven design when you need loose coupling between independently evolving parts, " +
@@ -2577,6 +3738,24 @@ C["microservices"] = {
         "//  catalog-svc    (Node)    x2  instances  (low load)\n" +
         "//  reporting-svc  (Python)  x1  instance\n" +
         "// Deploy/scale/upgrade each independently - one team per service."
+    },
+    {
+      title: "Example 3: independently deployable services owning their data",
+      description: "<p>Each service is a small app with its own datastore, communicating over the network.</p>",
+      code: "// order-svc (own DB) --REST/events--> payment-svc (own DB)\n" +
+        "//                     --events-->         shipping-svc (own DB)\n" +
+        "// each: own repo, own pipeline, own scaling, owned by one team end-to-end.\n" +
+        "// boundaries follow business capabilities; NO shared database between services."
+    },
+    {
+      title: "Example 4 (edge case): the distributed-monolith trap",
+      description: "<p>Services that share a DB or must deploy together give you all the network cost of microservices with none of the independence.</p>",
+      code: "// Smell: svc A can't deploy without svc B, they share a DB, one change touches\n" +
+        "//   both -> distributed monolith (worst of both worlds).\n" +
+        "// Plus the inherent tax: no cross-service transactions (sagas), retries/\n" +
+        "//   idempotency, tracing, versioned contracts, N pipelines.\n" +
+        "// Adopt ONLY with real drivers (many teams, independent scale). Otherwise a\n" +
+        "//   modular monolith delivers faster."
     }
   ],
   whenToUse: "<p>Adopt microservices when you have concrete drivers: large organizations needing many teams to " +
@@ -2618,6 +3797,25 @@ C["peer-to-peer"] = {
         "//   chunk A: peers [1, 4, 7]    chunk B: peers [2, 4, 9]\n" +
         "// If peers 4 and 7 drop offline, chunk A is still available from peer 1.\n" +
         "// No central server to fail; the network self-heals as peers join/leave."
+    },
+    {
+      title: "Example 3: peers act as both client and server",
+      description: "<p>In P2P there's no central server; each node provides and consumes resources directly from other nodes.</p>",
+      code: "// each peer: shares some data + requests data from others\n" +
+        "//   [peer A] <--> [peer B] <--> [peer C]\n" +
+        "//            \\---> [peer D] <---/\n" +
+        "// examples: BitTorrent (file chunks from many peers), blockchains, some VoIP.\n" +
+        "// no single point of failure or control; capacity GROWS as peers join."
+    },
+    {
+      title: "Example 4 (edge case): discovery, trust, and consistency are hard",
+      description: "<p>Decentralization removes the central server but adds peer discovery, security against malicious peers, and consistency without a coordinator.</p>",
+      code: "// How does a new peer FIND others? (bootstrap nodes / DHT) - a partial centralization.\n" +
+        "// Any peer may be malicious -> need verification (hashes, signatures, consensus).\n" +
+        "// No central authority -> agreeing on shared state is expensive (e.g. blockchain\n" +
+        "//   consensus is slow/costly). Churn (peers join/leave constantly) complicates\n" +
+        "//   everything. Use P2P only when decentralization is a real requirement, not\n" +
+        "//   just to avoid running servers."
     }
   ],
   whenToUse: "<p>P2P fits when you specifically want decentralization: no single point of failure or control, " +
@@ -2657,6 +3855,25 @@ C["publish-subscribe"] = {
         "\n" +
         "// QUEUE (point-to-point): ONE worker gets each message (load sharing)\n" +
         "//   'resize.image' -> exactly one of [worker1, worker2, worker3] handles it"
+    },
+    {
+      title: "Example 3: publishers and subscribers decoupled by a topic",
+      description: "<p>Publishers emit to a topic without knowing subscribers; subscribers register interest independently.</p>",
+      code: "// publisher (knows nothing about who listens):\n" +
+        "broker.publish('user.signed_up', { id: 7 });\n" +
+        "// subscribers register on the topic:\n" +
+        "broker.subscribe('user.signed_up', sendWelcomeEmail);\n" +
+        "broker.subscribe('user.signed_up', provisionWorkspace);\n" +
+        "// add/remove subscribers freely; the publisher never changes."
+    },
+    {
+      title: "Example 4 (edge case): no feedback + delivery guarantees",
+      description: "<p>The publisher gets no success/failure signal, and a down subscriber misses events unless the broker offers durable subscriptions.</p>",
+      code: "// Fire-and-forget: publisher can't know a subscriber failed -> don't use pub/sub\n" +
+        "//   where you need a synchronous result.\n" +
+        "// Subscriber offline when the event fires -> it MISSES the event unless using\n" +
+        "//   durable subscriptions / consumer offsets (Kafka) so it can catch up.\n" +
+        "// Subscribers must be idempotent (at-least-once delivery -> possible duplicates)."
     }
   ],
   whenToUse: "<p>Use pub/sub when an event has multiple interested parties, when you want to add/remove " +
@@ -2698,6 +3915,23 @@ C["component-based"] = {
         "// Compose them; swap an implementation without touching the others\n" +
         "class App { constructor(public auth: AuthComponent,\n" +
         "                        public pay: PaymentComponent) {} }"
+    },
+    {
+      title: "Example 3: self-contained, reusable components with clear interfaces",
+      description: "<p>The system is built from independent components that expose well-defined contracts and hide internals - think UI component libraries.</p>",
+      code: "// a component = encapsulated state + behavior + a public prop/event contract\n" +
+        "<DatePicker value={d} onChange={setD} min={today} />   // reuse anywhere\n" +
+        "// internals (calendar logic, styling) are hidden; consumers use the contract.\n" +
+        "// teams build different components in parallel against agreed interfaces."
+    },
+    {
+      title: "Example 4 (edge case): leaky contracts and version coupling",
+      description: "<p>Reuse only works if the interface is stable and complete; leaky abstractions and breaking changes ripple across every consumer.</p>",
+      code: "// Leaky: a component that requires callers to know its internal DOM/structure to\n" +
+        "//   style or extend it -> consumers couple to internals -> refactors break them.\n" +
+        "// Versioning: a breaking prop change forces every consumer to update in lockstep\n" +
+        "//   -> use semver, additive changes, and deprecation windows for shared components.\n" +
+        "// Design the contract for the consumer; keep internals truly private."
     }
   ],
   whenToUse: "<p>Favor component-based design when you want reusability and parallel development &mdash; UI " +
@@ -2740,6 +3974,24 @@ C["distributed"] = {
         "//   AP: keep accepting writes, reconcile later (available, temporarily\n" +
         "//       inconsistent -> 'eventual consistency')\n" +
         "// A bank balance leans CP; a 'likes' counter leans AP. Context decides."
+    },
+    {
+      title: "Example 3: work spread across multiple machines",
+      description: "<p>A distributed system runs on many nodes that coordinate over a network to appear as one system.</p>",
+      code: "// load + data spread across nodes:\n" +
+        "//   app instances (many)  +  sharded/replicated DB  +  distributed cache\n" +
+        "//   coordinated via the network to serve more than one box ever could.\n" +
+        "// gains: scale beyond one machine, fault tolerance, geographic reach."
+    },
+    {
+      title: "Example 4 (edge case): the fallacies of distributed computing",
+      description: "<p>Distribution introduces partial failure, latency, and consistency problems that don't exist on one machine - don't distribute without need.</p>",
+      code: "// False assumptions that bite: 'the network is reliable / has zero latency /\n" +
+        "//   infinite bandwidth / is secure'. None are true.\n" +
+        "// You inherit: partial failures, no global clock, no cross-node ACID (CAP),\n" +
+        "//   harder debugging/tracing, and network security concerns.\n" +
+        "// A single machine is far simpler and handles a LOT -> distribute only when one\n" +
+        "//   box genuinely can't meet load/availability/geo needs."
     }
   ],
   whenToUse: "<p>Go distributed when a single machine genuinely can't meet your needs &mdash; load beyond one " +
@@ -2776,6 +4028,24 @@ C["structural"] = {
       code: "// The structural relationship: who is allowed to depend on whom\n" +
         "//   Presentation --> Application --> Domain --> Infrastructure\n" +
         "// This dependency arrangement IS the architecture's structure."
+    },
+    {
+      title: "Example 3: how the pieces are arranged and connected",
+      description: "<p>Structural decisions are about decomposition and relationships - what the modules are and how they depend on each other.</p>",
+      code: "// structural questions:\n" +
+        "//   what are the top-level modules/services? (decomposition)\n" +
+        "//   who depends on whom, and in which direction? (dependency graph)\n" +
+        "//   where are the boundaries (in-process vs network)?\n" +
+        "// a dependency diagram (boxes + arrows) IS the structural view of the system."
+    },
+    {
+      title: "Example 4 (edge case): dependency cycles and unclear ownership",
+      description: "<p>The two structural smells: cyclic dependencies between modules, and components with no clear owner/responsibility.</p>",
+      code: "// Cycle: A -> B -> C -> A -> can't build/test/deploy independently, change ripples.\n" +
+        "//   Break it by extracting a shared interface (Dependency Inversion).\n" +
+        "// Fuzzy ownership: a 'common'/'shared' module everything depends on becomes a\n" +
+        "//   change magnet + coupling hub. Keep dependencies acyclic and directional\n" +
+        "//   (toward stable abstractions), with each module owning a clear concern."
     }
   ],
   whenToUse: "<p>Think in structural terms whenever you're deciding how to <em>decompose</em> a system and " +
@@ -2816,6 +4086,24 @@ C["messaging"] = {
         "//   [API] --enqueue all 10k--> [ queue ] --steady drip--> [worker x5]\n" +
         "// The queue absorbs the spike; workers process at a sustainable rate\n" +
         "// instead of the database falling over under simultaneous load."
+    },
+    {
+      title: "Example 3: asynchronous communication via a broker",
+      description: "<p>Components exchange messages through a broker instead of calling each other directly - decoupling them in time and space.</p>",
+      code: "// producer doesn't wait or know the consumer:\n" +
+        "queue.send('process-upload', { fileId: 9 });   // returns immediately\n" +
+        "// consumer(s) process when able:\n" +
+        "queue.consume('process-upload', job => transcode(job.fileId));\n" +
+        "// buffers bursts, survives consumer downtime, lets each side scale separately."
+    },
+    {
+      title: "Example 4 (edge case): delivery semantics + operating the broker",
+      description: "<p>Messaging trades synchronous simplicity for at-least-once delivery, ordering caveats, and another piece of infrastructure to run.</p>",
+      code: "// at-least-once -> consumers must be idempotent (dedupe by message id).\n" +
+        "// ordering is per-partition/queue only -> partition by key if order matters.\n" +
+        "// the broker itself (RabbitMQ/Kafka) is infra you must run, monitor (queue\n" +
+        "//   depth/lag), secure, and make HA.\n" +
+        "// Don't use messaging for request/response that needs an immediate answer."
     }
   ],
   whenToUse: "<p>Reach for messaging when work can or should be asynchronous (long-running tasks, email, " +
@@ -2859,6 +4147,26 @@ C["architectural-patterns"] = {
         "// but costs: rebuild-from-events complexity, eventual consistency,\n" +
         "// schema/versioning of events. You adopt the COST to get the BENEFIT.\n" +
         "// No pattern is free - architecture is the art of choosing trade-offs."
+    },
+    {
+      title: "Example 3: patterns that shape whole applications",
+      description: "<p>Architectural patterns are reusable solutions to system-level problems.</p>",
+      code: "// MVC / MVVM       - separate UI, state, and presentation logic\n" +
+        "// Layered          - tiers by responsibility\n" +
+        "// Hexagonal/Ports & Adapters - core isolated from I/O via ports\n" +
+        "// Microkernel      - minimal core + plugins\n" +
+        "// Event Sourcing + CQRS - store events, separate read/write\n" +
+        "// Pick by the system-shaped problem you actually have."
+    },
+    {
+      title: "Example 4 (edge case): combining patterns and the cost of change",
+      description: "<p>Real systems layer multiple patterns, but committing to a heavy architectural pattern early is hard to reverse.</p>",
+      code: "// Typical combo: a Layered/Hexagonal monolith using MVC at the web edge + events\n" +
+        "//   to async workers.\n" +
+        "// But Event Sourcing + CQRS + microservices on day one = enormous accidental\n" +
+        "//   complexity if the domain doesn't need it - and unwinding it later is costly.\n" +
+        "// Start with the simplest pattern that fits; adopt heavier ones only when a\n" +
+        "//   concrete force (audit history, scale, plugins) demands them."
     }
   ],
   whenToUse: "<p>Consider an architectural pattern when you face the system-shaped problem it addresses: MVC/" +
@@ -2902,6 +4210,25 @@ C["domain-driven-design"] = {
         "// Billing context: Customer = payment methods, invoices, credit\n" +
         "// Same word, DIFFERENT models. DDD keeps each context's model\n" +
         "// internally consistent instead of forcing one bloated 'Customer'."
+    },
+    {
+      title: "Example 3: the DDD building blocks fit together",
+      description: "<p>DDD provides a vocabulary for modeling complex domains around a ubiquitous language.</p>",
+      code: "// Entity         - identity over time (Order)\n" +
+        "// Value Object   - defined by value, immutable (Money)\n" +
+        "// Aggregate      - a consistency boundary with a root entity\n" +
+        "// Repository     - persistence for an aggregate\n" +
+        "// Domain Service - logic spanning entities\n" +
+        "// Bounded Context- a model + language valid within one boundary"
+    },
+    {
+      title: "Example 4 (edge case): DDD is overkill for simple domains",
+      description: "<p>The full tactical+strategic toolkit pays off only with real domain complexity and expert collaboration; a CRUD app drowns in ceremony.</p>",
+      code: "// Anti-pattern: aggregates, repositories, domain events, and bounded contexts for\n" +
+        "//   a simple admin CRUD tool -> huge overhead, no domain richness to justify it.\n" +
+        "// DDD shines when business RULES are the hard part and you have domain experts to\n" +
+        "//   model WITH. Strategic DDD (bounded contexts) often matters even when you skip\n" +
+        "//   the heavy tactical patterns. Match the investment to the complexity."
     }
   ],
   whenToUse: "<p>DDD pays off in domains with <strong>real, substantial complexity</strong> and active " +
@@ -2943,6 +4270,25 @@ C["entities"] = {
         "order.place();                     // state changes...\n" +
         "order.ship();                      // ...but it's still order o-42\n" +
         "// Throughout its lifecycle, identity stays constant; attributes evolve."
+    },
+    {
+      title: "Example 3: identity, not attributes, defines an entity",
+      description: "<p>Two entities with identical fields are still different things; equality is by id.</p>",
+      code: "class Customer {\n" +
+        "  constructor(readonly id: string) {}\n" +
+        "  equals(other: Customer) { return this.id === other.id; } // by IDENTITY\n" +
+        "}\n" +
+        "// two customers both named 'Sam' are DIFFERENT entities (different ids).\n" +
+        "// the entity persists through attribute changes - same id = same customer."
+    },
+    {
+      title: "Example 4 (edge case): identity source and the aggregate boundary",
+      description: "<p>Where the id comes from (DB vs app-generated) and which entity is the aggregate root affect consistency and references.</p>",
+      code: "// DB-generated ids force a save before you have identity -> app-generated (UUID)\n" +
+        "//   lets you create + reference an entity before persistence (cleaner domain).\n" +
+        "// Reference OTHER aggregates by id, not by object, to keep the consistency\n" +
+        "//   boundary small: order.customerId, not order.customer (the whole object).\n" +
+        "// Mutable identity (changing an id) breaks everything - ids are immutable."
     }
   ],
   whenToUse: "<p>Model something as an entity when its identity and continuity matter &mdash; you need to track " +
@@ -2993,6 +4339,29 @@ C["value-objects"] = {
         "  }\n" +
         "}\n" +
         "// Anywhere you see an Email, it is guaranteed valid."
+    },
+    {
+      title: "Example 3: immutable, equality-by-value, self-validating",
+      description: "<p>A value object has no identity; it's defined by its data, can't be changed in place, and can guard its own validity.</p>",
+      code: "class Money {\n" +
+        "  constructor(readonly amount: number, readonly currency: string) {\n" +
+        "    if (amount < 0) throw new Error('negative amount'); // self-validating\n" +
+        "  }\n" +
+        "  add(o: Money) {                       // returns a NEW instance (immutable)\n" +
+        "    if (o.currency !== this.currency) throw new Error('currency mismatch');\n" +
+        "    return new Money(this.amount + o.amount, this.currency);\n" +
+        "  }\n" +
+        "}\n" +
+        "// 5 EUR equals 5 EUR (by value); no identity to track."
+    },
+    {
+      title: "Example 4 (edge case): mutating a 'value object' breaks sharing",
+      description: "<p>If value objects are mutable, sharing one accidentally mutates everywhere it's referenced - immutability is what makes them safe.</p>",
+      code: "// If Money were mutable and shared: a.price = b.price; a.price.amount = 0;\n" +
+        "//   -> b.price.amount is now 0 too (aliasing bug).\n" +
+        "// Immutability avoids defensive copying and makes them safe as map keys / to\n" +
+        "//   pass around freely. Replace, don't mutate: order.price = order.price.add(tax).\n" +
+        "// Don't give them surrogate ids 'for the DB' - that turns them into pseudo-entities."
     }
   ],
   whenToUse: "<p>Prefer value objects for any concept fully described by its data with no need to track " +
@@ -3039,6 +4408,27 @@ C["repositories"] = {
         "}\n" +
         "// Unit-test business logic at full speed, no DB to spin up.\n" +
         "const service = new OrderService(new InMemoryOrderRepo());"
+    },
+    {
+      title: "Example 3: a collection-like interface over persistence",
+      description: "<p>A repository lets domain code work with aggregates as if they were an in-memory collection, hiding the datastore.</p>",
+      code: "interface OrderRepository {\n" +
+        "  findById(id: string): Order | null;\n" +
+        "  save(order: Order): void;\n" +
+        "  findByCustomer(customerId: string): Order[];\n" +
+        "}\n" +
+        "// domain/service code uses this interface; it never sees SQL/Mongo.\n" +
+        "// swap a PostgresOrderRepository for an InMemoryOrderRepository in tests."
+    },
+    {
+      title: "Example 4 (edge case): repositories that leak the ORM / become query dumps",
+      description: "<p>A repo whose methods return ORM query builders, or that grows hundreds of bespoke finders, defeats the abstraction.</p>",
+      code: "// Leak: findOrders(): QueryBuilder -> callers now build ORM queries = coupled to it.\n" +
+        "// Bloat: findByXAndYSortedByZWithW(...) x200 -> the repo becomes a query junk drawer.\n" +
+        "//   Prefer a few intention-revealing methods + a Specification/criteria object for\n" +
+        "//   flexible queries.\n" +
+        "// One repository PER AGGREGATE ROOT (not per table). For simple CRUD, a repo over\n" +
+        "//   a plain ORM can be needless indirection - use judgment."
     }
   ],
   whenToUse: "<p>Use repositories when you want to decouple domain logic from persistence &mdash; especially in " +
@@ -3082,6 +4472,24 @@ C["mappers"] = {
         "  }\n" +
         "}\n" +
         "// Internal model can change freely; the API shape is controlled here."
+    },
+    {
+      title: "Example 3: translate between layers' representations",
+      description: "<p>A mapper converts between a domain model, a persistence row, and an API DTO so each layer keeps its own shape.</p>",
+      code: "// domain <-> DTO\n" +
+        "const toDto = (u: User): UserDto => ({ id: u.id, name: u.fullName() });\n" +
+        "const fromDto = (d: UserDto): User => new User(d.id, d.name);\n" +
+        "// keeps the API contract independent from the domain model -> you can change one\n" +
+        "//   without breaking the other (e.g. rename a domain field without altering JSON)."
+    },
+    {
+      title: "Example 4 (edge case): mapping is boilerplate that can drift",
+      description: "<p>Hand-written mappers are tedious and easy to forget to update; auto-mappers are convenient but hide bugs.</p>",
+      code: "// Add a field to User but forget the mapper -> it's silently dropped from the DTO.\n" +
+        "//   Cover mappers with tests, or generate them (MapStruct, AutoMapper) - but\n" +
+        "//   'magic' auto-mappers can mis-map by name and fail at runtime, not compile.\n" +
+        "// For trivial apps where layers share a shape, mapping may be unnecessary\n" +
+        "//   indirection. Use it where domain and DTO/row genuinely DIVERGE."
     }
   ],
   whenToUse: "<p>Use a mapper when you want to keep two representations decoupled &mdash; a clean domain model " +
@@ -3126,6 +4534,24 @@ C["dtos"] = {
         "  };\n" +
         "}\n" +
         "// One payload tailored to the screen that needs it."
+    },
+    {
+      title: "Example 3: a stable wire shape, separate from the domain",
+      description: "<p>A DTO carries data across a boundary; it's a flat, serializable contract decoupled from internal models.</p>",
+      code: "// internal entity has logic + sensitive fields:\n" +
+        "class User { id; name; passwordHash; #internalScore; fullName(){...} }\n" +
+        "// DTO exposes ONLY what the API should return:\n" +
+        "interface UserDto { id: string; name: string; }   // no passwordHash, no methods\n" +
+        "// the API contract can stay stable even if the entity is refactored."
+    },
+    {
+      title: "Example 4 (edge case): leaking entities as DTOs",
+      description: "<p>Serializing domain entities directly is the classic mistake - it exposes internals, leaks sensitive fields, and couples your API to the DB schema.</p>",
+      code: "// return res.json(user) -> ships passwordHash + every internal field, and any\n" +
+        "//   lazy-loaded relation can blow up serialization.\n" +
+        "// Also couples the JSON contract to the entity -> a DB rename breaks clients.\n" +
+        "// Always map entity -> DTO at the boundary. (And don't put domain LOGIC on DTOs -\n" +
+        "//   they're dumb data carriers.)"
     }
   ],
   whenToUse: "<p>Use DTOs at boundaries &mdash; API request/response bodies, messages between services, data " +
@@ -3170,6 +4596,25 @@ C["identity-maps"] = {
         "//   a.name = 'New';   save(b);  // b is stale -> a's change is lost\n" +
         "//\n" +
         "// WITH an identity map: a === b, so there's one consistent object."
+    },
+    {
+      title: "Example 3: one in-memory instance per identity within a unit of work",
+      description: "<p>An identity map caches loaded objects by id so the same row maps to the same object - avoiding duplicate loads and inconsistent copies.</p>",
+      code: "// within one request/session:\n" +
+        "const a = repo.findById(1);   // loads from DB, caches in the identity map\n" +
+        "const b = repo.findById(1);   // returns the SAME object (cache hit, no 2nd query)\n" +
+        "a === b;  // true -> edits to 'a' are visible via 'b'; no divergent copies\n" +
+        "// ORMs (Hibernate's persistence context, EF's change tracker) do this for you."
+    },
+    {
+      title: "Example 4 (edge case): scope and staleness of the map",
+      description: "<p>An identity map must be scoped to a unit of work; too-long a scope serves stale data and leaks memory.</p>",
+      code: "// Scope = one request/transaction. A long-lived (e.g. app-wide) identity map ->\n" +
+        "//   serves STALE objects after the DB changed elsewhere, and grows unbounded.\n" +
+        "// It also doesn't span processes -> in a distributed system two nodes have\n" +
+        "//   separate maps (it's not a distributed cache).\n" +
+        "// You rarely build this yourself; understand it to reason about ORM behavior\n" +
+        "//   (why you got the same object, why a refresh is needed)."
     }
   ],
   whenToUse: "<p>Identity maps are mostly relevant when building or deeply understanding data-access / ORM " +
@@ -3214,6 +4659,30 @@ C["usecases"] = {
         "//   CancelOrderUseCase\n" +
         "//   GenerateInvoiceUseCase\n" +
         "// Delivery (HTTP/CLI/queue) just calls the right use case - thin adapters."
+    },
+    {
+      title: "Example 3: one class per application action",
+      description: "<p>Each use case (interactor) is a single-purpose object that orchestrates the domain to fulfill one user intent.</p>",
+      code: "class PlaceOrderUseCase {\n" +
+        "  constructor(private orders: OrderRepository, private pay: PaymentGateway) {}\n" +
+        "  execute(cmd: PlaceOrderCommand): OrderId {\n" +
+        "    // orchestrate domain objects to fulfill ONE intent\n" +
+        "    const order = Order.create(cmd.items);\n" +
+        "    this.pay.charge(order.total());\n" +
+        "    this.orders.save(order);\n" +
+        "    return order.id;\n" +
+        "  }\n" +
+        "}\n" +
+        "// the code structure reads like the list of things the app DOES."
+    },
+    {
+      title: "Example 4 (edge case): anemic use cases or business rules in the wrong place",
+      description: "<p>Use cases should orchestrate, not contain domain rules; and trivial CRUD doesn't need a use-case class per operation.</p>",
+      code: "// Smell: PlaceOrderUseCase contains the pricing/discount RULES -> those belong on\n" +
+        "//   the Order/domain model; the use case should just coordinate.\n" +
+        "// Smell: a UseCase class for every getById on a CRUD app -> ceremony with no\n" +
+        "//   application logic to hold. Use this pattern when there's real orchestration\n" +
+        "//   (multiple steps, transactions, side effects), not for thin pass-throughs."
     }
   ],
   whenToUse: "<p>Organize around explicit use cases in applications with meaningful application logic, " +
@@ -3255,6 +4724,27 @@ C["model-view-controller"] = {
         "// or:\n" +
         "res.json(toUserDto(user));            // API response\n" +
         "// The Model (rules) is reused; only presentation differs."
+    },
+    {
+      title: "Example 3: separating model, view, and controller",
+      description: "<p>MVC splits data/rules (model), presentation (view), and input handling/coordination (controller).</p>",
+      code: "// Model: data + rules, no UI\n" +
+        "class Cart { items=[]; total(){...} }\n" +
+        "// Controller: handles input, updates the model, picks a view\n" +
+        "addItem(req){ cart.add(req.item); return view('cart', cart); }\n" +
+        "// View: renders the model, no business logic\n" +
+        "// <h1>Total: {{cart.total}}</h1>\n" +
+        "// MVVM/MVP are variants differing in how the view binds to state."
+    },
+    {
+      title: "Example 4 (edge case): fat controllers and logic leaking into views",
+      description: "<p>The common failure is business logic creeping into controllers or views instead of the model.</p>",
+      code: "// Fat controller: pricing/validation/DB logic crammed into the controller ->\n" +
+        "//   untestable, duplicated. Keep controllers THIN; push rules into the model/services.\n" +
+        "// Logic in the view: <if user.age>=18 && !banned> in the template -> move to the\n" +
+        "//   model (canVote()). Views should only DISPLAY.\n" +
+        "// MVC organizes the UI layer; it is NOT your whole app architecture - the model\n" +
+        "//   still needs proper domain/layering behind it."
     }
   ],
   whenToUse: "<p>Use MVC (or MVP/MVVM) for essentially any application with a user interface &mdash; it's the " +
@@ -3302,6 +4792,25 @@ C["microkernel"] = {
         "  execute: ctx => checkSpelling(ctx.text),\n" +
         "};\n" +
         "editor.register(spellCheckPlugin); // core untouched, feature added"
+    },
+    {
+      title: "Example 3: minimal core + plug-ins",
+      description: "<p>A small stable core provides the base, and features are added as plug-ins through a defined extension contract.</p>",
+      code: "// core knows nothing about specific features:\n" +
+        "interface Plugin { name: string; activate(ctx: CoreApi): void; }\n" +
+        "core.register(new MarkdownPlugin());\n" +
+        "core.register(new GitPlugin());\n" +
+        "// e.g. VS Code, Eclipse, browsers, Jenkins - tiny core, ecosystem of plugins.\n" +
+        "// new capabilities ship WITHOUT touching the core."
+    },
+    {
+      title: "Example 4 (edge case): the plug-in API is a hard contract; plugins can break the core",
+      description: "<p>The extension interface must be stable and well-versioned, and untrusted/buggy plugins can crash or compromise the host.</p>",
+      code: "// Change the plug-in API -> every plugin breaks -> treat it as a public contract\n" +
+        "//   (semver, deprecation windows). Designing the right extension points is HARD.\n" +
+        "// A buggy plugin can crash the host, or a malicious one can abuse core access ->\n" +
+        "//   sandbox/limit plugin permissions, isolate failures.\n" +
+        "// Overkill if you don't actually need third-party/dynamic extensibility."
     }
   ],
   whenToUse: "<p>Choose a microkernel when extensibility and customization are central requirements &mdash; " +
@@ -3346,6 +4855,24 @@ C["blackboard-pattern"] = {
         "  return blackboard.text;\n" +
         "}\n" +
         "// The answer is built up cooperatively, not by one linear algorithm."
+    },
+    {
+      title: "Example 3: specialists collaborate via a shared knowledge space",
+      description: "<p>Independent components ('knowledge sources') read and write partial results to a shared blackboard until a solution emerges.</p>",
+      code: "// blackboard = shared evolving state; a control loop picks which expert runs next\n" +
+        "// speech recognition: signal -> phoneme -> word -> phrase experts each contribute\n" +
+        "//   partial hypotheses to the blackboard, refining until confident.\n" +
+        "// used for AI/perception, sensor fusion, complex planning - no single algorithm\n" +
+        "//   solves it, so many cooperate opportunistically."
+    },
+    {
+      title: "Example 4 (edge case): rarely the right fit - and hard to control/debug",
+      description: "<p>The shared mutable state and non-deterministic control make blackboard systems complex; most problems have better-structured solutions.</p>",
+      code: "// Shared mutable blackboard + many writers -> concurrency + hard-to-reproduce runs\n" +
+        "//   (the order experts fire is opportunistic, not fixed).\n" +
+        "// Termination ('are we done?') and conflict resolution are genuinely tricky.\n" +
+        "// Use ONLY for ill-structured problems with no deterministic algorithm. For\n" +
+        "//   well-defined workflows, pipelines/state machines are far simpler and clearer."
     }
   ],
   whenToUse: "<p>The blackboard pattern fits genuinely hard, ill-structured problems where no single algorithm " +
@@ -3387,6 +4914,27 @@ C["serverless-architecture"] = {
         "//                                            -> [Lambda: process] -> [DynamoDB]\n" +
         "//   [S3 upload event] -> [Lambda: generate thumbnail]\n" +
         "// You write the functions; the provider runs and scales the rest."
+    },
+    {
+      title: "Example 3: functions triggered by events, scale-to-zero",
+      description: "<p>You deploy functions; the platform runs and scales them per-request and bills only for execution.</p>",
+      code: "// no server to manage; triggered by an event\n" +
+        "export async function handler(event) {     // e.g. AWS Lambda\n" +
+        "  const img = await s3.get(event.key);\n" +
+        "  return resize(img);\n" +
+        "}\n" +
+        "// triggers: HTTP, queue message, file upload, cron. Idle = $0 (scale to zero);\n" +
+        "//   a burst spins up many instances automatically."
+    },
+    {
+      title: "Example 4 (edge case): cold starts, statelessness, and limits",
+      description: "<p>Serverless trades ops for constraints - cold-start latency, no in-memory state, execution time/size limits, and potential vendor lock-in.</p>",
+      code: "// Cold start: an idle function pays startup latency on the next call -> bad for\n" +
+        "//   latency-critical paths (mitigate with provisioned concurrency).\n" +
+        "// Stateless: no in-memory state survives between invocations -> push state to a\n" +
+        "//   DB/cache; connection pooling to a DB is awkward (use a proxy).\n" +
+        "// Limits: max duration/memory/payload; long jobs don't fit. Steady high traffic\n" +
+        "//   can also cost MORE than a always-on server. Great for spiky/event/glue work."
     }
   ],
   whenToUse: "<p>Serverless shines for event-driven and spiky workloads, glue/integration code, scheduled " +
@@ -3426,6 +4974,25 @@ C["soa"] = {
         "\n" +
         "// Microservices: many small services, decentralized, own databases\n" +
         "//   [order-svc] -> [payment-svc]   [inventory-svc]   (no central bus)"
+    },
+    {
+      title: "Example 3: coarse-grained, reusable enterprise services",
+      description: "<p>SOA organizes business capabilities as shared services, often integrated via an enterprise service bus (ESB).</p>",
+      code: "// reusable business services consumed by many apps:\n" +
+        "//   CustomerService, BillingService, InventoryService\n" +
+        "//   apps + partners call them via standardized contracts (historically SOAP/WSDL)\n" +
+        "// often routed/transformed through an ESB that handles mediation + integration.\n" +
+        "// goal: reuse + integrate many existing enterprise systems."
+    },
+    {
+      title: "Example 4 (edge case): the ESB bottleneck; SOA vs microservices",
+      description: "<p>A central ESB can become a complex, coupling chokepoint - a key reason microservices favor 'smart endpoints, dumb pipes'.</p>",
+      code: "// Heavy ESB doing routing + transformation + orchestration -> a complex central\n" +
+        "//   component everything depends on (deploy bottleneck, single team owns it).\n" +
+        "// Microservices reacted to this: keep the pipes DUMB (just messaging/HTTP), put\n" +
+        "//   logic in the services. Microservices are often called 'SOA done right' -\n" +
+        "//   finer-grained, independently deployable, no central bus.\n" +
+        "// SOA-style still fits big-enterprise integration of legacy systems."
     }
   ],
   whenToUse: "<p>SOA-style thinking fits large enterprises integrating many existing systems and wanting " +
@@ -3471,6 +5038,25 @@ C["event-sourcing"] = {
         "    .reduce((bal, e) => e.type === 'Deposited' ? bal + e.amount : bal - e.amount, 0);\n" +
         "}\n" +
         "// You get a complete, immutable audit log as an inherent property."
+    },
+    {
+      title: "Example 3: append events, derive state by replaying them",
+      description: "<p>The event log is the source of truth; current state is computed by folding events.</p>",
+      code: "// store WHAT HAPPENED (immutable, append-only):\n" +
+        "//   AccountOpened, Deposited(100), Withdrew(30)\n" +
+        "// current balance = reduce(events) = 70\n" +
+        "// gains: full audit trail, time-travel ('state as of date X'), new read models\n" +
+        "//   rebuilt by replaying history. Pairs naturally with CQRS."
+    },
+    {
+      title: "Example 4 (edge case): schema evolution, GDPR, and replay cost",
+      description: "<p>Immutable events make changing event shape, deleting data, and rebuilding state genuinely hard.</p>",
+      code: "// Can't edit past events -> version event schemas + upcast old ones on read.\n" +
+        "// 'Right to be forgotten' vs an immutable log -> crypto-shredding (delete the key)\n" +
+        "//   or tombstones.\n" +
+        "// Replaying millions of events is slow -> periodic SNAPSHOTS + replay only the tail.\n" +
+        "// Big complexity jump - use only when history/audit IS the requirement, not for\n" +
+        "//   ordinary CRUD."
     }
   ],
   whenToUse: "<p>Event sourcing is valuable when history itself is a first-class requirement: domains needing " +
@@ -3521,6 +5107,25 @@ C["enterprise-patterns"] = {
         "//   uow.registerDirty(order);   // track the change\n" +
         "//   uow.commit();               // one transaction, mapper writes the rows\n" +
         "// These PoEAA patterns are exactly what ORMs implement internally."
+    },
+    {
+      title: "Example 3: the enterprise application patterns (Fowler's PoEAA)",
+      description: "<p>A catalog of solutions for typical business apps: organizing domain logic, data access, and distribution.</p>",
+      code: "// domain logic:   Transaction Script | Table Module | Domain Model\n" +
+        "// data access:    Active Record | Data Mapper | Repository | Unit of Work\n" +
+        "// presentation:   MVC | Page Controller | Front Controller\n" +
+        "// distribution:   DTO | Remote Facade\n" +
+        "// pick the organizing pattern by how COMPLEX the domain logic is."
+    },
+    {
+      title: "Example 4 (edge case): match the pattern to the complexity",
+      description: "<p>The big lever is domain-logic complexity: simple apps want Transaction Script/Active Record; rich domains want Domain Model + Data Mapper.</p>",
+      code: "// Simple CRUD: Domain Model + Data Mapper + Repository = needless ceremony ->\n" +
+        "//   Transaction Script or Active Record is faster and clearer.\n" +
+        "// Rich rules: Transaction Script becomes a tangle of duplicated logic -> a\n" +
+        "//   Domain Model pays off.\n" +
+        "// Don't pick the 'fanciest' pattern; pick the one whose cost matches the domain.\n" +
+        "//   Many of these also overlap with DDD building blocks."
     }
   ],
   whenToUse: "<p>These patterns are the toolbox for typical line-of-business applications &mdash; CRUD-heavy " +
@@ -3562,6 +5167,27 @@ C["transaction-script"] = {
         "//   previewOrder(): if (customer.tier === 'gold') total *= 0.9;\n" +
         "//   quoteOrder():   if (customer.tier === 'gold') total *= 0.9;\n" +
         "// Duplication drifts and bugs creep in -> a sign to move to a Domain Model."
+    },
+    {
+      title: "Example 3: one procedure per business transaction",
+      description: "<p>Each request is handled by a single straightforward procedure - get input, do the steps, save - no domain model.</p>",
+      code: "function transferFunds(fromId, toId, amount) {\n" +
+        "  const from = db.getAccount(fromId);\n" +
+        "  const to   = db.getAccount(toId);\n" +
+        "  if (from.balance < amount) throw new Error('insufficient');\n" +
+        "  db.update(fromId, from.balance - amount);\n" +
+        "  db.update(toId,   to.balance + amount);\n" +
+        "}\n" +
+        "// dead simple, easy to read for ONE operation."
+    },
+    {
+      title: "Example 4 (edge case): duplication as logic grows",
+      description: "<p>Transaction Script doesn't scale with complexity - shared rules get copy-pasted across scripts, drifting apart.</p>",
+      code: "// the 'insufficient funds' + currency + fee rules reappear in transfer, withdraw,\n" +
+        "//   payBill, refund ... -> duplicated logic that drifts when one copy changes.\n" +
+        "// When you see this, it's the signal to refactor toward a Domain Model (put the\n" +
+        "//   rules ON the Account). Transaction Script is RIGHT for genuinely simple, few-rule\n" +
+        "//   operations; it's a trap when the domain is actually rich."
     }
   ],
   whenToUse: "<p>Transaction Script is the right, pragmatic choice for applications with <strong>simple " +
@@ -3602,6 +5228,25 @@ C["message-queues-streams"] = {
         "//     analytics  reads from offset 0  (full history)\n" +
         "//     fraud-svc  reads from offset 3  (recent only)\n" +
         "// A NEW consumer can replay from the beginning - events aren't deleted on read."
+    },
+    {
+      title: "Example 3: queue (consume-once) vs stream (replayable log)",
+      description: "<p>A queue distributes discrete jobs to one consumer each; a stream is a retained, replayable log many consumers read at their own offset.</p>",
+      code: "// Queue (RabbitMQ/SQS): each message handled by ONE worker, then removed\n" +
+        "//   -> task distribution, work smoothing.\n" +
+        "// Stream (Kafka/Kinesis): messages RETAINED; each consumer group reads at its\n" +
+        "//   own offset, can replay from any point\n" +
+        "//   -> event log, multiple independent consumers, reprocessing/replay."
+    },
+    {
+      title: "Example 4 (edge case): delivery, ordering, and retention",
+      description: "<p>Both are at-least-once and order only within a partition; streams add retention/replay (and disk) considerations.</p>",
+      code: "// at-least-once -> consumers must be idempotent (dedupe by id).\n" +
+        "// order is per-partition/queue only -> partition by entity key to keep an\n" +
+        "//   entity's events ordered.\n" +
+        "// streams retain data for a window (size/time) -> set retention so late/replaying\n" +
+        "//   consumers can still read, but disk doesn't grow forever. Pick queue for\n" +
+        "//   'do this once', stream for 'many readers / replay history'."
     }
   ],
   whenToUse: "<p>Use a <strong>queue</strong> for distributing discrete work, smoothing bursts, and offloading " +
@@ -3651,6 +5296,26 @@ C["commands-queries"] = {
         "// CQRS lets each side use the model/storage that suits it, e.g.:\n" +
         "//   write -> Postgres (normalized)   read -> Elasticsearch (search-optimized)\n" +
         "// kept in sync via events (eventual consistency)."
+    },
+    {
+      title: "Example 3: separate the write path from the read path",
+      description: "<p>Even lightweight separation - distinct commands (change state) and queries (return data) - clarifies intent and enables independent optimization.</p>",
+      code: "// Commands: validate + change state, return little/nothing\n" +
+        "placeOrder(cmd);  cancelOrder(cmd);\n" +
+        "// Queries: read-optimized, no side effects, can hit replicas/denormalized views\n" +
+        "getOrderSummary(id);  searchOrders(filter);\n" +
+        "// the two paths can use different models/stores (full CQRS) or just different\n" +
+        "//   methods/services (lightweight)."
+    },
+    {
+      title: "Example 4 (edge case): don't jump to full separate-store CQRS",
+      description: "<p>Lightweight command/query separation is cheap and almost always good; separate read/write databases add eventual consistency you may not want.</p>",
+      code: "// Lightweight (different methods/services): safe default, low cost.\n" +
+        "// Full CQRS (separate write DB + read DB synced by events): the read side LAGS ->\n" +
+        "//   a user may not immediately see their own write -> UX must handle it, plus you\n" +
+        "//   operate two stores + a sync pipeline.\n" +
+        "// Start lightweight; adopt separate stores only when read/write scaling genuinely\n" +
+        "//   diverges."
     }
   ],
   whenToUse: "<p>Lightweight command/query separation (different methods/services for reads vs writes) is " +
@@ -3694,6 +5359,25 @@ C["orms"] = {
         "}\n" +
         "// Fix: eager-load / join up front\n" +
         "const orders2 = await orderRepo.findAll({ include: ['customer'] }); // 1 query"
+    },
+    {
+      title: "Example 3: objects mapped to tables, queries in code",
+      description: "<p>An ORM maps classes to tables and lets you query with objects instead of raw SQL, removing boilerplate.</p>",
+      code: "// declarative mapping + object query, no hand-written SQL/result parsing:\n" +
+        "const user = await userRepo.findOne({ where: { email } });\n" +
+        "user.name = 'Sam';\n" +
+        "await userRepo.save(user);   // ORM generates the UPDATE\n" +
+        "// also handles relations, change tracking, migrations - big productivity win for CRUD."
+    },
+    {
+      title: "Example 4 (edge case): N+1 queries and the leaky abstraction",
+      description: "<p>ORMs hide SQL until performance bites - N+1 selects, surprise lazy loads, and inefficient generated queries.</p>",
+      code: "// N+1: loop over orders, touch order.customer (lazy) -> 1 + N queries.\n" +
+        "//   Fix: eager fetch / join: repo.find({ relations: ['customer'] }).\n" +
+        "// The ORM 'lets you ignore SQL' until a slow page forces you to read the generated\n" +
+        "//   queries anyway -> learn to log + inspect them.\n" +
+        "// For complex reports/analytics, drop to raw SQL or a query builder; ORMs are for\n" +
+        "//   CRUD, not every query."
     }
   ],
   whenToUse: "<p>Use an ORM for typical applications with lots of standard CRUD against a relational database " +

@@ -21,6 +21,25 @@ C["what-are-apis"] = {
       title: "Example 2: APIs as contracts/abstraction",
       description: "<p>The interface is stable; the implementation can change.</p>",
       code: "// The API promises: POST /orders { items } -> 201 { orderId }\n// Behind it, the server can change databases, languages, or logic\n//   without breaking clients, as long as the contract holds."
+    },
+    {
+      title: "Example 3: the API is the contract many clients depend on",
+      description: "<p>Once published, the request/response shape is a commitment - changing it breaks every consumer.</p>",
+      code: "// Published contract: GET /products/:id -> { id, name, price }\n" +
+        "// Breaking change (renaming a field) silently breaks ALL clients:\n" +
+        "//   { id, title, price }   // clients reading .name now get undefined\n" +
+        "// Non-breaking (additive) change is safe:\n" +
+        "//   { id, name, price, currency }   // old clients ignore the new field"
+    },
+    {
+      title: "Example 4 (edge case): APIs come in many styles, not just REST/HTTP",
+      description: "<p>'API' is broader than web REST - the same contract idea spans libraries, RPC, GraphQL, and events.</p>",
+      code: "// web REST:   GET /products/42 -> JSON\n" +
+        "// GraphQL:    one endpoint, client-specified query\n" +
+        "// gRPC:       typed RPC over HTTP/2 (internal services)\n" +
+        "// library:    add(a, b) - a programmatic interface, no network\n" +
+        "// event/async: publish 'OrderPlaced' -> consumers react\n" +
+        "// the design principles (clear contract, stable, versioned) apply to all."
     }
   ],
   whenToUse: "<p>APIs exist wherever software integrates &mdash; front-end to back-end, service to service, " +
@@ -46,6 +65,24 @@ C["learn-the-basics"] = {
       title: "Example 2: Client-server with JSON",
       description: "<p>The common shape of a modern web API exchange.</p>",
       code: "// Client (browser/mobile/service) <--HTTP/JSON--> Server (API)\n// JSON is the dominant data format:\n//   { \"user\": { \"id\": 7, \"name\": \"Sam\" } }"
+    },
+    {
+      title: "Example 3: the request/response cycle these basics underpin",
+      description: "<p>Every API design choice traces back to how the web actually moves a request from client to server and back.</p>",
+      code: "// DNS:  api.example.com -> 93.184.216.34\n" +
+        "// TCP+TLS: open a secure connection to that IP:443\n" +
+        "// HTTP: GET /products/42  Host: api.example.com  Authorization: Bearer ...\n" +
+        "// server -> 200 OK  Content-Type: application/json  { ... }\n" +
+        "// REST resources, status codes, headers, caching all sit ON this cycle."
+    },
+    {
+      title: "Example 4 (edge case): these layers leak into your API decisions",
+      description: "<p>The 'basics' aren't trivia - they explain real API behavior (timeouts, caching, CORS, payload limits).</p>",
+      code: "// connection setup cost (TCP+TLS handshakes) -> reuse connections / HTTP keep-alive\n" +
+        "// DNS TTLs -> why a failover/IP change isn't instant\n" +
+        "// HTTP caching headers -> why some responses are stale\n" +
+        "// the browser's same-origin policy -> why you need CORS\n" +
+        "// understanding the stack turns 'mysterious bug' into 'expected behavior'."
     }
   ],
   whenToUse: "<p>Master these basics first &mdash; nearly every API design choice (REST resources, status codes, " +
@@ -70,6 +107,24 @@ C["understand-tcp-ip"] = {
       title: "Example 2: TCP reliability vs UDP speed",
       description: "<p>Why most APIs use TCP.</p>",
       code: "// TCP: connection setup + guaranteed, ordered delivery (retransmits loss)\n//   -> correct but adds latency (handshake, acks)\n// UDP: fire-and-forget, no guarantees -> fast (used for real-time media)\n// APIs need correctness -> TCP/HTTP (or HTTP/3 which uses QUIC over UDP)."
+    },
+    {
+      title: "Example 3: connection setup cost and keep-alive",
+      description: "<p>Each new TCP (+TLS) connection costs round-trips; reusing connections is a major API performance lever.</p>",
+      code: "// cold connection: TCP handshake (1 RTT) + TLS handshake (1-2 RTT) BEFORE any data\n" +
+        "//   -> a new connection PER request is brutal for latency.\n" +
+        "// HTTP keep-alive / connection pooling reuses the established connection:\n" +
+        "//   client keeps a pool of warm connections -> subsequent requests skip handshakes.\n" +
+        "// this is why you reuse ONE HttpClient, not new-one-per-request."
+    },
+    {
+      title: "Example 4 (edge case): TCP guarantees come with head-of-line blocking",
+      description: "<p>TCP's in-order, reliable delivery means one lost packet stalls everything behind it - the reason HTTP/3 moved to UDP/QUIC.</p>",
+      code: "// a single dropped packet -> TCP holds back all later bytes until it's resent\n" +
+        "//   (head-of-line blocking), stalling even unrelated HTTP/2 streams on that conn.\n" +
+        "// HTTP/3 (QUIC over UDP) gives independent streams -> no TCP-level HOL blocking.\n" +
+        "// also: TCP adds latency/overhead vs UDP -> real-time/loss-tolerant flows (video,\n" +
+        "//   games) sometimes prefer UDP, accepting loss for speed."
     }
   ],
   whenToUse: "<p>Understanding TCP/IP helps you reason about API performance and reliability &mdash; connection " +
@@ -94,6 +149,24 @@ C["basics-of-dns"] = {
       title: "Example 2: DNS for routing & failover",
       description: "<p>Records can direct traffic and reroute on failure.</p>",
       code: "// Managed DNS (e.g. Route 53) policies:\n//   - latency/geo routing -> nearest region\n//   - weighted -> split traffic\n//   - health-checked failover -> route away from a down endpoint\n// (Failover via DNS is slow due to TTL caching.)"
+    },
+    {
+      title: "Example 3: DNS for hosting, routing, and failover",
+      description: "<p>Beyond name resolution, DNS records and policies route API traffic.</p>",
+      code: "// A/AAAA   api.example.com -> IP(s)\n" +
+        "// CNAME    api.example.com -> your-lb.cloudprovider.net\n" +
+        "// GeoDNS   return the nearest region's IP by resolver location\n" +
+        "// weighted/failover: shift % of traffic, or drop a dead endpoint via health checks\n" +
+        "// this is how custom domains + multi-region API routing are wired up."
+    },
+    {
+      title: "Example 4 (edge case): TTL caching delays DNS changes",
+      description: "<p>DNS is heavily cached by TTL, so an IP/failover change doesn't take effect everywhere immediately - don't rely on DNS alone for fast failover.</p>",
+      code: "// record TTL=3600 -> resolvers cache the old IP for up to an hour (some ignore TTL).\n" +
+        "// you migrate/failover -> clients keep hitting the OLD IP until caches expire.\n" +
+        "// mitigation: LOWER the TTL (e.g. 60s) BEFORE a planned change; for instant\n" +
+        "//   failover use a load balancer / anycast IP, not DNS swaps.\n" +
+        "// first-lookup latency also adds up -> connection reuse + caching help."
     }
   ],
   whenToUse: "<p>DNS knowledge matters for API hosting, custom domains, multi-region routing, and diagnosing " +
@@ -122,6 +195,30 @@ C["http"] = {
       title: "Example 2: Statelessness",
       description: "<p>Each request must carry its own context.</p>",
       code: "// The server keeps no per-connection memory between requests.\n// Identity travels in each request (token/cookie), not a session\n//   the connection 'remembers'. This enables horizontal scaling."
+    },
+    {
+      title: "Example 3: anatomy of an HTTP request and response",
+      description: "<p>An API call is a request line + headers + optional body, answered by a status line + headers + body.</p>",
+      code: "// REQUEST\n" +
+        "POST /orders HTTP/1.1\n" +
+        "Host: api.example.com\n" +
+        "Authorization: Bearer eyJ...\n" +
+        "Content-Type: application/json\n" +
+        "\n" +
+        "{ \"items\": [42] }\n" +
+        "// RESPONSE\n" +
+        "HTTP/1.1 201 Created\n" +
+        "Location: /orders/1001\n" +
+        "{ \"orderId\": 1001 }"
+    },
+    {
+      title: "Example 4 (edge case): HTTP is stateless - design around it",
+      description: "<p>Each request is independent; the server remembers nothing between them unless you carry state (token/cookie) - a common source of confusion.</p>",
+      code: "// the server does NOT 'remember' you between requests -> every request must carry\n" +
+        "//   its own auth (Authorization header / session cookie).\n" +
+        "// 'logged in' = the client re-presents a token each time, not server memory.\n" +
+        "// statelessness is what lets you scale horizontally (any instance handles any\n" +
+        "//   request) - so keep session state in a token or a shared store, not in-process."
     }
   ],
   whenToUse: "<p>HTTP is the foundation of web API design &mdash; use its semantics correctly: appropriate " +
@@ -146,6 +243,24 @@ C["http-versions"] = {
       title: "Example 2: Practical impact",
       description: "<p>Mostly automatic; enable at the server/CDN.</p>",
       code: "// You usually enable HTTP/2 or HTTP/3 at the server/load balancer/CDN.\n// Clients and your API code largely don't change - the benefits\n//   (multiplexing, less latency) come 'for free' once enabled."
+    },
+    {
+      title: "Example 3: what each version improved",
+      description: "<p>Each HTTP version mainly attacked latency/concurrency limits of the previous one.</p>",
+      code: "// HTTP/1.1: text protocol, one request at a time per connection (browsers open ~6)\n" +
+        "//   -> head-of-line blocking; needs many connections.\n" +
+        "// HTTP/2:   binary, MULTIPLEXED streams over ONE connection + header compression\n" +
+        "//   -> many concurrent requests, but still TCP-level HOL on packet loss.\n" +
+        "// HTTP/3:   over QUIC (UDP) -> independent streams, faster handshakes, no TCP HOL."
+    },
+    {
+      title: "Example 4 (edge case): HTTP/2 doesn't fix application-level mistakes",
+      description: "<p>Multiplexing removed the need for old HTTP/1 hacks - keeping them can hurt - and version is negotiated, not guaranteed.</p>",
+      code: "// HTTP/1 era hacks become ANTI-patterns on HTTP/2:\n" +
+        "//   domain sharding + concatenating files -> unnecessary, can hurt caching/multiplex.\n" +
+        "// Version is negotiated (ALPN) -> a client/proxy may still fall back to HTTP/1.1,\n" +
+        "//   so don't ASSUME h2/h3; test the actual negotiated version.\n" +
+        "// And no version fixes an N+1 chatty API or huge payloads - design still matters."
     }
   ],
   whenToUse: "<p>Enable HTTP/2 (and HTTP/3 where supported) at your server/CDN for better performance, " +
@@ -172,6 +287,25 @@ C["http-methods"] = {
       title: "Example 2: Safe and idempotent properties",
       description: "<p>Properties that matter for caching/retries.</p>",
       code: "// Safe (no side effects): GET, HEAD, OPTIONS -> cacheable, prefetchable\n// Idempotent (same result if repeated): GET, PUT, DELETE, HEAD\n//   -> safe to retry on network failure\n// POST is neither -> retrying may create duplicates (use idempotency keys)."
+    },
+    {
+      title: "Example 3: safe vs idempotent methods (and why it matters)",
+      description: "<p>Method semantics drive caching, prefetching, and safe client retries.</p>",
+      code: "// SAFE (no side effects): GET, HEAD, OPTIONS  -> cacheable, prefetchable\n" +
+        "// IDEMPOTENT (same result if repeated): GET, PUT, DELETE, HEAD\n" +
+        "//   -> safe for clients/proxies to RETRY on timeout\n" +
+        "// NOT idempotent: POST, PATCH(usually)\n" +
+        "//   -> retrying may create duplicates -> needs an idempotency key\n" +
+        "// PUT /users/5 {full object} == replace (idempotent); POST /users == create (not)."
+    },
+    {
+      title: "Example 4 (edge case): PUT vs PATCH, and never mutate on GET",
+      description: "<p>PUT replaces the whole resource while PATCH updates part - confusing them wipes fields; and state changes on GET are a classic bug.</p>",
+      code: "// PUT replaces the ENTIRE resource -> omitted fields may be cleared:\n" +
+        "//   PUT /users/5 { name:'Sam' }  -> email/role may be wiped if not included\n" +
+        "// PATCH updates only what's sent:\n" +
+        "//   PATCH /users/5 { name:'Sam' }  -> other fields untouched\n" +
+        "// NEVER do state changes on GET (GET /delete?id=5) -> prefetch/cache/CSRF triggers it."
     }
   ],
   whenToUse: "<p>Choose the method that matches the operation's semantics &mdash; it's fundamental to RESTful " +
@@ -198,6 +332,26 @@ C["http-status-codes"] = {
       title: "Example 2: 401 vs 403, 400 vs 422",
       description: "<p>Subtle but important distinctions.</p>",
       code: "// 401 = WHO are you? (missing/invalid credentials)\n// 403 = I know who you are, but you CAN'T do this\n// 400 = the request is malformed (bad syntax)\n// 422 = syntax ok, but semantically invalid (validation failed)"
+    },
+    {
+      title: "Example 3: the status code families and common members",
+      description: "<p>Codes are grouped by class; clients branch on them (success, redirect, fix-your-request, server error).</p>",
+      code: "// 2xx success:   200 OK, 201 Created (+Location), 204 No Content\n" +
+        "// 3xx redirect:  301 Moved, 304 Not Modified (caching)\n" +
+        "// 4xx client:    400 bad, 401 unauthenticated, 403 forbidden, 404 not found,\n" +
+        "//                409 conflict, 422 validation, 429 rate limited\n" +
+        "// 5xx server:    500 internal, 502/503/504 upstream/unavailable/timeout\n" +
+        "// rule: 4xx = client must change the request; 5xx = server's fault (may retry)."
+    },
+    {
+      title: "Example 4 (edge case): the '200 OK with an error inside' anti-pattern",
+      description: "<p>Returning 200 for failures breaks clients, caches, and monitoring that rely on the status line.</p>",
+      code: "// WRONG: HTTP 200 { \"success\": false, \"error\": \"not found\" }\n" +
+        "//   -> caches cache the 'error', client retry logic thinks it succeeded,\n" +
+        "//      dashboards show 0% error rate during an outage.\n" +
+        "// RIGHT: use the real code -> 404 + a problem body.\n" +
+        "// Also: don't overuse 200 for created (use 201) or misuse 401 (auth) vs 403\n" +
+        "//   (authorized-but-forbidden) - clients react differently (re-login vs give up)."
     }
   ],
   whenToUse: "<p>Return accurate status codes on every response &mdash; clients, caches, and tooling rely on " +
@@ -224,6 +378,30 @@ C["http-headers"] = {
       title: "Example 2: Security headers",
       description: "<p>Headers that harden responses.</p>",
       code: "Strict-Transport-Security: max-age=31536000  // force HTTPS\nX-Content-Type-Options: nosniff               // no MIME sniffing\nContent-Security-Policy: default-src 'self'   // restrict content sources"
+    },
+    {
+      title: "Example 3: the headers an API uses constantly",
+      description: "<p>Headers carry metadata: auth, content type, caching, and negotiation.</p>",
+      code: "// request\n" +
+        "Authorization: Bearer eyJ...\n" +
+        "Content-Type: application/json     // what I'm sending\n" +
+        "Accept: application/json           // what I want back\n" +
+        "If-None-Match: \"abc123\"            // conditional GET (caching)\n" +
+        "// response\n" +
+        "Content-Type: application/json\n" +
+        "Cache-Control: max-age=60\n" +
+        "ETag: \"abc123\"                     // version tag for caching\n" +
+        "X-RateLimit-Remaining: 99"
+    },
+    {
+      title: "Example 4 (edge case): custom headers, case, and trusting forwarded values",
+      description: "<p>Header names are case-insensitive, the <code>X-</code> prefix is deprecated, and proxy-set headers can be spoofed.</p>",
+      code: "// case-insensitive: Content-Type == content-type (don't rely on exact case).\n" +
+        "// X- prefix for custom headers is DEPRECATED (RFC 6648) -> use a plain name\n" +
+        "//   (e.g. 'Idempotency-Key', not 'X-Idempotency-Key').\n" +
+        "// SECURITY: never blindly trust X-Forwarded-For / X-User-Id -> a client can set\n" +
+        "//   them unless your trusted proxy overwrites them. Only trust forwarded headers\n" +
+        "//   set by infrastructure you control."
     }
   ],
   whenToUse: "<p>Use headers for content negotiation, auth, caching, CORS, and security on every API. " +
@@ -249,6 +427,26 @@ C["cookies"] = {
       title: "Example 2: Cookies vs token headers",
       description: "<p>Different storage/transport for credentials.</p>",
       code: "// Cookies: sent automatically by the browser -> convenient, but need\n//   CSRF protection (SameSite, CSRF tokens).\n// Bearer tokens (Authorization header): not auto-sent -> no CSRF, but\n//   vulnerable to XSS if stored in localStorage. Trade-offs both ways."
+    },
+    {
+      title: "Example 3: secure cookie attributes",
+      description: "<p>The security of a session cookie lives in its flags - set them all.</p>",
+      code: "Set-Cookie: session=abc123;\n" +
+        "  HttpOnly;        // JS (and XSS) can't read it\n" +
+        "  Secure;          // sent only over HTTPS\n" +
+        "  SameSite=Lax;    // not sent on most cross-site requests (CSRF defense)\n" +
+        "  Path=/; Max-Age=3600\n" +
+        "// the browser then attaches it automatically on requests to your domain."
+    },
+    {
+      title: "Example 4 (edge case): cookies auto-send -> CSRF; and cross-site limits",
+      description: "<p>Automatic sending is convenient but is exactly why CSRF exists; and SameSite/third-party rules complicate cross-origin APIs.</p>",
+      code: "// Auto-attach means a malicious site can trigger an authenticated request\n" +
+        "//   (CSRF) -> defend with SameSite + a CSRF token for state-changing requests.\n" +
+        "// SameSite=Strict can break legit cross-site flows (links from email); Lax is\n" +
+        "//   the usual balance. Third-party cookies are increasingly BLOCKED by browsers.\n" +
+        "// For cross-origin SPAs/mobile, token-in-header auth is often simpler than cookies\n" +
+        "//   (no CSRF, but then guard the token against XSS)."
     }
   ],
   whenToUse: "<p>Use cookies for session-based auth in traditional browser apps. <strong>Gotchas:</strong> " +
@@ -275,6 +473,29 @@ C["cors"] = {
       title: "Example 2: Preflight request",
       description: "<p>The browser checks before the real request.</p>",
       code: "// Browser sends first:\nOPTIONS /api/data\nOrigin: https://app.example.com\nAccess-Control-Request-Method: POST\n// Server must respond with the matching Allow-* headers\n//   before the browser sends the actual POST."
+    },
+    {
+      title: "Example 3: a preflight + the response headers that allow it",
+      description: "<p>For non-simple cross-origin requests the browser sends an OPTIONS preflight; the server must explicitly allow the origin/method/headers.</p>",
+      code: "// browser preflight:\n" +
+        "OPTIONS /orders\n" +
+        "Origin: https://app.example.com\n" +
+        "Access-Control-Request-Method: POST\n" +
+        "// server must answer:\n" +
+        "Access-Control-Allow-Origin: https://app.example.com\n" +
+        "Access-Control-Allow-Methods: POST, GET\n" +
+        "Access-Control-Allow-Headers: Content-Type, Authorization\n" +
+        "// only then does the browser send the real request."
+    },
+    {
+      title: "Example 4 (edge case): CORS is browser-enforced, and the wildcard+credentials trap",
+      description: "<p>CORS protects browsers, not your API; and <code>*</code> can't be combined with credentials.</p>",
+      code: "// CORS is enforced by the BROWSER, not the server -> curl/Postman/servers ignore\n" +
+        "//   it. It is NOT authorization; it doesn't protect your API from non-browser clients.\n" +
+        "// Invalid: Access-Control-Allow-Origin: *  WITH  Allow-Credentials: true\n" +
+        "//   -> browser rejects it. With credentials you must echo a SPECIFIC origin.\n" +
+        "// Reflecting ANY Origin back ('*'-equivalent) on a credentialed API is a security\n" +
+        "//   hole -> allow-list exact origins."
     }
   ],
   whenToUse: "<p>Configure CORS on any API called by browser front-ends hosted on a different origin. " +
@@ -302,6 +523,27 @@ C["http-caching"] = {
       title: "Example 2: Public vs private; no-store",
       description: "<p>Control who may cache and what must not be.</p>",
       code: "Cache-Control: public, max-age=3600   // CDN/proxies may cache (shared)\nCache-Control: private, max-age=60    // only the user's browser\nCache-Control: no-store               // never cache (sensitive data)"
+    },
+    {
+      title: "Example 3: Cache-Control plus conditional revalidation",
+      description: "<p>Tell caches how long a response is fresh, then revalidate cheaply with ETag/If-None-Match.</p>",
+      code: "// first response\n" +
+        "Cache-Control: public, max-age=60\n" +
+        "ETag: \"v7\"\n" +
+        "// after max-age, client revalidates instead of re-downloading:\n" +
+        "GET /products  If-None-Match: \"v7\"\n" +
+        "-> 304 Not Modified   (no body re-sent; client keeps its cached copy)\n" +
+        "// huge bandwidth saving for unchanged, frequently-fetched data."
+    },
+    {
+      title: "Example 4 (edge case): caching private or dynamic data leaks/staleness",
+      description: "<p>Caching the wrong things serves one user's data to another or shows stale results - scope caching deliberately.</p>",
+      code: "// Per-user/auth'd response at a SHARED cache (CDN/proxy) -> user B gets user A's\n" +
+        "//   data. Mark it: Cache-Control: private, no-store.\n" +
+        "// public reference data -> Cache-Control: public, max-age=...\n" +
+        "// you can't force-expire a client cache you already sent -> use versioned URLs\n" +
+        "//   (content hashes) for assets, short max-age + ETag for changeable data.\n" +
+        "// don't cache POST/responses that vary by header unless you set Vary correctly."
     }
   ],
   whenToUse: "<p>Cache cacheable GET responses (reference data, public content, expensive computations) to cut " +
@@ -329,6 +571,29 @@ C["content-negotiation"] = {
       title: "Example 2: Compression and language",
       description: "<p>Negotiate encoding and locale.</p>",
       code: "Accept-Encoding: gzip, br      -> server may gzip the response\nAccept-Language: fr, en        -> server returns French if available\n// Server signals choices: Content-Encoding: gzip; Content-Language: fr"
+    },
+    {
+      title: "Example 3: the client asks, the server picks",
+      description: "<p>Content negotiation uses Accept* request headers; the server responds with the chosen representation.</p>",
+      code: "// client:\n" +
+        "Accept: application/json\n" +
+        "Accept-Language: fr-FR, en;q=0.8\n" +
+        "Accept-Encoding: gzip, br\n" +
+        "// server picks the best match and signals it:\n" +
+        "Content-Type: application/json\n" +
+        "Content-Language: fr-FR\n" +
+        "Content-Encoding: gzip\n" +
+        "Vary: Accept, Accept-Language   // tell caches the response varies by these"
+    },
+    {
+      title: "Example 4 (edge case): forget Vary -> caches serve the wrong variant",
+      description: "<p>If a shared cache ignores the negotiated headers, one client's French/JSON response is served to a client wanting English/XML.</p>",
+      code: "// Without 'Vary: Accept-Language', a CDN caches the FR response and serves it to\n" +
+        "//   EN clients too -> wrong language for everyone after the first request.\n" +
+        "// Always set Vary on the headers you negotiated on.\n" +
+        "// Also: too many variants fragment the cache (low hit ratio). Many modern APIs\n" +
+        "//   skip negotiation and use explicit URLs (/v2/...) or ?format=json - simpler\n" +
+        "//   and cache-friendly. Negotiate only when you truly need multiple representations."
     }
   ],
   whenToUse: "<p>Use content negotiation when an API must serve multiple formats/languages/encodings from the " +
@@ -356,6 +621,26 @@ C["url-query-path-parameters"] = {
       title: "Example 2: When to use which",
       description: "<p>Required identity -> path; optional/filtering -> query.</p>",
       code: "// Path: required, hierarchical identity (which resource)\n//   /products/42\n// Query: optional, filtering/sorting/pagination/search\n//   /products?category=books&minPrice=10&limit=20"
+    },
+    {
+      title: "Example 3: path for identity, query for modifiers",
+      description: "<p>Path segments identify the resource; query params filter/sort/paginate it.</p>",
+      code: "// path = WHICH resource (identity + hierarchy)\n" +
+        "GET /users/42/orders/1001\n" +
+        "// query = HOW to shape the result (filter/sort/paginate/search)\n" +
+        "GET /orders?status=open&sort=-createdAt&page=2&limit=20\n" +
+        "// don't encode identity in the query (GET /order?id=1001 is less RESTful than\n" +
+        "//   /orders/1001), and don't put filters in the path."
+    },
+    {
+      title: "Example 4 (edge case): never put sensitive data in the URL; encode special chars",
+      description: "<p>Query/path values land in logs, history, and Referer headers, and unencoded characters break parsing.</p>",
+      code: "// BAD: /search?token=SECRET or /users?ssn=123-45-6789\n" +
+        "//   -> URLs are logged everywhere + leak via Referer. Put secrets in headers/body.\n" +
+        "// Encode special characters: a space/&/? in a value must be percent-encoded\n" +
+        "//   /search?q=tom%20%26%20jerry   (raw '&' would be parsed as a new param)\n" +
+        "// also beware overly long URLs (server/proxy limits ~2-8KB) -> use a POST body\n" +
+        "//   for large/complex queries."
     }
   ],
   whenToUse: "<p>Use the <strong>path</strong> for resource identity/hierarchy and <strong>query parameters</strong> " +
@@ -384,6 +669,26 @@ C["different-api-styles"] = {
       title: "Example 2: Same operation, different styles",
       description: "<p>Fetching a user, conceptually.</p>",
       code: "// REST:    GET /users/7\n// GraphQL: query { user(id:7) { name email } }   (pick exact fields)\n// gRPC:    UserService.GetUser(GetUserRequest{id:7})  (typed RPC)"
+    },
+    {
+      title: "Example 3: the major styles and their sweet spots",
+      description: "<p>Each API style optimizes for different forces - pick by client needs and context.</p>",
+      code: "// REST     - resource-oriented HTTP; safe default for public/web APIs, cacheable\n" +
+        "// GraphQL  - client-specified queries; diverse/evolving client data needs\n" +
+        "// gRPC     - typed, binary, fast; internal service-to-service\n" +
+        "// SOAP     - heavy XML/contracts; legacy enterprise integration\n" +
+        "// JSON-RPC / simple JSON - action-oriented internal endpoints\n" +
+        "// webhooks/events - server pushes; async notifications"
+    },
+    {
+      title: "Example 4 (edge case): you can mix styles - and each has a cost",
+      description: "<p>Real systems combine styles; don't pick by hype, and remember every style carries operational baggage.</p>",
+      code: "// common mix: public REST + GraphQL gateway for the SPA + gRPC between services\n" +
+        "//   + webhooks for partner notifications.\n" +
+        "// costs: GraphQL -> server N+1, harder caching, query-cost attacks; gRPC -> not\n" +
+        "//   browser-native, binary debugging; SOAP -> verbose, tooling-heavy.\n" +
+        "// choose for the CONSUMER + team, not novelty. REST is a fine default until a\n" +
+        "//   concrete need (over-fetching, perf, streaming) justifies another style."
     }
   ],
   whenToUse: "<p>Choose the style per context: REST as a safe default for public/web APIs; GraphQL when diverse " +
@@ -410,6 +715,28 @@ C["restful-apis"] = {
       title: "Example 2: Stateless + standard status codes",
       description: "<p>Each request self-contained; HTTP semantics honored.</p>",
       code: "POST /articles -> 201 Created + Location: /articles/42\nGET /articles/999 -> 404 Not Found\n// No server-side session between calls; auth travels in each request."
+    },
+    {
+      title: "Example 3: resources + HTTP verbs, consistently",
+      description: "<p>RESTful design models nouns and uses standard verbs/status codes uniformly.</p>",
+      code: "GET    /articles            list      -> 200\n" +
+        "POST   /articles            create    -> 201 + Location\n" +
+        "GET    /articles/42         read      -> 200 / 404\n" +
+        "PUT    /articles/42         replace   -> 200/204\n" +
+        "PATCH  /articles/42         update    -> 200\n" +
+        "DELETE /articles/42         remove    -> 204\n" +
+        "// plural nouns, no verbs in URLs (/getArticle is NOT RESTful), nest for hierarchy."
+    },
+    {
+      title: "Example 4 (edge case): not everything is a resource (actions)",
+      description: "<p>Pure CRUD doesn't model verbs like 'publish' or 'search' cleanly - handle them pragmatically rather than contorting REST.</p>",
+      code: "// awkward as pure CRUD: 'publish an article', 'send', 'search'\n" +
+        "// pragmatic options:\n" +
+        "//   POST /articles/42/publish        (a sub-resource action)\n" +
+        "//   POST /articles/42:publish        (action syntax)\n" +
+        "//   model state: PATCH /articles/42 { status: 'published' }\n" +
+        "// don't twist everything into nouns; a few action endpoints are fine. Also REST's\n" +
+        "//   over/under-fetching is real -> consider GraphQL/BFF when it bites."
     }
   ],
   whenToUse: "<p>Use REST for public web APIs, CRUD services, and broad compatibility &mdash; it's the safe " +
@@ -435,6 +762,25 @@ C["simple-json-apis"] = {
       title: "Example 2: When simplicity wins",
       description: "<p>Less ceremony for internal/small APIs.</p>",
       code: "// For an internal admin tool, you don't need HATEOAS, content\n//   negotiation, or perfect REST resources - just clear JSON endpoints\n//   that do the job. Keep it consistent and documented."
+    },
+    {
+      title: "Example 3: action-oriented JSON over HTTP",
+      description: "<p>A simple JSON/RPC-style API exposes operations directly, without strict REST resource modeling.</p>",
+      code: "// not modeling resources - just calling actions:\n" +
+        "POST /api  { \"method\": \"calculateShipping\", \"params\": { \"zip\": \"1011\" } }\n" +
+        "-> 200 { \"result\": { \"cost\": 4.99 } }\n" +
+        "// or simple endpoint-per-action:\n" +
+        "POST /calculate-shipping { zip: '1011' } -> { cost: 4.99 }\n" +
+        "// fast to build for internal tools where REST ceremony adds little."
+    },
+    {
+      title: "Example 4 (edge case): it skips the conventions clients rely on",
+      description: "<p>Without REST/HTTP semantics you lose caching, standard status handling, and discoverability - fine internally, weak for public APIs.</p>",
+      code: "// everything via POST + 200 -> no HTTP caching, no method semantics, errors hidden\n" +
+        "//   in the body (200 { ok:false }) -> tooling/monitoring can't reason about it.\n" +
+        "// no standard pagination/filtering/versioning conventions -> each endpoint ad hoc.\n" +
+        "// great for internal/prototype speed; for a PUBLIC, long-lived API prefer REST\n" +
+        "//   (or a defined RPC like gRPC/JSON-RPC) so consumers get predictable behavior."
     }
   ],
   whenToUse: "<p>Use simple JSON APIs for internal tools, small services, prototypes, or RPC-style operations " +
@@ -461,6 +807,28 @@ C["soap-apis"] = {
       title: "Example 2: SOAP vs REST",
       description: "<p>Formality/features vs simplicity.</p>",
       code: "// SOAP: XML, WSDL contract, WS-Security/transactions, protocol-agnostic\n//   -> rigorous but heavyweight/verbose\n// REST: JSON, HTTP-native, lightweight, cacheable\n//   -> simpler, dominant for new web APIs"
+    },
+    {
+      title: "Example 3: XML envelope with a formal contract (WSDL)",
+      description: "<p>SOAP wraps calls in a strict XML envelope and is described by a machine-readable WSDL contract.</p>",
+      code: "POST /service  Content-Type: text/xml\n" +
+        "<soap:Envelope>\n" +
+        "  <soap:Body>\n" +
+        "    <getOrder><id>1001</id></getOrder>\n" +
+        "  </soap:Body>\n" +
+        "</soap:Envelope>\n" +
+        "// the WSDL defines operations/types -> clients are code-generated from it.\n" +
+        "// built-in WS-* standards: WS-Security, transactions, reliable messaging."
+    },
+    {
+      title: "Example 4 (edge case): verbose, heavy, and mostly legacy now",
+      description: "<p>SOAP's rigor comes with overhead; for new APIs REST/gRPC are lighter - you'll meet SOAP integrating with existing enterprise systems.</p>",
+      code: "// XML envelopes are large + slow to parse vs JSON; tooling-heavy; not browser-friendly.\n" +
+        "// SOAP also opens XML attack surface (XXE, entity expansion) -> harden the parser.\n" +
+        "// Choose SOAP almost only to integrate with EXISTING SOAP services (banking,\n" +
+        "//   telecom, gov). For new work, REST/gRPC/GraphQL are the defaults.\n" +
+        "// Its strengths (formal contracts, WS-Security, transactions) matter in regulated\n" +
+        "//   enterprise integration - rarely elsewhere."
     }
   ],
   whenToUse: "<p>You'll mostly encounter SOAP when integrating with existing enterprise/legacy systems " +
@@ -487,6 +855,29 @@ C["graphql-apis"] = {
       title: "Example 2: The N+1 resolver pitfall",
       description: "<p>Naive resolvers fire a query per item.</p>",
       code: "// 100 users + each user's company:\n//   naive: 1 + 100 queries (N+1!)\n// Fix: batch with DataLoader -> 1 + 1 batched query.\n// GraphQL needs deliberate batching/caching."
+    },
+    {
+      title: "Example 3: one endpoint, client picks the exact fields",
+      description: "<p>GraphQL eliminates over/under-fetching - the query specifies precisely the data and shape needed.</p>",
+      code: "POST /graphql\n" +
+        "query {\n" +
+        "  user(id: 42) {\n" +
+        "    name\n" +
+        "    orders(last: 3) { id total }   // related data in ONE round-trip\n" +
+        "  }\n" +
+        "}\n" +
+        "// no over-fetch (only name + those order fields), no N+1 of REST calls; strongly\n" +
+        "//   typed schema enables great tooling/introspection."
+    },
+    {
+      title: "Example 4 (edge case): the complexity moves to the server",
+      description: "<p>GraphQL solves client problems but introduces N+1 resolvers, weak HTTP caching, and query-cost DoS risk.</p>",
+      code: "// server N+1: naively resolving orders for 100 users = 1 + 100 DB queries ->\n" +
+        "//   use DataLoader (batch+cache per request).\n" +
+        "// caching: everything is POST /graphql -> simple URL/CDN caching breaks ->\n" +
+        "//   need persisted queries / response caching.\n" +
+        "// a deeply-nested query can DoS you -> enforce depth/complexity limits + timeouts.\n" +
+        "// for simple CRUD, REST is less machinery; adopt GraphQL when clients truly vary."
     }
   ],
   whenToUse: "<p>Use GraphQL when clients have diverse, evolving data needs and you want to avoid over/under-" +
@@ -514,6 +905,25 @@ C["grpc-apis"] = {
       title: "Example 2: Efficiency + streaming",
       description: "<p>Binary, multiplexed, streaming over HTTP/2.</p>",
       code: "// Protobuf binary << JSON in size + parse cost.\n// Streaming types: unary, server-stream, client-stream, bidirectional.\n// Ideal for high-throughput internal service-to-service calls."
+    },
+    {
+      title: "Example 3: contract-first Protobuf + streaming",
+      description: "<p>gRPC generates typed clients/servers from a <code>.proto</code> and supports streaming over HTTP/2.</p>",
+      code: "// orders.proto\n" +
+        "service Orders {\n" +
+        "  rpc Get(GetReq) returns (Order);           // unary\n" +
+        "  rpc Watch(WatchReq) returns (stream Order); // server streaming\n" +
+        "}\n" +
+        "// codegen gives type-safe stubs in many languages; binary Protobuf is compact +\n" +
+        "//   fast -> ideal for high-volume internal east-west traffic."
+    },
+    {
+      title: "Example 4 (edge case): not browser-native; harder to debug",
+      description: "<p>gRPC's binary HTTP/2 protocol isn't directly callable from browsers and isn't human-readable - so it's an internal, not public, choice.</p>",
+      code: "// browsers can't speak raw gRPC -> need gRPC-Web + a proxy (Envoy) to bridge.\n" +
+        "// binary payloads -> can't just curl/inspect; need grpcurl/tooling.\n" +
+        "// schema changes require regenerating + redeploying clients (tight coupling).\n" +
+        "// so: gRPC for internal services; expose REST/GraphQL at the public edge."
     }
   ],
   whenToUse: "<p>Use gRPC for internal service-to-service communication where performance, typed contracts, and " +
@@ -541,6 +951,25 @@ C["rest-principles"] = {
       title: "Example 2: Cacheability + layered system",
       description: "<p>Responses declare caching; intermediaries are transparent.</p>",
       code: "// Cacheable: responses say Cache-Control/ETag -> proxies/CDNs reuse them\n// Layered: client doesn't know if it's talking to the server directly\n//   or through a gateway/CDN/load balancer."
+    },
+    {
+      title: "Example 3: the REST constraints in practice",
+      description: "<p>REST is defined by constraints that give it scalability and evolvability.</p>",
+      code: "// statelessness: each request carries its own context (auth) -> any server handles it\n" +
+        "// uniform interface: resources + standard verbs + standard status codes\n" +
+        "// cacheability: GETs are cacheable via Cache-Control/ETag\n" +
+        "// client-server: separation of concerns; layered: proxies/gateways are transparent\n" +
+        "// these constraints are WHY REST scales horizontally and caches well."
+    },
+    {
+      title: "Example 4 (edge case): 'RESTful' is a spectrum (Richardson Maturity)",
+      description: "<p>Most APIs are pragmatically REST-ish, not textbook REST - chasing full HATEOAS purity rarely pays off.</p>",
+      code: "// Richardson maturity: L0 single endpoint -> L1 resources -> L2 verbs+status\n" +
+        "//   -> L3 hypermedia (HATEOAS).\n" +
+        "// Most real-world 'REST' APIs sit at Level 2 and that's FINE.\n" +
+        "// Common pragmatic breaks: action endpoints (/publish), non-stateless sessions.\n" +
+        "// Don't be dogmatic - the goal is a clear, consistent, evolvable API, not a purity\n" +
+        "//   badge."
     }
   ],
   whenToUse: "<p>Apply REST principles to build APIs that scale, cache, and evolve well. <strong>Gotchas:</strong> " +
@@ -566,6 +995,25 @@ C["uri-design"] = {
       title: "Example 2: Conventions",
       description: "<p>Plural, lowercase-hyphenated, query for filters.</p>",
       code: "/products                      // plural collection\n/products/42                   // specific item\n/products?category=books&sort=price   // filtering/sorting via query\n/product-categories            // lowercase + hyphens for multi-word"
+    },
+    {
+      title: "Example 3: consistent, resource-oriented URIs",
+      description: "<p>Use plural nouns, lowercase + hyphens, and nesting for hierarchy - predictable URIs aid discoverability.</p>",
+      code: "GET /users/42/orders/1001/items     // hierarchy reads naturally\n" +
+        "// conventions:\n" +
+        "//   plural nouns: /orders not /order\n" +
+        "//   no verbs: /orders/42 (+DELETE) not /deleteOrder?id=42\n" +
+        "//   lowercase + hyphens: /shipping-addresses not /shippingAddresses or /Shipping_Addresses\n" +
+        "//   query for filters: /orders?status=open&sort=-date"
+    },
+    {
+      title: "Example 4 (edge case): don't over-nest; trailing slashes; identifiers",
+      description: "<p>Deep nesting becomes rigid, and small inconsistencies (slashes, ids in the path) cause real client bugs.</p>",
+      code: "// over-nesting couples URLs to hierarchy + gets unwieldy:\n" +
+        "//   /users/42/orders/1001/items/7/reviews/3  -> prefer /reviews/3 once you have an id\n" +
+        "// trailing slash: /orders and /orders/ should not behave differently -> pick one,\n" +
+        "//   redirect the other (a frequent 404/duplicate-content trap).\n" +
+        "// use stable, opaque ids in the path; avoid exposing sequential ids (enumeration)."
     }
   ],
   whenToUse: "<p>Design URIs deliberately for any REST API &mdash; consistency aids discoverability and client " +
@@ -592,6 +1040,24 @@ C["versioning-strategies"] = {
       title: "Example 2: Avoid breaking changes when possible",
       description: "<p>Additive changes don't need a new version.</p>",
       code: "// NON-breaking (no new version): add a new optional field/endpoint\n// BREAKING (new version): remove/rename a field, change types,\n//   change required params or response structure\n// Prefer additive evolution; version only for true breaks."
+    },
+    {
+      title: "Example 3: the common versioning approaches",
+      description: "<p>Several strategies exist; URI versioning is the simplest and most visible.</p>",
+      code: "// URI:    /v2/orders                 (clear, cacheable, easy - most common)\n" +
+        "// Header: Accept: application/vnd.api+json; version=2   (clean URLs, less obvious)\n" +
+        "// Query:  /orders?version=2        (easy but mixes versioning into params)\n" +
+        "// pick ONE and apply it consistently; URI versioning is the safe default."
+    },
+    {
+      title: "Example 4 (edge case): prefer non-breaking evolution over new versions",
+      description: "<p>Versioning is costly to maintain - most changes can be additive, avoiding a new version entirely.</p>",
+      code: "// NON-breaking (no new version needed): add a new optional field, add an endpoint,\n" +
+        "//   add an enum value clients can ignore.\n" +
+        "// BREAKING (needs v2): rename/remove a field, change a type, change required params.\n" +
+        "// every version you ship must be maintained + eventually deprecated (with notice +\n" +
+        "//   sunset dates). Don't bump the version for changes you could make additive.\n" +
+        "// communicate deprecations via headers (Deprecation, Sunset) + docs."
     }
   ],
   whenToUse: "<p>Version any public/long-lived API so you can evolve it without breaking clients. URI " +
@@ -617,6 +1083,25 @@ C["handling-crud-operations"] = {
       title: "Example 2: PUT (replace) vs PATCH (partial)",
       description: "<p>Choose based on full vs partial update.</p>",
       code: "// PUT /tasks/5  -> client sends the WHOLE resource (replaces it)\n// PATCH /tasks/5 { \"done\": true }  -> updates only that field\n// PATCH is handy for partial updates; PUT for full replacement."
+    },
+    {
+      title: "Example 3: the CRUD-to-HTTP mapping with correct codes",
+      description: "<p>Each CRUD operation maps to a method + a status code clients expect.</p>",
+      code: "// CREATE  POST   /orders        -> 201 Created + Location: /orders/1001\n" +
+        "// READ    GET    /orders/1001   -> 200 / 404\n" +
+        "// UPDATE  PUT    /orders/1001   -> 200/204 (replace) ; PATCH for partial\n" +
+        "// DELETE  DELETE /orders/1001   -> 204 No Content (200 if returning a body)\n" +
+        "// list:   GET /orders -> 200 + pagination (never an unbounded array)."
+    },
+    {
+      title: "Example 4 (edge case): idempotency and delete semantics",
+      description: "<p>Create-on-retry can duplicate, and deleting an already-deleted resource needs a defined, idempotent behavior.</p>",
+      code: "// POST retried after a timeout -> duplicate order. Use an Idempotency-Key header\n" +
+        "//   so the server returns the original result instead of creating again.\n" +
+        "// DELETE is idempotent: deleting /orders/1001 twice should not error the 2nd time\n" +
+        "//   -> return 204 (or 404) consistently, not a 500.\n" +
+        "// PUT replaces the WHOLE resource (omitted fields cleared) - use PATCH for partial\n" +
+        "//   updates so you don't accidentally wipe data."
     }
   ],
   whenToUse: "<p>CRUD is the backbone of most data APIs. <strong>Gotchas:</strong> use correct status codes " +
@@ -642,6 +1127,27 @@ C["building-json-restful-apis"] = {
       title: "Example 2: Collections with metadata",
       description: "<p>Wrap lists with pagination info.</p>",
       code: "GET /users?page=2 -> {\n  \"data\": [ ... ],\n  \"meta\": { \"page\": 2, \"perPage\": 20, \"total\": 153 }\n}"
+    },
+    {
+      title: "Example 3: consistent JSON conventions across the API",
+      description: "<p>Pick conventions once - casing, envelopes, date format, nullability - and apply them everywhere.</p>",
+      code: "// consistent shape:\n" +
+        "{\n" +
+        "  \"id\": 1001,\n" +
+        "  \"createdAt\": \"2026-06-15T10:00:00Z\",   // ISO-8601 UTC, always\n" +
+        "  \"totalCents\": 1999,                       // integer cents, not float dollars\n" +
+        "  \"customer\": { \"id\": 42, \"name\": \"Sam\" }\n" +
+        "}\n" +
+        "// fix camelCase vs snake_case once; same date format + money representation everywhere."
+    },
+    {
+      title: "Example 4 (edge case): floats for money, and JSON number precision",
+      description: "<p>JSON numbers are IEEE-754 doubles - money as floats and large 64-bit ids both lose precision.</p>",
+      code: "// money as float -> 0.1 + 0.2 = 0.30000000000000004 -> use integer cents or strings.\n" +
+        "// big ids: JS Number is safe only to 2^53 -> a 64-bit id like 9007199254740993\n" +
+        "//   silently rounds in JavaScript clients -> send large ids as STRINGS.\n" +
+        "// also decide null vs omitted consistently (absent field vs \"x\": null mean\n" +
+        "//   different things to clients), and don't leak internal/DB field names."
     }
   ],
   whenToUse: "<p>This is the default for most web/back-end APIs. <strong>Gotchas:</strong> be <strong>consistent</strong> &mdash; " +
@@ -668,6 +1174,25 @@ C["pagination"] = {
       title: "Example 2: Pagination metadata",
       description: "<p>Tell the client how to get more.</p>",
       code: "{\n  \"data\": [ ... ],\n  \"pagination\": { \"nextCursor\": \"abc\", \"hasMore\": true }\n}\n// Or links: { \"next\": \"/items?after=abc\", \"prev\": \"...\" }"
+    },
+    {
+      title: "Example 3: offset vs cursor pagination",
+      description: "<p>Two main strategies - offset is simple; cursor is stable and scales to large/changing datasets.</p>",
+      code: "// offset/limit (simple, but slow + unstable on deep/changing data):\n" +
+        "GET /orders?page=3&limit=20            // -> items + total, page links\n" +
+        "// cursor/keyset (stable, efficient for infinite scroll/large sets):\n" +
+        "GET /orders?limit=20&after=eyJpZCI6MTAwMX0   // opaque cursor\n" +
+        "-> { items: [...], nextCursor: '...' }\n" +
+        "// always include a stable sort; never return an unbounded list."
+    },
+    {
+      title: "Example 4 (edge case): offset pagination drifts and degrades",
+      description: "<p>Offset pagination skips/duplicates rows when data changes mid-paging and gets slow at high offsets.</p>",
+      code: "// page=2 (rows 21-40); meanwhile a new row is inserted at the top -> page 3 now\n" +
+        "//   REPEATS a row you already saw (or skips one) -> inconsistent results.\n" +
+        "// OFFSET 1000000 LIMIT 20 -> the DB still scans/discards a million rows -> slow.\n" +
+        "// cursor/keyset (WHERE id < lastSeenId ORDER BY id) avoids both: stable + indexed.\n" +
+        "// cap the max limit (e.g. 100) so clients can't request 100k at once."
     }
   ],
   whenToUse: "<p>Paginate any endpoint that can return many items &mdash; never return unbounded lists. Use " +
@@ -693,6 +1218,28 @@ C["rate-limiting"] = {
       title: "Example 2: Token bucket, shared across instances",
       description: "<p>Allow bursts; enforce globally.</p>",
       code: "// Token bucket (Redis-backed, shared by all API servers):\n//   capacity 100, refill 10/sec -> bursts allowed, sustained rate bounded\n// Tiered: free = 60/min, pro = 1000/min"
+    },
+    {
+      title: "Example 3: communicate limits with standard headers + 429",
+      description: "<p>Tell clients their budget and when to retry so well-behaved clients can self-throttle.</p>",
+      code: "// on every response:\n" +
+        "X-RateLimit-Limit: 100\n" +
+        "X-RateLimit-Remaining: 12\n" +
+        "X-RateLimit-Reset: 1718450000\n" +
+        "// when exceeded:\n" +
+        "HTTP 429 Too Many Requests\n" +
+        "Retry-After: 30\n" +
+        "// algorithms: token bucket (allow bursts), sliding window (smoother)."
+    },
+    {
+      title: "Example 4 (edge case): distributed limits and shared IPs",
+      description: "<p>Per-instance counters don't add up to a global limit, and IP-based limits punish users behind shared NATs.</p>",
+      code: "// 5 instances each '100/min' in memory -> real limit is 500/min -> use a SHARED\n" +
+        "//   store (Redis) for a true cluster-wide limit.\n" +
+        "// limiting by IP blocks a whole office/carrier behind one NAT -> prefer per-API-\n" +
+        "//   key/user when authenticated; IP only for anonymous traffic.\n" +
+        "// tier limits (free vs paid), limit expensive endpoints harder, and return 429\n" +
+        "//   (not 403/500) so clients know to back off."
     }
   ],
   whenToUse: "<p>Apply rate limiting to all public and many authenticated endpoints, especially auth, search, " +
@@ -720,6 +1267,25 @@ C["idempotency"] = {
       title: "Example 2: Naturally idempotent methods",
       description: "<p>Some methods are safe to repeat by design.</p>",
       code: "PUT /users/7 { ... }   // replace -> same end state if repeated (idempotent)\nDELETE /users/7        // already deleted -> still deleted (idempotent)\nPOST /orders           // each call may create a NEW order (NOT idempotent)"
+    },
+    {
+      title: "Example 3: an idempotency key for safe POST retries",
+      description: "<p>A client-supplied key lets the server dedupe retries of non-idempotent operations like payments.</p>",
+      code: "POST /payments   Idempotency-Key: 9f1c-7b2a-...   { amount: 999 }\n" +
+        "// server:\n" +
+        "//   if (seen(key)) return storedResponse(key);   // duplicate -> same result, no re-charge\n" +
+        "//   else { r = charge(); store(key, r); return r; }\n" +
+        "// a network timeout + client retry now charges ONCE and returns the original response."
+    },
+    {
+      title: "Example 4 (edge case): which verbs are naturally idempotent",
+      description: "<p>GET/PUT/DELETE are idempotent by spec; POST and relative updates are not - those are the ones needing keys.</p>",
+      code: "// already idempotent: GET (read), PUT x=5 (set absolute), DELETE id\n" +
+        "// NOT idempotent: POST /orders (new each call), balance = balance + 10 (accumulates)\n" +
+        "// fixes: idempotency keys, OR model as absolute set ('set status=paid') instead\n" +
+        "//   of relative ('add 10'). Store keys with a TTL + scope them per endpoint/user.\n" +
+        "// retries are INEVITABLE in distributed systems -> design create/charge endpoints\n" +
+        "//   to be safe under replay."
     }
   ],
   whenToUse: "<p>Design for idempotency wherever clients may retry &mdash; which in distributed systems is " +
@@ -745,6 +1311,30 @@ C["hateoas"] = {
       title: "Example 2: Dynamic vs hardcoded navigation",
       description: "<p>Clients follow links instead of building URLs.</p>",
       code: "// HATEOAS ideal: client follows _links.cancel.href (server controls URLs)\n// Reality: most clients hardcode '/orders/{id}/cancel' from docs anyway."
+    },
+    {
+      title: "Example 3: responses include links to related actions",
+      description: "<p>HATEOAS (hypermedia) embeds the next available actions as links, so clients navigate by following them rather than hardcoding URLs.</p>",
+      code: "GET /orders/1001 ->\n" +
+        "{\n" +
+        "  \"id\": 1001, \"status\": \"open\",\n" +
+        "  \"_links\": {\n" +
+        "    \"self\":   { \"href\": \"/orders/1001\" },\n" +
+        "    \"cancel\": { \"href\": \"/orders/1001/cancel\", \"method\": \"POST\" },\n" +
+        "    \"pay\":    { \"href\": \"/orders/1001/pay\", \"method\": \"POST\" }\n" +
+        "  }\n" +
+        "}\n" +
+        "// the server controls flow; clients discover what's possible from the response."
+    },
+    {
+      title: "Example 4 (edge case): rarely worth the cost in practice",
+      description: "<p>HATEOAS is the least-adopted REST level - clients usually hardcode URLs anyway, and the extra complexity seldom pays off.</p>",
+      code: "// reality: most clients ignore _links and hardcode '/orders/{id}/cancel' ->\n" +
+        "//   you pay for hypermedia but get none of the decoupling benefit.\n" +
+        "// it shines for long-lived, autonomous, browser-like clients (and some standards\n" +
+        "//   APIs) - rare in typical apps.\n" +
+        "// don't force full HATEOAS for a purity badge; a Level-2 REST API with good docs\n" +
+        "//   serves most teams better."
     }
   ],
   whenToUse: "<p>HATEOAS suits APIs that want maximum discoverability and the ability to change URLs/flows " +
@@ -771,6 +1361,28 @@ C["error-handling"] = {
       title: "Example 2: Don't leak internals",
       description: "<p>Generic to client, detailed in logs.</p>",
       code: "// BAD: return a stack trace / SQL error to the client (info disclosure)\n// GOOD: client gets { code: \"INTERNAL\", message: \"Something went wrong\" }\n//   while full details + a trace id are logged server-side."
+    },
+    {
+      title: "Example 3: a consistent, machine-readable error body",
+      description: "<p>Pair the right status code with a structured body clients can branch on - a stable code, a human message, and details.</p>",
+      code: "HTTP 422 Unprocessable Entity\n" +
+        "{\n" +
+        "  \"code\": \"validation_error\",       // stable, machine-readable\n" +
+        "  \"message\": \"Email is invalid\",     // human-friendly\n" +
+        "  \"errors\": [ { \"field\": \"email\", \"issue\": \"format\" } ],\n" +
+        "  \"traceId\": \"abc123\"                // correlate with server logs\n" +
+        "}\n" +
+        "// same shape for EVERY error so clients write one handler."
+    },
+    {
+      title: "Example 4 (edge case): leaking internals vs being useless",
+      description: "<p>Errors must help clients without exposing stack traces/SQL - and a generic '400 something went wrong' is equally unhelpful.</p>",
+      code: "// LEAK: { error: 'SQLException at users.email: duplicate key ...' } -> reveals\n" +
+        "//   schema/stack -> attacker intel. Log details SERVER-side (by traceId) only.\n" +
+        "// USELESS: 400 { error: 'Bad Request' } with no detail -> client can't fix it.\n" +
+        "// right balance: a stable code + actionable message + field-level detail, no\n" +
+        "//   internals. Don't return 200 for errors. Localize messages if needed, but keep\n" +
+        "//   the 'code' stable + language-independent."
     }
   ],
   whenToUse: "<p>Standardize error handling across the whole API. <strong>Gotchas:</strong> use the right " +
@@ -797,6 +1409,29 @@ C["rfc-7807-problem-details-for-apis"] = {
       title: "Example 2: Extension members",
       description: "<p>Add domain-specific fields alongside the standard ones.</p>",
       code: "{\n  \"type\": \".../validation-error\", \"title\": \"Validation failed\",\n  \"status\": 422,\n  \"errors\": [ { \"field\": \"email\", \"message\": \"invalid\" } ]  // extension\n}"
+    },
+    {
+      title: "Example 3: the standard problem+json error shape",
+      description: "<p>RFC 7807/9457 defines a standard error media type so clients and tools understand errors uniformly.</p>",
+      code: "HTTP 403 Forbidden\n" +
+        "Content-Type: application/problem+json\n" +
+        "{\n" +
+        "  \"type\": \"https://api.example.com/problems/insufficient-funds\",\n" +
+        "  \"title\": \"Insufficient funds\",\n" +
+        "  \"status\": 403,\n" +
+        "  \"detail\": \"Your balance is 30 but 50 is required\",\n" +
+        "  \"instance\": \"/accounts/12/transfers/abc\"\n" +
+        "}\n" +
+        "// 'type' is a stable URI clients key on; extension members add domain detail."
+    },
+    {
+      title: "Example 4 (edge case): use the right content-type and stable type URIs",
+      description: "<p>The benefit comes from the <code>application/problem+json</code> type and stable <code>type</code> URIs - not just any JSON error body.</p>",
+      code: "// Returning the body as application/json (not problem+json) -> generic clients/\n" +
+        "//   middleware won't recognize it as a Problem Details object.\n" +
+        "// 'type' must be STABLE (clients branch on it) -> don't change/rename URIs casually.\n" +
+        "// don't dump stack traces into 'detail'. RFC 9457 supersedes 7807 (same idea).\n" +
+        "// adopting it is mostly free and gives consistent, tool-friendly errors."
     }
   ],
   whenToUse: "<p>Adopt RFC 7807 to give your API a consistent, standards-based error format that clients and " +
@@ -826,6 +1461,24 @@ C["authentication-methods"] = {
       title: "Example 2: Presenting credentials",
       description: "<p>Standard transport for tokens.</p>",
       code: "Authorization: Bearer eyJhbGci...   // token-based\nAuthorization: Basic dXNlcjpwYXNz    // Basic (base64 user:pass) - HTTPS only!"
+    },
+    {
+      title: "Example 3: matching the method to the client",
+      description: "<p>Different callers warrant different auth - choose by client type and threat model.</p>",
+      code: "// browser SPA / mobile -> OAuth2/OIDC + short-lived tokens (or secure cookies)\n" +
+        "// server-to-server     -> client credentials (OAuth) / mTLS / signed requests\n" +
+        "// third-party devs      -> API keys (identify app) + scopes + rate limits\n" +
+        "// traditional web app   -> session cookies\n" +
+        "// internal services     -> mTLS / service-mesh identity"
+    },
+    {
+      title: "Example 4 (edge case): authentication is not authorization",
+      description: "<p>Proving who you are (authN) is separate from what you may do (authZ) - both are required on protected endpoints.</p>",
+      code: "// authN: 'this request is from user 42' (valid token/credential)\n" +
+        "// authZ: 'may user 42 read THIS order?' (ownership/role/scope check)\n" +
+        "// a valid token alone does NOT grant access -> still check object-level\n" +
+        "//   authorization (the #1 API vuln, BOLA, is skipping that check).\n" +
+        "// also: API keys IDENTIFY an app, they don't authenticate a USER - don't conflate."
     }
   ],
   whenToUse: "<p>Pick an authentication method per client type and threat model. <strong>Gotchas:</strong> " +
@@ -851,6 +1504,23 @@ C["basic-auth"] = {
       title: "Example 2: Basic Auth vs tokens",
       description: "<p>Simple but limited.</p>",
       code: "// Basic Auth: password sent on EVERY request; no expiry/revocation;\n//   no scopes. Simple but coarse.\n// Tokens (JWT/OAuth): short-lived, scoped, revocable, password sent once.\n//   Preferred for user-facing APIs."
+    },
+    {
+      title: "Example 3: base64(user:pass) in the Authorization header",
+      description: "<p>HTTP Basic Auth sends credentials encoded (not encrypted) on every request - only safe over HTTPS.</p>",
+      code: "Authorization: Basic c2FtOnBhc3N3b3Jk     // base64('sam:password')\n" +
+        "// base64 is ENCODING, not encryption -> trivially decoded.\n" +
+        "// therefore: ONLY over TLS, and credentials travel on EVERY request (more exposure).\n" +
+        "// fine for a quick internal tool / server-to-server with a secret manager."
+    },
+    {
+      title: "Example 4 (edge case): why it's weak for real apps",
+      description: "<p>Basic Auth has no expiry, no scopes, and re-sends long-lived credentials constantly - prefer tokens for anything user-facing.</p>",
+      code: "// problems: credentials sent every request (more chances to leak), no expiry/\n" +
+        "//   revocation, no scopes, no MFA, and browsers cache them awkwardly.\n" +
+        "// a leaked Basic credential = full access until the password is changed everywhere.\n" +
+        "// for user-facing/public APIs use token-based auth (OAuth/JWT) or sessions;\n" +
+        "//   reserve Basic for low-risk internal/script use over HTTPS."
     }
   ],
   whenToUse: "<p>Use Basic Auth for simple internal tools, scripts, or server-to-server calls where its " +
@@ -877,6 +1547,25 @@ C["token-based-auth"] = {
       title: "Example 2: Access + refresh tokens",
       description: "<p>Short-lived access, longer refresh.</p>",
       code: "// Access token: short expiry (minutes), used on every request\n// Refresh token: longer, stored securely, revocable -> gets new access tokens\n// Stolen access token = useful only briefly."
+    },
+    {
+      title: "Example 3: client presents a bearer token each request",
+      description: "<p>The server issues a token at login; the client sends it in the Authorization header, and the server validates it statelessly.</p>",
+      code: "// login -> token\n" +
+        "POST /login -> { accessToken: 'eyJ...', refreshToken: '...' }\n" +
+        "// every subsequent request carries it\n" +
+        "GET /orders   Authorization: Bearer eyJ...\n" +
+        "// server validates the token (signature/expiry) - no server-side session needed\n" +
+        "//   -> scales horizontally; any instance can serve any request."
+    },
+    {
+      title: "Example 4 (edge case): bearer tokens are 'whoever holds it' secrets",
+      description: "<p>A leaked token works for anyone until it expires; storage and revocation are the hard parts.</p>",
+      code: "// anyone with the token IS the user -> protect it: HTTPS only, never in URLs/logs.\n" +
+        "// browser storage trade-off: localStorage -> XSS can steal it; HttpOnly cookie ->\n" +
+        "//   safe from JS but needs CSRF protection. Pick deliberately.\n" +
+        "// stateless tokens can't be easily revoked before expiry -> keep access tokens\n" +
+        "//   SHORT + use refresh tokens (revocable, server-tracked) for longer sessions."
     }
   ],
   whenToUse: "<p>Use token-based auth for stateless APIs, SPAs, mobile apps, and microservices &mdash; it scales " +
@@ -902,6 +1591,24 @@ C["jwt"] = {
       title: "Example 2: Security essentials",
       description: "<p>Pin algorithm; short expiry; no secrets in payload.</p>",
       code: "// - Validate the algorithm explicitly (reject 'none', avoid confusion)\n// - Short exp + refresh tokens (JWTs are hard to revoke early)\n// - NEVER put secrets/sensitive data in the payload (it's readable)\n// - Strong signing secret/key, kept safe"
+    },
+    {
+      title: "Example 3: a self-contained, signed token",
+      description: "<p>A JWT carries its claims in the payload and a signature any service can verify without a database lookup.</p>",
+      code: "// header.payload.signature ; payload (decoded) is readable JSON:\n" +
+        "{ \"sub\": \"42\", \"role\": \"editor\", \"exp\": 1718500000 }\n" +
+        "// verify pinning the algorithm:\n" +
+        "jwt.verify(token, publicKey, { algorithms: ['RS256'] });\n" +
+        "// stateless: no session store; great for microservices that each verify locally."
+    },
+    {
+      title: "Example 4 (edge case): the JWT footguns",
+      description: "<p>JWTs are easy to misuse - readable payloads, hard revocation, and algorithm-confusion attacks.</p>",
+      code: "// payload is base64, NOT encrypted -> never put secrets/PII in claims.\n" +
+        "// can't revoke before exp -> keep access tokens short + use refresh tokens/denylist.\n" +
+        "// ALWAYS pin algorithms on verify -> reject alg:'none' and RS256->HS256 confusion.\n" +
+        "// decode != verify -> never trust jwt.decode() output without verifying signature.\n" +
+        "// don't store in localStorage if you can avoid it (XSS); validate iss/aud/exp."
     }
   ],
   whenToUse: "<p>Use JWTs for stateless API auth &mdash; SPAs, mobile, microservices &mdash; where any server " +
@@ -929,6 +1636,24 @@ C["oauth-2-0"] = {
       title: "Example 2: Grant types by scenario",
       description: "<p>Pick the right flow.</p>",
       code: "// Authorization Code + PKCE -> user-facing apps (SPA, mobile, web)\n// Client Credentials       -> service-to-service (no user)\n// (Implicit + Password grants are deprecated - avoid)"
+    },
+    {
+      title: "Example 3: delegated access without sharing the password",
+      description: "<p>OAuth2 lets a user grant an app limited access to their data on another service, scoped and revocable.</p>",
+      code: "// Authorization Code + PKCE flow:\n" +
+        "// 1. app -> /authorize?client_id&scope=read:contacts&code_challenge&state\n" +
+        "// 2. user consents at the provider -> redirect back with ?code&state\n" +
+        "// 3. app -> /token (code + verifier) -> access token (scoped: read:contacts)\n" +
+        "// the app NEVER sees the password; the user can revoke access anytime."
+    },
+    {
+      title: "Example 4 (edge case): OAuth2 is authorization, not authentication - and easy to misconfigure",
+      description: "<p>OAuth2 grants access to resources; for login identity use OpenID Connect on top. Flow misconfigs are dangerous.</p>",
+      code: "// OAuth2 alone != 'who is the user' -> use OIDC (adds an id_token) for login.\n" +
+        "// must-dos: exact redirect_uri match, 'state' (CSRF), PKCE for public clients,\n" +
+        "//   validate token scope + audience on the resource server.\n" +
+        "// the legacy Implicit flow (token in URL) is DEPRECATED -> use Auth Code + PKCE.\n" +
+        "// don't build your own provider -> use a managed IdP (Auth0/Okta/Keycloak)."
     }
   ],
   whenToUse: "<p>Use OAuth2 for third-party/social login, delegated access, and API authorization across " +
@@ -957,6 +1682,25 @@ C["session-based-auth"] = {
       title: "Example 2: Sessions vs tokens",
       description: "<p>Stateful (revocable) vs stateless (scalable).</p>",
       code: "// Sessions: server-side state; easy revoke/logout; need a shared store\n//   to scale; cookies need CSRF protection.\n// Tokens (JWT): stateless, scale easily; harder to revoke before expiry."
+    },
+    {
+      title: "Example 3: server-side session + a session-id cookie",
+      description: "<p>The server stores session state and gives the client an opaque id in a secure cookie.</p>",
+      code: "// login -> server creates a session, sets a cookie:\n" +
+        "Set-Cookie: sid=opaque-random; HttpOnly; Secure; SameSite=Lax\n" +
+        "// server keeps state: sessions[sid] = { userId: 42, ... }\n" +
+        "// each request auto-sends the cookie -> server looks up the session.\n" +
+        "// easy revocation: delete the session server-side -> instantly logged out."
+    },
+    {
+      title: "Example 4 (edge case): CSRF and scaling the session store",
+      description: "<p>Auto-sent cookies enable CSRF, and server-side sessions need a shared store to scale horizontally.</p>",
+      code: "// CSRF: the cookie is sent automatically cross-site -> a malicious page can trigger\n" +
+        "//   authenticated requests -> defend with SameSite + a CSRF token on writes.\n" +
+        "// scaling: in-memory sessions break across instances (user hits a different server)\n" +
+        "//   -> use a SHARED session store (Redis), not sticky sessions.\n" +
+        "// sessions (stateful, revocable) vs tokens (stateless, hard to revoke) is the core\n" +
+        "//   trade-off - sessions suit server-rendered apps, tokens suit SPAs/mobile/services."
     }
   ],
   whenToUse: "<p>Use session-based auth for traditional server-rendered web apps and when you want easy, " +
@@ -984,6 +1728,25 @@ C["authorization-methods"] = {
       title: "Example 2: Object-level authorization",
       description: "<p>Check ownership, not just role.</p>",
       code: "// Bug (BOLA/IDOR): GET /orders/42 checks login but not OWNERSHIP\n//   -> user reads someone else's order.\n// Fix: verify the authenticated user may access THIS specific object."
+    },
+    {
+      title: "Example 3: authorize at the operation AND the object level",
+      description: "<p>Two layers: may this role perform the action, and may this user touch this specific object.</p>",
+      code: "// function-level (role/scope): can this user delete orders at all?\n" +
+        "if (!user.can('orders:delete')) return res.status(403).end();\n" +
+        "// object-level (ownership): is THIS order theirs (or are they admin)?\n" +
+        "if (order.ownerId !== user.id && !user.isAdmin) return res.status(404).end();\n" +
+        "// skipping the second check = BOLA, the #1 API vulnerability."
+    },
+    {
+      title: "Example 4 (edge case): RBAC vs ABAC and enforcing server-side",
+      description: "<p>Pick the model to fit your rules' complexity, and never rely on the client to hide actions.</p>",
+      code: "// RBAC: simple role buckets (admin/editor/viewer) -> easy, can explode into\n" +
+        "//   role-permutations as rules grow.\n" +
+        "// ABAC: policy over attributes (department, time, resource owner) -> flexible but\n" +
+        "//   complex to reason about/audit. Use it when RBAC needs too many roles.\n" +
+        "// ALWAYS enforce on the server: hiding a button or omitting a link is UX, not\n" +
+        "//   security -> the attacker just calls the endpoint directly."
     }
   ],
   whenToUse: "<p>Apply authorization to every protected operation. Use <strong>RBAC</strong> for straightforward " +
@@ -1010,6 +1773,26 @@ C["role-based-access-control-rbac"] = {
       title: "Example 2: Enforcing roles",
       description: "<p>Gate endpoints by role/permission.</p>",
       code: "// DELETE /users/7 requires the 'manage-users' permission (admins only)\n//   user lacks it -> 403 Forbidden\n// Often combined with object-level checks for fine control."
+    },
+    {
+      title: "Example 3: roles bundle permissions; users get roles",
+      description: "<p>RBAC assigns permissions to roles and roles to users - simple to reason about and audit.</p>",
+      code: "const roles = {\n" +
+        "  viewer: ['orders:read'],\n" +
+        "  editor: ['orders:read', 'orders:write'],\n" +
+        "  admin:  ['orders:read', 'orders:write', 'orders:delete', 'users:manage'],\n" +
+        "};\n" +
+        "function can(user, perm) { return roles[user.role].includes(perm); }\n" +
+        "if (!can(user, 'orders:delete')) return res.status(403).end();"
+    },
+    {
+      title: "Example 4 (edge case): role explosion and missing object-level checks",
+      description: "<p>RBAC struggles with per-resource/contextual rules, leading to dozens of narrow roles - and roles alone don't check ownership.</p>",
+      code: "// role explosion: 'editor-region-eu', 'editor-team-7', 'editor-readonly-friday' ->\n" +
+        "//   when rules depend on attributes/context, RBAC needs combinatorial roles -> ABAC fits better.\n" +
+        "// RBAC says 'editors may edit orders' but NOT 'this editor may edit THIS order' ->\n" +
+        "//   still need an object-level ownership check (BOLA).\n" +
+        "// keep roles coarse + meaningful; layer ABAC/ownership for fine-grained context."
     }
   ],
   whenToUse: "<p>Use RBAC for most applications with clear user categories &mdash; it's simple, well-understood, " +
@@ -1037,6 +1820,28 @@ C["attribute-based-access-control-abac"] = {
       title: "Example 2: ABAC vs RBAC",
       description: "<p>Flexible rules vs simple roles.</p>",
       code: "// RBAC: 'admins can delete'  (coarse, role-based)\n// ABAC: 'users can delete records they own, if not locked, in their region'\n//   (fine-grained, context-aware) - harder to manage but very flexible"
+    },
+    {
+      title: "Example 3: policy over attributes of subject, resource, action, context",
+      description: "<p>ABAC decides access by evaluating attributes, enabling fine-grained, dynamic rules.</p>",
+      code: "// allow if: same department AND it's business hours AND not a high-risk action\n" +
+        "function allow(user, resource, action, ctx) {\n" +
+        "  return user.dept === resource.dept\n" +
+        "      && ctx.hour >= 9 && ctx.hour < 18\n" +
+        "      && !(action === 'delete' && resource.sensitive);\n" +
+        "}\n" +
+        "// expresses rules RBAC can't without exploding into countless roles."
+    },
+    {
+      title: "Example 4 (edge case): power vs auditability and performance",
+      description: "<p>ABAC's flexibility makes policies hard to reason about, test, and debug - and attribute lookups add latency.</p>",
+      code: "// 'why was this allowed/denied?' is hard to answer when policy spans many attributes\n" +
+        "//   -> harder to audit/test than 'role X has permission Y'.\n" +
+        "// evaluating policies may require fetching attributes (user dept, resource owner,\n" +
+        "//   risk score) on every request -> latency; cache carefully.\n" +
+        "// start with RBAC; adopt ABAC (or a policy engine like OPA) only when rules are\n" +
+        "//   genuinely attribute-/context-driven. Often: RBAC for coarse + ABAC for the\n" +
+        "//   few dynamic rules."
     }
   ],
   whenToUse: "<p>Use ABAC when access rules are fine-grained, dynamic, or context-dependent and RBAC would " +
@@ -1064,6 +1869,24 @@ C["api-keys-management"] = {
       title: "Example 2: Lifecycle management",
       description: "<p>Rotate, revoke, monitor.</p>",
       code: "// - Generate: long, random, prefixed (sk_live_) for identification\n// - Store: HASHED at rest (like passwords), never plaintext\n// - Rotate periodically; support multiple active keys for zero-downtime rotation\n// - Revoke instantly if leaked; monitor per-key usage for anomalies"
+    },
+    {
+      title: "Example 3: issue, scope, and store keys safely",
+      description: "<p>Treat API keys like passwords - hash at rest, scope them, and make rotation possible.</p>",
+      code: "// give the client the key ONCE; store only a HASH:\n" +
+        "//   keys(id, hashedKey, scopes, ownerId, createdAt, lastUsed, revokedAt)\n" +
+        "// verify by hashing the presented key + constant-time compare.\n" +
+        "// scope each key (read-only, specific endpoints), rate-limit per key,\n" +
+        "//   support multiple active keys so rotation has zero downtime."
+    },
+    {
+      title: "Example 4 (edge case): keys identify, they don't authenticate users - and they leak",
+      description: "<p>API keys are long-lived bearer secrets for an app, not user auth, and they're frequently exposed.</p>",
+      code: "// a key in frontend JS / a mobile app / a public repo is EXTRACTABLE -> never use\n" +
+        "//   a single client-side key as the only protection for sensitive data.\n" +
+        "// keys = 'which app', not 'which user' -> for user identity use OAuth/OIDC.\n" +
+        "// hygiene: rotate regularly, revoke leaked keys fast, scan repos for committed keys,\n" +
+        "//   send in a header (never the URL), and log usage to detect abuse."
     }
   ],
   whenToUse: "<p>Use API keys for server-to-server integrations, developer/partner APIs, and identifying " +
@@ -1092,6 +1915,24 @@ C["api-documentation-tools"] = {
       title: "Example 2: The tool landscape",
       description: "<p>Different tools, different strengths.</p>",
       code: "// Swagger/OpenAPI -> standard spec + interactive UI (open, ubiquitous)\n// Readme.com      -> polished hosted developer portals\n// Stoplight       -> design-first OpenAPI editing + docs\n// Postman         -> client + collections + auto-generated docs"
+    },
+    {
+      title: "Example 3: generate docs from a spec (single source of truth)",
+      description: "<p>Write an OpenAPI spec and generate interactive docs/clients from it, so docs can't drift from the API.</p>",
+      code: "// openapi.yaml describes paths, params, schemas, auth, examples\n" +
+        "//   -> Swagger UI / Redoc render interactive docs\n" +
+        "//   -> codegen produces typed client SDKs + server stubs\n" +
+        "//   -> the spec is testable against the real API in CI\n" +
+        "// one artifact drives docs, clients, and validation."
+    },
+    {
+      title: "Example 4 (edge case): docs that drift are worse than none",
+      description: "<p>Hand-written docs decay as the API changes; out-of-date examples actively mislead and erode trust.</p>",
+      code: "// a doc showing a removed field or old auth scheme makes integrators chase ghosts\n" +
+        "//   -> more support load than no docs.\n" +
+        "// keep docs generated from the spec/code, validate the spec against the API in CI,\n" +
+        "//   and include WORKING examples (and error responses), not just the happy path.\n" +
+        "// design-first (write the spec, then build to it) keeps them aligned from the start."
     }
   ],
   whenToUse: "<p>Document every API &mdash; docs drive adoption and reduce support burden. Prefer " +
@@ -1118,6 +1959,29 @@ C["swagger-open-api"] = {
       title: "Example 2: What the spec powers",
       description: "<p>One spec, many outputs.</p>",
       code: "// From openapi.yaml:\n//   - Swagger UI / Redoc -> interactive docs\n//   - codegen -> typed client SDKs + server stubs\n//   - mock server -> develop against the API before it exists\n//   - request/response validation in middleware"
+    },
+    {
+      title: "Example 3: a minimal OpenAPI definition",
+      description: "<p>OpenAPI (formerly Swagger) is a machine-readable description of your REST API that powers docs, codegen, and validation.</p>",
+      code: "openapi: 3.1.0\n" +
+        "paths:\n" +
+        "  /orders/{id}:\n" +
+        "    get:\n" +
+        "      parameters: [{ name: id, in: path, required: true, schema: { type: integer } }]\n" +
+        "      responses:\n" +
+        "        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Order' } } } }\n" +
+        "        '404': { description: Not found }\n" +
+        "// -> Swagger UI docs, client SDKs, and request/response validation, all from this."
+    },
+    {
+      title: "Example 4 (edge case): design-first vs code-first, and spec drift",
+      description: "<p>Generating the spec from code is convenient but can lag intent; either approach must be validated against the running API.</p>",
+      code: "// design-first: write openapi.yaml, get team review, THEN build to it (great for\n" +
+        "//   contracts/governance, parallel client+server work).\n" +
+        "// code-first: annotations generate the spec (less duplication, but the spec only\n" +
+        "//   reflects what's coded, not what was intended).\n" +
+        "// either way: VALIDATE the spec against the real API in CI (e.g. schemathesis/dredd)\n" +
+        "//   so the contract and implementation can't silently diverge."
     }
   ],
   whenToUse: "<p>Use OpenAPI for essentially all REST APIs &mdash; it's the standard, with vast tooling. Adopt " +
@@ -1143,6 +2007,26 @@ C["readme-com"] = {
       title: "Example 2: Developer experience focus",
       description: "<p>More than reference: a full portal.</p>",
       code: "// Beyond raw reference docs, Readme adds:\n//   onboarding guides, API key management UI, usage metrics,\n//   versioned docs, community/support - a polished DX."
+    },
+    {
+      title: "Example 3: a hosted developer hub on top of your spec",
+      description: "<p>Readme.com turns an OpenAPI spec into a polished portal with guides, an API explorer, and personalized examples.</p>",
+      code: "// import openapi.yaml -> get:\n" +
+        "//   - auto-generated reference docs + 'try it' API explorer\n" +
+        "//   - hand-written guides/tutorials alongside the reference\n" +
+        "//   - code samples in multiple languages, prefilled with the user's API key\n" +
+        "//   - changelog + versioned docs\n" +
+        "// aimed at a professional public/partner developer experience."
+    },
+    {
+      title: "Example 4 (edge case): hosted convenience vs control/cost",
+      description: "<p>Managed doc platforms trade ownership and cost for polish - and the spec still has to be kept current.</p>",
+      code: "// trade-offs: subscription cost, your docs live on a third party, less control over\n" +
+        "//   hosting/branding internals, potential lock-in.\n" +
+        "// it does NOT fix spec drift -> if your OpenAPI is stale, the pretty portal is\n" +
+        "//   confidently wrong.\n" +
+        "// for internal-only or simple APIs, self-hosted Swagger UI/Redoc may be enough;\n" +
+        "//   reach for a hosted hub when DX for external developers is a priority."
     }
   ],
   whenToUse: "<p>Consider Readme.com for <strong>public or partner-facing APIs</strong> where a professional, " +
@@ -1168,6 +2052,25 @@ C["stoplight"] = {
       title: "Example 2: Mock before building",
       description: "<p>Frontend works against a mock from the spec.</p>",
       code: "// From the OpenAPI spec, Stoplight serves a mock API ->\n//   frontend/clients integrate against it before the backend exists\n//   -> parallel development; the spec is the contract."
+    },
+    {
+      title: "Example 3: design-first authoring with governance",
+      description: "<p>Stoplight provides a visual OpenAPI editor plus style/linting rules to enforce consistency across many APIs.</p>",
+      code: "// visual + code editor for openapi.yaml (no hand-writing YAML by feel)\n" +
+        "// Spectral lint rules enforce org standards:\n" +
+        "//   - every operation has an operationId + description\n" +
+        "//   - paths are kebab-case; all 4xx/5xx documented\n" +
+        "//   - naming/versioning conventions\n" +
+        "// -> consistent contracts across teams BEFORE any code is written."
+    },
+    {
+      title: "Example 4 (edge case): tooling helps only if the org adopts the process",
+      description: "<p>Governance tooling adds value with design-first discipline; bolted onto a code-first team it's friction.</p>",
+      code: "// if teams build first and back-fill specs, the design-first/governance benefits\n" +
+        "//   (review-before-build, shared standards) mostly evaporate.\n" +
+        "// Spectral linting can be adopted standalone in CI without the whole platform.\n" +
+        "// for a single small API, a plain OpenAPI file + Swagger UI may be all you need;\n" +
+        "//   Stoplight shines at scale (many APIs, many teams, governance requirements)."
     }
   ],
   whenToUse: "<p>Use Stoplight when you want a <strong>design-first</strong> process with API governance/" +
@@ -1194,6 +2097,25 @@ C["postman"] = {
       title: "Example 2: Tests + automation",
       description: "<p>Assert responses; run in CI.</p>",
       code: "// Test script on a request:\npm.test(\"status 200\", () => pm.response.to.have.status(200));\npm.test(\"has id\", () => pm.expect(pm.response.json().id).to.exist);\n// Run collections in CI via Newman (CLI)."
+    },
+    {
+      title: "Example 3: collections, environments, and automated tests",
+      description: "<p>Postman organizes requests into shareable collections, parameterized by environment, with scripted assertions.</p>",
+      code: "// environment vars: {{baseUrl}}, {{token}} -> switch dev/staging/prod in one click\n" +
+        "// a request's Tests tab (JS assertions):\n" +
+        "pm.test('status 200', () => pm.response.to.have.status(200));\n" +
+        "pm.test('has id', () => pm.expect(pm.response.json().id).to.exist);\n" +
+        "// run the whole collection in CI via Newman -> lightweight API regression tests."
+    },
+    {
+      title: "Example 4 (edge case): exploration tool, not a full test suite - and secret hygiene",
+      description: "<p>Postman is great for manual/dev testing but isn't a substitute for code-level tests, and shared collections can leak secrets.</p>",
+      code: "// don't make Postman your ONLY tests -> unit/integration tests in the repo run on\n" +
+        "//   every commit and live with the code; Postman/Newman complements them.\n" +
+        "// secret leak: tokens/keys saved IN a shared collection or synced to the cloud ->\n" +
+        "//   use environment variables marked secret, and don't commit exported collections\n" +
+        "//   with live credentials.\n" +
+        "// keep collections in version control if you rely on them for CI."
     }
   ],
   whenToUse: "<p>Use Postman throughout development for exploring, testing, and debugging APIs, sharing " +
@@ -1223,6 +2145,25 @@ C["api-security"] = {
       title: "Example 2: The top risk - BOLA",
       description: "<p>Broken object-level authorization.</p>",
       code: "// #1 OWASP API risk: an endpoint checks login but NOT ownership\n//   GET /accounts/42 -> returns account 42 to ANY logged-in user\n// Fix: verify the caller may access THIS specific object, every time."
+    },
+    {
+      title: "Example 3: defense in depth across the request path",
+      description: "<p>API security is layered - no single control is trusted alone.</p>",
+      code: "// edge:      TLS, WAF, rate limiting\n" +
+        "// gateway:   authenticate (validate token), IP allow-lists\n" +
+        "// service:   AUTHORIZE (role + object-level/ownership), validate ALL input\n" +
+        "// data:      encrypt at rest, least-privilege DB user, parameterized queries\n" +
+        "// response:  no sensitive fields, correct status, no internal detail in errors\n" +
+        "// assume any one layer can be breached."
+    },
+    {
+      title: "Example 4 (edge case): the OWASP API Top 10 - authorization dominates",
+      description: "<p>The most common API breaches aren't exotic - they're missing authorization checks on objects and functions.</p>",
+      code: "// API1 BOLA: GET /orders/99 returns someone else's order (no ownership check) - #1.\n" +
+        "// API5 BFLA: a normal user calls an admin-only endpoint (no role check).\n" +
+        "// API3 excessive data exposure: returning whole objects + trusting the client to hide.\n" +
+        "// also: broken auth, SSRF, mass assignment, injection.\n" +
+        "// the recurring theme: AUTHN != AUTHZ -> check 'may THIS user do THIS to THIS object?'."
     }
   ],
   whenToUse: "<p>Apply API security to every API &mdash; it's not optional. <strong>Gotchas:</strong> security " +
@@ -1250,6 +2191,27 @@ C["common-vulnerabilities"] = {
       title: "Example 2: Mass assignment + excessive exposure",
       description: "<p>Binding too much input / returning too much data.</p>",
       code: "// Mass assignment: PATCH /users/7 { \"isAdmin\": true }\n//   blindly binds to the model -> privilege escalation.\n//   Fix: allowlist updatable fields.\n// Excessive exposure: returning passwordHash/PII in responses.\n//   Fix: response DTOs with only intended fields."
+    },
+    {
+      title: "Example 3: the common API vulnerabilities and their fixes",
+      description: "<p>Most API breaches come from a short list - know the fix for each.</p>",
+      code: "// broken object-level authz (BOLA) -> check ownership on every object access\n" +
+        "// injection (SQL/NoSQL/cmd)        -> parameterize queries, validate input\n" +
+        "// broken auth                      -> standard libs, MFA, lockouts, short tokens\n" +
+        "// excessive data exposure          -> allow-list response fields (DTOs)\n" +
+        "// mass assignment                  -> bind only allowed fields\n" +
+        "// SSRF                             -> validate/allow-list outbound URLs\n" +
+        "// security misconfig               -> debug off, headers set, deps patched"
+    },
+    {
+      title: "Example 4 (edge case): mass assignment and SSRF are easy to miss",
+      description: "<p>Two subtle ones: binding the whole request body to a model, and letting user input drive server-side requests.</p>",
+      code: "// MASS ASSIGNMENT: user.update(req.body) -> attacker sends { role:'admin', \n" +
+        "//   isVerified:true } and escalates. Fix: bind ONLY permitted fields (allow-list).\n" +
+        "// SSRF: server fetches a user-supplied URL -> attacker points it at\n" +
+        "//   http://169.254.169.254/ (cloud metadata) or internal services. Fix: allow-list\n" +
+        "//   hosts, block private/link-local ranges, no redirects to internal.\n" +
+        "// both pass 'normal' validation -> need explicit, targeted defenses."
     }
   ],
   whenToUse: "<p>Know these vulnerabilities to design and review APIs defensively, and during security " +
@@ -1277,6 +2239,25 @@ C["best-practices"] = {
       title: "Example 2: Least privilege + fail closed",
       description: "<p>Default to deny; grant the minimum.</p>",
       code: "// Deny by default; require explicit permission to proceed.\n// Tokens/keys scoped to the minimum needed.\n// On error/uncertainty, DENY (fail closed), don't allow."
+    },
+    {
+      title: "Example 3: the baseline security checklist",
+      description: "<p>A short set of always-on practices that prevent most API incidents.</p>",
+      code: "// 1. HTTPS everywhere (+ HSTS)\n" +
+        "// 2. authenticate, then AUTHORIZE (role + object-level)\n" +
+        "// 3. validate/sanitize ALL input; parameterize queries; encode output\n" +
+        "// 4. rate-limit; cap payload sizes; set timeouts\n" +
+        "// 5. least-privilege everything (DB users, tokens, keys)\n" +
+        "// 6. security headers; debug off; patch deps; don't log secrets"
+    },
+    {
+      title: "Example 4 (edge case): security is only as strong as the weakest link",
+      description: "<p>A single missed check undoes the rest - and these must be enforced server-side, continuously.</p>",
+      code: "// 99 protected endpoints + 1 forgotten /internal/export with no auth = breach.\n" +
+        "//   -> deny-by-default routing (fail closed), audit the route table in CI.\n" +
+        "// client-side checks are UX, not security -> the attacker calls the API directly.\n" +
+        "// 'we did it at launch' isn't enough -> deps get CVEs, configs drift -> scan + patch\n" +
+        "//   continuously. One unvalidated input or missing ownership check is the whole hole."
     }
   ],
   whenToUse: "<p>Apply these to every API as a baseline. <strong>Gotchas:</strong> security is only as strong " +
@@ -1305,6 +2286,24 @@ C["api-testing"] = {
       title: "Example 2: An endpoint test",
       description: "<p>Assert status + body, including auth.</p>",
       code: "// (REST Assured / supertest style)\nGET /api/users/7  Authorization: Bearer <token>\n  -> expect 200, body.name == 'Sam'\nGET /api/users/OTHER  with user's token\n  -> expect 403  (authorization regression guard)"
+    },
+    {
+      title: "Example 3: the API test pyramid",
+      description: "<p>Layer your tests - many fast unit tests, fewer integration tests, a thin layer of end-to-end.</p>",
+      code: "// many:   unit tests (pure logic: validation, rules) - milliseconds, no I/O\n" +
+        "// some:   integration tests (route + real DB via Testcontainers) - verify wiring\n" +
+        "// few:    end-to-end / contract tests (full stack or cross-service)\n" +
+        "// plus:   security tests (authz, bad input) + load tests before launch\n" +
+        "// run unit+integration on every commit; e2e/load on a schedule or pre-release."
+    },
+    {
+      title: "Example 4 (edge case): testing only the happy path",
+      description: "<p>The bugs and breaches live in the cases teams skip - missing auth, wrong owner, malformed input, edge values.</p>",
+      code: "// don't just assert 'valid request -> 200'. Also test:\n" +
+        "//   no token -> 401 ; other user's object -> 403/404 (BOLA) ; bad body -> 400\n" +
+        "//   over rate limit -> 429 ; huge payload -> rejected ; pagination edges\n" +
+        "// these regression-guard your SECURITY checks - if someone removes an authz\n" +
+        "//   guard later, the test fails loudly. Happy-path-only tests give false confidence."
     }
   ],
   whenToUse: "<p>Test APIs continuously in CI. <strong>Gotchas:</strong> follow the test pyramid &mdash; many " +
@@ -1329,6 +2328,26 @@ C["unit-testing"] = {
       title: "Example 2: Edge cases + validation",
       description: "<p>Cover boundaries, not just happy paths.</p>",
       code: "// Validate inputs: empty, null, too long, wrong type, boundary values\n// Test error branches + business rules in isolation (no DB/network)\n// Fast -> run thousands on every commit"
+    },
+    {
+      title: "Example 3: test pure logic in isolation",
+      description: "<p>Unit tests target a single function/class with no I/O - fast and deterministic.</p>",
+      code: "// pure function -> trivial to test, no mocks needed\n" +
+        "test('applies bulk discount over 10 units', () => {\n" +
+        "  expect(price(12, 5)).toBe(54);   // 12 * 5 * 0.9\n" +
+        "});\n" +
+        "// inject dependencies (clock, repo) as fakes for logic that needs them:\n" +
+        "expect(isExpired(token, fakeClock(0))).toBe(true);"
+    },
+    {
+      title: "Example 4 (edge case): over-mocking tests the mocks, not the code",
+      description: "<p>Heavy mocking can make a unit test pass while the real integration is broken; some things belong in integration tests.</p>",
+      code: "// if you mock the DB, the HTTP client, AND the logic under test, the test asserts\n" +
+        "//   your MOCKS behave as configured - not that the code works.\n" +
+        "// keep units small + mostly PURE so they need few/no mocks. Push wiring/SQL/\n" +
+        "//   serialization checks to integration tests against real dependencies.\n" +
+        "// also avoid asserting implementation details (exact call order) -> test behavior/\n" +
+        "//   outputs so refactors don't break tests needlessly."
     }
   ],
   whenToUse: "<p>Write unit tests for all non-trivial logic &mdash; validation, business rules, computations, " +
@@ -1355,6 +2374,26 @@ C["integration-testing"] = {
       title: "Example 2: Auth + authz integration",
       description: "<p>Verify the security wiring end-to-end.</p>",
       code: "// With a real token + middleware:\n//   no token -> 401; wrong user's resource -> 403; valid -> 200\n// Confirms auth/authz actually wired correctly (unit mocks can hide this)."
+    },
+    {
+      title: "Example 3: exercise the route against a real database",
+      description: "<p>Integration tests hit the actual stack (router + service + DB) to catch wiring, SQL, and serialization bugs units miss.</p>",
+      code: "// spin up a REAL Postgres for the test (Testcontainers), seed, hit the endpoint:\n" +
+        "test('POST /orders persists and returns 201', async () => {\n" +
+        "  const res = await request(app).post('/orders').send({ items: [1] });\n" +
+        "  expect(res.status).toBe(201);\n" +
+        "  expect(await db.count('orders')).toBe(1);   // verify it actually saved\n" +
+        "});"
+    },
+    {
+      title: "Example 4 (edge case): in-memory fakes hide real DB behavior",
+      description: "<p>Testing against H2/SQLite instead of the production DB lets dialect-specific bugs through; integration tests are slower and need isolation.</p>",
+      code: "// H2 may accept SQL that Postgres rejects (or vice versa) + different null/locking\n" +
+        "//   semantics -> 'passing' integration tests, failing prod. Test the engine you SHIP\n" +
+        "//   (Testcontainers).\n" +
+        "// integration tests are slower + share state -> reset/rollback between tests, run\n" +
+        "//   them as a smaller suite than units.\n" +
+        "// don't hit real THIRD-PARTY services -> stub those at the boundary; keep the DB real."
     }
   ],
   whenToUse: "<p>Use integration tests to verify endpoints work with real dependencies &mdash; database queries, " +
@@ -1381,6 +2420,27 @@ C["functional-testing"] = {
       title: "Example 2: Cover the use cases",
       description: "<p>Happy paths + error/edge scenarios.</p>",
       code: "// - valid order -> 201\n// - out-of-stock -> 409 with a clear error\n// - invalid product -> 404\n// - unauthenticated -> 401\n// Each maps to a functional requirement."
+    },
+    {
+      title: "Example 3: test a complete user-facing workflow",
+      description: "<p>Functional tests verify the API does what the requirements say, from the consumer's perspective, across multiple calls.</p>",
+      code: "// 'a user can sign up, log in, place an order' - black-box, end-to-end:\n" +
+        "test('order workflow', async () => {\n" +
+        "  await api.post('/signup', user);\n" +
+        "  const { token } = await api.post('/login', creds);\n" +
+        "  const order = await api.post('/orders', cart, auth(token));\n" +
+        "  expect(order.status).toBe('confirmed');   // requirement met\n" +
+        "});"
+    },
+    {
+      title: "Example 4 (edge case): functional vs integration, and flakiness",
+      description: "<p>Functional tests check 'meets requirements' (behavior); they overlap integration tests but are higher-level, slower, and flakier.</p>",
+      code: "// integration: 'does the endpoint work with the DB?' (technical wiring)\n" +
+        "// functional:  'does the FEATURE behave per the spec?' (consumer requirement)\n" +
+        "// functional/e2e tests span many components -> slower + more flaky (timing,\n" +
+        "//   external deps) -> keep them FEW (top of the pyramid), make them deterministic\n" +
+        "//   (control time/data), and don't push every edge case through them - that's what\n" +
+        "//   fast unit tests are for."
     }
   ],
   whenToUse: "<p>Use functional testing to confirm the API meets its requirements from the consumer's view &mdash; " +
@@ -1408,6 +2468,25 @@ C["load-testing"] = {
       title: "Example 2: Finding the breaking point",
       description: "<p>Increase load until it degrades.</p>",
       code: "// Ramp load up until latency spikes or errors climb ->\n//   that's your capacity limit / bottleneck.\n// Then optimize (caching, scaling, query tuning) and retest."
+    },
+    {
+      title: "Example 3: load, stress, soak, and spike tests",
+      description: "<p>Different performance tests answer different questions about behavior under load.</p>",
+      code: "// load:   expected traffic -> does it meet latency/throughput SLOs?\n" +
+        "// stress: ramp past the limit -> WHERE does it break, and does it fail gracefully?\n" +
+        "// soak:   sustained load for hours -> memory leaks / resource exhaustion?\n" +
+        "// spike:  sudden surge -> autoscaling + rate limiting hold up?\n" +
+        "// tools: k6, Gatling, JMeter, Locust. Assert on p95/p99, not just average."
+    },
+    {
+      title: "Example 4 (edge case): unrealistic tests + the load generator as bottleneck",
+      description: "<p>Bad load tests mislead - too-clean data, no think-time, or an undersized client gives numbers that don't reflect reality.</p>",
+      code: "// pitfalls: same cached request repeated (unrealistically fast), no pacing/think\n" +
+        "//   time, tiny dataset (everything cache-hits), testing a non-prod-like env.\n" +
+        "// the GENERATOR can be the limit: if client CPU maxes while server is idle, you're\n" +
+        "//   measuring the test rig -> distribute load, run headless, size the injector.\n" +
+        "// never load-test prod without care (you can cause an outage). Use realistic data\n" +
+        "//   distributions + ramp profiles, and watch the SERVER's resources, not just RPS."
     }
   ],
   whenToUse: "<p>Load test before launches, major changes, and to validate SLAs/capacity planning. " +
@@ -1435,6 +2514,24 @@ C["mocking-apis"] = {
       title: "Example 2: Mock a third-party dependency in tests",
       description: "<p>Deterministic tests without external calls.</p>",
       code: "// Don't call the real payment gateway in tests:\n//   mock it to return success/failure deterministically\n//   -> fast, reliable, no cost, test failure paths easily"
+    },
+    {
+      title: "Example 3: a mock server from the API spec",
+      description: "<p>Generate a stand-in API from your OpenAPI spec so clients can develop and test before the real backend exists.</p>",
+      code: "// from openapi.yaml, a tool (Prism, WireMock, MSW) serves canned responses:\n" +
+        "//   GET /orders/1 -> 200 { id:1, status:'open' }   (example from the spec)\n" +
+        "// front-end builds against this NOW; deterministic responses make tests stable.\n" +
+        "// also mock 3rd-party APIs in tests so you don't hit real services (cost/flakiness)."
+    },
+    {
+      title: "Example 4 (edge case): mocks drift from reality",
+      description: "<p>A mock that doesn't match the real API gives false confidence - code passes against the mock, fails against production.</p>",
+      code: "// the real API changes (new required field, different error shape) but the mock\n" +
+        "//   doesn't -> your client 'works' in tests, breaks in prod.\n" +
+        "// keep mocks generated from the SAME spec the server implements, and add CONTRACT\n" +
+        "//   tests so provider+consumer stay in sync.\n" +
+        "// mocks also can't reveal real latency, rate limits, or auth quirks -> still run\n" +
+        "//   some integration tests against the actual API."
     }
   ],
   whenToUse: "<p>Use mocking for parallel development (front-end before back-end is ready), deterministic and " +
@@ -1462,6 +2559,25 @@ C["contract-testing"] = {
       title: "Example 2: Catching breaking changes",
       description: "<p>Contract tests guard the integration.</p>",
       code: "// Provider removes the 'name' field ->\n//   the contract test FAILS in the provider's CI\n//   -> the breaking change is caught BEFORE it breaks the consumer."
+    },
+    {
+      title: "Example 3: consumer-driven contracts keep services compatible",
+      description: "<p>The consumer defines what it expects; the provider verifies it still satisfies that contract - catching breaking changes pre-deploy.</p>",
+      code: "// consumer (e.g. with Pact) records its expectation:\n" +
+        "//   GET /users/1 -> 200 { id, name }   (a 'pact')\n" +
+        "// provider's CI replays the pact against the real service:\n" +
+        "//   provider removes 'name' -> pact verification FAILS -> breaking change caught\n" +
+        "//   BEFORE deploy, without a full end-to-end environment."
+    },
+    {
+      title: "Example 4 (edge case): contract tests check shape, not full behavior",
+      description: "<p>They verify the interface matches expectations, not that the logic is correct - and both sides must run them in CI to matter.</p>",
+      code: "// a contract test confirms 'returns { id, name }', NOT that the name is right ->\n" +
+        "//   still need the provider's own unit/integration tests for correctness.\n" +
+        "// only works if BOTH sides participate: consumer publishes pacts, provider verifies\n" +
+        "//   them in CI -> otherwise it's just unused ceremony.\n" +
+        "// best for microservices/independently-deployed services; overkill for a single\n" +
+        "//   app with one in-house client."
     }
   ],
   whenToUse: "<p>Use contract testing in <strong>microservices</strong> and any setup with independently-" +
@@ -1488,6 +2604,25 @@ C["api-performance"] = {
       title: "Example 2: Measure before optimizing",
       description: "<p>Profile to find the real bottleneck.</p>",
       code: "// A slow endpoint: 1200ms = 1100ms DB query + 100ms rest\n//   -> the query is the bottleneck (add an index / cache it)\n// Optimize what the data shows, not guesses. Track p95/p99."
+    },
+    {
+      title: "Example 3: the main levers for API performance",
+      description: "<p>Most API speedups come from a handful of techniques - apply the one that fits the bottleneck.</p>",
+      code: "// caching        -> avoid recomputing/refetching stable data (biggest win)\n" +
+        "// fix N+1 queries -> batch/join instead of per-item calls\n" +
+        "// pagination      -> never return unbounded lists\n" +
+        "// async/queues    -> move slow work off the request path\n" +
+        "// connection reuse-> pooling + keep-alive (skip handshakes)\n" +
+        "// compression     -> gzip/br on responses; right indexes on the DB"
+    },
+    {
+      title: "Example 4 (edge case): measure first - optimize the real bottleneck",
+      description: "<p>Guessing wastes effort and adds complexity; profile to find where time actually goes (often a few hotspots).</p>",
+      code: "// 'must be the DB' -> add caching -> no change, because the cost was JSON\n" +
+        "//   serialization or a slow downstream call.\n" +
+        "// use APM traces + slow-query logs + percentiles (p95/p99, not averages).\n" +
+        "// premature optimization adds complexity for no measured gain. Amdahl: optimizing\n" +
+        "//   a 5%-of-time path can't help much -> attack the dominant cost. Then re-measure."
     }
   ],
   whenToUse: "<p>Attend to performance for any API with real traffic or latency requirements. <strong>Gotchas:</strong> " +
@@ -1515,6 +2650,24 @@ C["performance-metrics"] = {
       title: "Example 2: The golden signals",
       description: "<p>What to monitor at minimum.</p>",
       code: "// Latency: how long requests take (percentiles)\n// Traffic: requests/sec\n// Errors: error rate (4xx/5xx)\n// Saturation: how 'full' resources are (CPU/mem/connections/queue depth)"
+    },
+    {
+      title: "Example 3: the golden signals to track per endpoint",
+      description: "<p>A small set of metrics tells you an API's health (the RED method).</p>",
+      code: "// Rate:     requests/sec\n" +
+        "// Errors:   % of 4xx/5xx (split them - 4xx is client, 5xx is you)\n" +
+        "// Duration: latency DISTRIBUTION p50/p95/p99 (not average)\n" +
+        "// plus saturation: CPU/mem, DB connections, queue depth\n" +
+        "// per endpoint + per status -> you can see which route degraded and why."
+    },
+    {
+      title: "Example 4 (edge case): averages lie; tail latency and cardinality bite",
+      description: "<p>Mean latency hides pain, and tagging metrics with unbounded values blows up your metrics backend.</p>",
+      code: "// avg=50ms but p99=2s -> 1% of users suffer; the average hid it. Alert on p99.\n" +
+        "// fan-out amplifies tails: a page making 20 calls each p99=100ms is LIKELY to hit\n" +
+        "//   a slow one -> the page p99 >> 100ms.\n" +
+        "// high cardinality: tagging metrics with userId/requestId creates a series per\n" +
+        "//   value -> cost + slowdown. Tag with bounded dims (endpoint, status, region)."
     }
   ],
   whenToUse: "<p>Track performance metrics continuously to detect issues, validate SLOs, plan capacity, and " +
@@ -1542,6 +2695,26 @@ C["caching-strategies"] = {
       title: "Example 2: HTTP caching for clients/CDN",
       description: "<p>Headers let browsers/CDNs reuse responses.</p>",
       code: "Cache-Control: public, max-age=3600    // CDN/browser cache 1h\nETag: \"v42\"                            // revalidate when stale\nCache-Control: private, no-store        // never cache sensitive data"
+    },
+    {
+      title: "Example 3: cache at multiple layers",
+      description: "<p>Caching applies at several points; each offloads work from the layer behind it.</p>",
+      code: "// client/browser:  Cache-Control + ETag (no request at all on a hit)\n" +
+        "// CDN/edge:        cache public GETs near users\n" +
+        "// reverse proxy:   micro-cache hot responses (offload the app)\n" +
+        "// application:     Redis for computed results/sessions (cache-aside)\n" +
+        "// database:        buffer pool (automatic) + tuned queries/indexes\n" +
+        "// a 95% hit ratio turns thousands of expensive ops into a handful."
+    },
+    {
+      title: "Example 4 (edge case): invalidation, stampedes, and caching the wrong things",
+      description: "<p>'There are only two hard things... cache invalidation.' Staleness, concurrent misses, and per-user data all bite.</p>",
+      code: "// staleness: source changed but cache serves old value -> set TTL the feature\n" +
+        "//   tolerates; invalidate on write (delete the key) rather than update.\n" +
+        "// stampede: a hot key expires -> 1000 requests miss at once -> use single-flight/\n" +
+        "//   stale-while-revalidate.\n" +
+        "// NEVER cache per-user/auth'd data at a SHARED layer (CDN/proxy) -> user B gets\n" +
+        "//   user A's data. Mark it private/no-store. Cache read-heavy + tolerant-of-staleness only."
     }
   ],
   whenToUse: "<p>Cache read-heavy, expensive, frequently-requested, and infrequently-changing data &mdash; " +
@@ -1568,6 +2741,25 @@ C["load-balancing"] = {
       title: "Example 2: Algorithms + health checks",
       description: "<p>Balance smartly; avoid dead servers.</p>",
       code: "// Round robin: cycle through (simple, uniform requests)\n// Least connections: send to least-busy (variable request durations)\n// Health checks: probe /health; route only to healthy instances"
+    },
+    {
+      title: "Example 3: distribute traffic + health-check backends",
+      description: "<p>A load balancer spreads requests across instances and routes away from unhealthy ones.</p>",
+      code: "//            -> instance 1\n" +
+        "//   LB ----> -> instance 2   (algorithms: round robin, least connections, hash)\n" +
+        "//            -> instance 3\n" +
+        "// health check GET /health every 5s -> a failed instance is pulled from rotation,\n" +
+        "//   rejoins when healthy. Requires STATELESS instances + shared session store."
+    },
+    {
+      title: "Example 4 (edge case): the LB as SPOF, and sticky-session pitfalls",
+      description: "<p>One load balancer just moves the single point of failure, and session affinity undermines even balancing and resilience.</p>",
+      code: "// one LB instance down -> total outage -> run LBs HA (pair/managed/anycast).\n" +
+        "// sticky sessions (pin user->instance) break when that instance dies and prevent\n" +
+        "//   even load -> prefer STATELESS apps + shared session store (Redis) so any\n" +
+        "//   instance handles any request.\n" +
+        "// also: adding app instances behind an LB just shifts load onto the DB -> the DB\n" +
+        "//   often becomes the next bottleneck (scale it with replicas/caching too)."
     }
   ],
   whenToUse: "<p>Use load balancing whenever you run more than one API instance &mdash; for scale and " +
@@ -1595,6 +2787,25 @@ C["rate-limiting-throttling"] = {
       title: "Example 2: Protect + smooth load",
       description: "<p>Throttling protects capacity during scale-up.</p>",
       code: "// Token bucket allows bursts up to capacity, bounds sustained rate.\n// Throttling caps load to protect the DB/downstream during spikes,\n//   complementing autoscaling (which lags) and load leveling."
+    },
+    {
+      title: "Example 3: protect capacity and ensure fair use",
+      description: "<p>Throttling caps how fast each client can call, protecting the service from overload and abuse and sharing capacity fairly.</p>",
+      code: "// per API key/user (token bucket: 100 burst, 10/s refill)\n" +
+        "//   over limit -> 429 + Retry-After + X-RateLimit-* headers\n" +
+        "// tier it: free 60/min, paid 6000/min; limit expensive endpoints (search/export) harder.\n" +
+        "// it's both a reliability control (stop one client saturating the system) AND a\n" +
+        "//   security control (slow brute force / scraping)."
+    },
+    {
+      title: "Example 4 (edge case): distributed limits, shared IPs, and graceful 429s",
+      description: "<p>Per-instance counters don't aggregate, IP limits punish NATs, and clients must handle 429 or throttling backfires.</p>",
+      code: "// 5 instances * '100/min' in memory = 500/min globally -> use a SHARED store (Redis).\n" +
+        "// IP-based limits block a whole office/carrier behind one NAT -> prefer per-key/user\n" +
+        "//   when authenticated.\n" +
+        "// return 429 + Retry-After (not 500) so well-behaved clients back off; a client that\n" +
+        "//   ignores it and retries harder makes things worse -> consider exponential penalties.\n" +
+        "// distinguish throttling (slow down) from blocking (abuse)."
     }
   ],
   whenToUse: "<p>Apply to public and many authenticated endpoints (especially auth, search, writes) for " +
@@ -1622,6 +2833,24 @@ C["profiling-and-monitoring"] = {
       title: "Example 2: Profiling a hotspot",
       description: "<p>Find the expensive code/query.</p>",
       code: "// A profiler reveals 70% of CPU in JSON serialization, or a query\n//   doing a full table scan -> targeted fix (index, cache, optimize)\n// Profile to confirm WHERE the time goes before optimizing."
+    },
+    {
+      title: "Example 3: monitor continuously, profile to diagnose",
+      description: "<p>Monitoring tells you THAT something is slow; profiling/tracing tells you WHERE the time goes.</p>",
+      code: "// monitoring (always on): dashboards + alerts on rate/errors/p99, resource use\n" +
+        "// distributed trace breaks one slow request into spans:\n" +
+        "//   800ms = gateway 20 + auth 50 + db 600 + render 130 -> the DB call is the culprit\n" +
+        "// profiler (on demand): CPU/alloc flame graph of a hot path to find the exact line.\n" +
+        "// instrument with OpenTelemetry so traces correlate across services."
+    },
+    {
+      title: "Example 4 (edge case): observer effect, sampling, and overhead",
+      description: "<p>Profiling/tracing isn't free - heavy instrumentation distorts results, and sampling can miss the rare slow request.</p>",
+      code: "// profiling adds overhead -> a profiled run is slower than prod; interpret relatively.\n" +
+        "// high-volume tracing must be SAMPLED (e.g. 1%) -> the pathological request may be\n" +
+        "//   the one you didn't capture -> use TAIL-based sampling (keep slow/error traces).\n" +
+        "// logging in a hot loop or unbounded metric cardinality can THEMSELVES cause the\n" +
+        "//   slowdown you're chasing -> measure the cost of your observability too."
     }
   ],
   whenToUse: "<p>Monitor every production API; profile when investigating specific performance problems. " +
@@ -1649,6 +2878,28 @@ C["performance-testing"] = {
       title: "Example 2: A measurable goal",
       description: "<p>Define pass/fail criteria.</p>",
       code: "// Target: at 1000 req/s sustained,\n//   p95 latency < 300ms, error rate < 0.5%, no memory growth over 2h.\n// Run, measure, then optimize the bottleneck and re-test."
+    },
+    {
+      title: "Example 3: define SLOs and assert on them in the test",
+      description: "<p>A performance test should pass/fail against explicit targets, not just produce graphs.</p>",
+      code: "// k6 example: ramp to 500 VUs, then assert thresholds\n" +
+        "export const options = {\n" +
+        "  stages: [{ duration: '2m', target: 500 }, { duration: '5m', target: 500 }],\n" +
+        "  thresholds: {\n" +
+        "    http_req_duration: ['p(95)<300', 'p(99)<800'],   // latency SLO\n" +
+        "    http_req_failed:   ['rate<0.01'],                 // <1% errors\n" +
+        "  },\n" +
+        "};\n" +
+        "// CI fails if the SLOs are missed -> catches regressions before release."
+    },
+    {
+      title: "Example 4 (edge case): test environment realism + regression baselines",
+      description: "<p>Results are meaningless if the environment, data, or traffic shape differ from production, and one-off tests miss gradual regressions.</p>",
+      code: "// non-prod-like env (smaller DB, no CDN, tiny dataset) -> numbers won't transfer.\n" +
+        "//   use prod-like infra + realistic data volume + realistic request mix/think-time.\n" +
+        "// run on a SCHEDULE and track a BASELINE -> a 10% p99 creep per release is invisible\n" +
+        "//   in a single run but compounds. Compare against last release.\n" +
+        "// also size the load generator (an undersized client measures the rig, not the API)."
     }
   ],
   whenToUse: "<p>Run performance tests before launches and major changes, and on a schedule to catch " +
@@ -1676,6 +2927,27 @@ C["error-handling-retries"] = {
       title: "Example 2: Circuit breaker + idempotency",
       description: "<p>Stop calling a failing dependency; make retries safe.</p>",
       code: "// Circuit breaker: after repeated failures, 'open' -> fail fast/fallback\n//   for a cooldown, letting the service recover.\n// Idempotency keys: retried POSTs don't create duplicates."
+    },
+    {
+      title: "Example 3: retry transient failures with backoff + jitter",
+      description: "<p>Retry only retryable errors, spacing attempts out, and give up after a bound.</p>",
+      code: "for (let attempt = 0; attempt < 4; attempt++) {\n" +
+        "  try { return await call(); }\n" +
+        "  catch (e) {\n" +
+        "    if (!isTransient(e)) throw e;          // don't retry 4xx / validation\n" +
+        "    await sleep(rand(0, min(cap, base * 2 ** attempt))); // exp backoff + jitter\n" +
+        "  }\n" +
+        "}\n" +
+        "// honor Retry-After on 429/503; pair with a circuit breaker + per-call timeout."
+    },
+    {
+      title: "Example 4 (edge case): retrying non-idempotent calls + retry storms",
+      description: "<p>Blind retries can double-charge and can amplify an outage - bound them and gate with a breaker.</p>",
+      code: "// retrying POST /charge after a timeout (that actually succeeded) -> double charge.\n" +
+        "//   only retry idempotent ops, or send an Idempotency-Key.\n" +
+        "// during an outage, every client retrying 3x = 3x load on the dying service\n" +
+        "//   (retry storm) -> use a CIRCUIT BREAKER (stop calling) + a retry BUDGET.\n" +
+        "// never retry with no delay or unbounded; don't retry 4xx (they'll fail again)."
     }
   ],
   whenToUse: "<p>Implement error handling + retries for any client calling a remote API/service &mdash; networks " +
@@ -1706,6 +2978,25 @@ C["api-integration-patterns"] = {
       title: "Example 2: Pattern by need",
       description: "<p>Match the pattern to the requirement.</p>",
       code: "// Immediate result needed       -> synchronous request/response\n// Decouple + absorb spikes       -> messaging queue (async)\n// React to events / fan-out      -> event-driven / pub-sub\n// Push updates to clients        -> webhooks / WebSockets / SSE\n// Many independent services      -> microservices + API gateway"
+    },
+    {
+      title: "Example 3: the integration patterns and when each fits",
+      description: "<p>Pick by coupling, latency, and reliability needs.</p>",
+      code: "// request/response (sync): need an answer now -> REST/gRPC\n" +
+        "// messaging/events (async): decouple, buffer, fan-out -> queues/pub-sub\n" +
+        "// webhooks: server pushes events to a client URL -> near-real-time notifications\n" +
+        "// polling: client asks repeatedly -> simple, works everywhere, wasteful\n" +
+        "// batch: bulk/scheduled processing -> high volume, no per-item realtime\n" +
+        "// gateway/BFF: aggregate/route across services for clients"
+    },
+    {
+      title: "Example 4 (edge case): sync coupling vs async complexity",
+      description: "<p>Synchronous integration is simple but couples availability; async decouples but adds eventual consistency and ordering/duplication concerns.</p>",
+      code: "// sync chains: A->B->C, if C is down/slow, A fails/stalls (coupled availability +\n" +
+        "//   cascading failure) -> add timeouts/breakers, or go async for non-critical steps.\n" +
+        "// async/messaging: decoupled + resilient, BUT at-least-once delivery (dedupe),\n" +
+        "//   per-partition ordering only, results arrive later, and a broker to operate.\n" +
+        "// rule of thumb: sync for 'need the answer now', async for 'do this eventually'."
     }
   ],
   whenToUse: "<p>Choose integration patterns based on coupling, latency, reliability, and scale needs. Use " +
@@ -1733,6 +3024,25 @@ C["synchronous-vs-asynchronous-apis"] = {
       title: "Example 2: When to go async",
       description: "<p>Long, spiky, or decoupled work.</p>",
       code: "// Use async when: work is slow (video/report), bursty (absorb spikes\n//   via a queue), or services should be decoupled/independently scaled.\n// Use sync when: the caller needs the result NOW and work is fast."
+    },
+    {
+      title: "Example 3: same operation, sync vs async shapes",
+      description: "<p>Sync returns the result inline; async accepts the work and reports completion later.</p>",
+      code: "// synchronous: caller waits for the result\n" +
+        "POST /reports -> 200 { reportUrl }        // blocks until built (only if fast)\n" +
+        "// asynchronous: accept now, finish later\n" +
+        "POST /reports -> 202 Accepted { jobId }\n" +
+        "GET  /reports/{jobId} -> 200 { status:'processing' } ... then { status:'done', url }\n" +
+        "//   (or notify via webhook/SSE when ready) -> frees the caller, survives slow work."
+    },
+    {
+      title: "Example 4 (edge case): long sync calls exhaust resources",
+      description: "<p>Forcing slow work to be synchronous ties up threads/connections and times out clients - the cue to go async.</p>",
+      code: "// a 30s sync report ties up a request thread + risks client/proxy timeouts (often\n" +
+        "//   ~30-60s) -> under load, threads pile up -> the whole API stalls.\n" +
+        "// make it async: 202 + jobId, process in a worker, client polls/gets pushed.\n" +
+        "// but async costs UX complexity (no immediate answer) + tracking state -> don't\n" +
+        "//   make FAST operations async for no reason. Match to the work's duration."
     }
   ],
   whenToUse: "<p>Use <strong>synchronous</strong> for fast operations where the caller needs an immediate " +
@@ -1760,6 +3070,26 @@ C["event-driven-architecture"] = {
       title: "Example 2: Event vs direct call",
       description: "<p>Announce a fact vs invoke a service.</p>",
       code: "// Direct (coupled): orderSvc.call(emailSvc.send(...))\n// Event (decoupled): orderSvc emits 'OrderPlaced'; subscribers react.\n//   -> producer doesn't know/wait for consumers"
+    },
+    {
+      title: "Example 3: one event, many independent reactions",
+      description: "<p>A producer emits a fact; consumers react autonomously, added without changing the producer.</p>",
+      code: "// producer announces a fact (doesn't know/care who listens):\n" +
+        "publish('OrderPlaced', { orderId: 42 });\n" +
+        "// independent consumers react:\n" +
+        "on('OrderPlaced', reserveInventory);\n" +
+        "on('OrderPlaced', sendConfirmation);\n" +
+        "on('OrderPlaced', updateAnalytics);   // add 'awardLoyaltyPoints' later, zero producer change"
+    },
+    {
+      title: "Example 4 (edge case): eventual consistency + hard-to-trace flows",
+      description: "<p>EDA's decoupling comes with duplicate/out-of-order delivery and an implicit, scattered control flow.</p>",
+      code: "// 'what happens after an order?' has no single answer -> logic is spread across N\n" +
+        "//   handlers (and risks event loops A->B->A).\n" +
+        "// events are at-least-once + unordered -> consumers must be idempotent + tolerate\n" +
+        "//   reordering (partition by entity key for per-entity order).\n" +
+        "// mitigate with correlation/trace ids, event schemas, and DLQs. For a strictly\n" +
+        "//   ordered, must-see-now workflow, sync calls may fit better."
     }
   ],
   whenToUse: "<p>Use EDA when you need loose coupling, one action triggering many independent reactions, async/" +
@@ -1788,6 +3118,25 @@ C["api-gateways"] = {
       title: "Example 2: Hides internal topology",
       description: "<p>Reorganize services without breaking clients.</p>",
       code: "// Split a service or move it -> just update gateway routes;\n//   client-facing URLs stay stable. Backends stay private behind it."
+    },
+    {
+      title: "Example 3: a single entry point handling cross-cutting concerns",
+      description: "<p>The gateway routes to services and centralizes auth, rate limiting, TLS, and aggregation.</p>",
+      code: "// client -> GATEWAY -> services\n" +
+        "//   routing:    /users/* -> user-svc, /orders/* -> order-svc\n" +
+        "//   cross-cut:  TLS termination, authN, rate limiting, logging, CORS\n" +
+        "//   aggregation: combine calls for a client view (BFF-style)\n" +
+        "// services stay simple + internal; clients get one stable URL."
+    },
+    {
+      title: "Example 4 (edge case): SPOF, bottleneck, and the trust boundary",
+      description: "<p>All traffic flows through the gateway, so it must be HA and thin - and services must not blindly trust headers it sets.</p>",
+      code: "// one gateway instance down -> everything is unreachable -> run multiple replicas / HA.\n" +
+        "// don't put business logic in it (becomes a 'god gateway' + deploy bottleneck) -\n" +
+        "//   keep it to routing + cross-cutting.\n" +
+        "// services trust X-User-Id set by the gateway -> if a service is reachable DIRECTLY\n" +
+        "//   (misconfig/SSRF), that header is forgeable -> lock services to gateway-only\n" +
+        "//   traffic (mTLS/private net) AND still authorize inside each service."
     }
   ],
   whenToUse: "<p>Use an API gateway for microservice/multi-service architectures and public APIs needing " +
@@ -1815,6 +3164,24 @@ C["microservices-architecture"] = {
       title: "Example 2: New failure modes",
       description: "<p>Network calls fail; transactions span services.</p>",
       code: "// order.place() -> payment OK -> inventory FAILS\n//   -> no single DB transaction across services\n//   -> compensate (saga) + retries + circuit breakers + idempotency"
+    },
+    {
+      title: "Example 3: independently deployable services, each owning its data",
+      description: "<p>Decompose by business capability; services communicate over the network and own their datastore.</p>",
+      code: "// order-svc (own DB) --REST/events--> payment-svc (own DB)\n" +
+        "//                     --events-->         inventory-svc (own DB)\n" +
+        "// each: own pipeline, own scaling, one team end-to-end; NO shared database.\n" +
+        "// boundaries follow capabilities (orders, payments), not technical layers."
+    },
+    {
+      title: "Example 4 (edge case): the distributed-monolith trap + inherent tax",
+      description: "<p>Services that share a DB or must deploy together give you the costs of distribution with none of the independence.</p>",
+      code: "// smell: svc A can't deploy without B, they share a DB, one change touches both ->\n" +
+        "//   distributed monolith (worst of both worlds).\n" +
+        "// tax even when done right: no cross-service transactions (sagas), retries/\n" +
+        "//   idempotency, tracing, versioned contracts, N pipelines.\n" +
+        "// adopt ONLY with real drivers (many teams, independent scale). Otherwise a\n" +
+        "//   modular monolith ships faster - extract services when a boundary truly needs it."
     }
   ],
   whenToUse: "<p>Adopt microservices when you have concrete drivers &mdash; many teams needing independent " +
@@ -1843,6 +3210,25 @@ C["webhooks-vs-polling"] = {
       title: "Example 2: Webhook reliability + security",
       description: "<p>Push needs retries, dedup, and verification.</p>",
       code: "// Webhooks must handle: retries on delivery failure, duplicate\n//   deliveries (idempotency), and SIGNATURE VERIFICATION\n//   (so the client trusts the sender). Client must expose an endpoint."
+    },
+    {
+      title: "Example 3: push (webhook) vs pull (polling)",
+      description: "<p>Webhooks deliver events as they happen; polling repeatedly asks - efficiency vs simplicity.</p>",
+      code: "// polling: client asks on a timer (simple, but wasteful + laggy)\n" +
+        "//   every 30s: GET /events?since=... -> mostly empty responses\n" +
+        "// webhook: server POSTs to YOUR url when something happens (efficient, real-time)\n" +
+        "//   POST https://you.com/hooks/order  { event:'order.paid', id:42 }\n" +
+        "// webhooks need a public endpoint; polling works from anywhere."
+    },
+    {
+      title: "Example 4 (edge case): webhook reliability + polling cost",
+      description: "<p>Webhooks can be missed and must be secured/retried; polling wastes calls and adds latency.</p>",
+      code: "// webhooks: receiver down -> event lost unless you RETRY with backoff; make handling\n" +
+        "//   IDEMPOTENT (duplicates happen); VERIFY the signature (HMAC) - the endpoint is\n" +
+        "//   public and spoofable. Provide a way to replay missed events.\n" +
+        "// polling: too frequent = load + cost + mostly-empty responses; too rare = stale ->\n" +
+        "//   use conditional requests (ETag/since) + backoff.\n" +
+        "// hybrid: webhook for immediacy + periodic poll as a reconciliation safety net."
     }
   ],
   whenToUse: "<p>Use <strong>webhooks</strong> for efficient, near-real-time event delivery between servers " +
@@ -1871,6 +3257,25 @@ C["batch-processing"] = {
       title: "Example 2: Async bulk job",
       description: "<p>Large jobs run in the background.</p>",
       code: "// POST /imports (large CSV) -> 202 { jobId }   (async)\n//   worker processes in batches -> client polls/webhook for result\n// Scheduled batch: nightly job aggregates the day's data."
+    },
+    {
+      title: "Example 3: a bulk endpoint with per-item results",
+      description: "<p>Process many items in one request, returning a status per item (and often a 207 multi-status).</p>",
+      code: "POST /orders/batch  { items: [ {...}, {...}, {...} ] }\n" +
+        "-> 207 Multi-Status\n" +
+        "{ results: [ { index:0, status:201, id:1 },\n" +
+        "             { index:1, status:422, error:'invalid' },\n" +
+        "             { index:2, status:201, id:2 } ] }\n" +
+        "// one round-trip for many items; caller sees which succeeded/failed individually."
+    },
+    {
+      title: "Example 4 (edge case): partial failure, size limits, and async for big jobs",
+      description: "<p>Batches complicate atomicity (all-or-nothing?), can exceed payload limits, and large jobs should be async.</p>",
+      code: "// decide + document: is the batch ATOMIC (all-or-nothing) or BEST-EFFORT (per-item)?\n" +
+        "//   -> partial success needs the per-item result shape above, not a single 200/400.\n" +
+        "// cap batch size (e.g. 1000 items) + payload size -> reject oversized requests.\n" +
+        "// for very large/slow batches go ASYNC: 202 + jobId, process in a worker, poll for\n" +
+        "//   progress -> don't hold a request open for minutes. Make retries idempotent."
     }
   ],
   whenToUse: "<p>Use batch processing for high-volume operations where per-item real-time responses aren't " +
@@ -1899,6 +3304,25 @@ C["messaging-queues"] = {
       title: "Example 2: Spike absorption",
       description: "<p>The queue smooths bursty load.</p>",
       code: "// 10,000 requests arrive in a burst:\n//   [API] --enqueue--> [ queue ] --steady--> [workers x5]\n// Workers drain at a sustainable rate; the DB isn't overwhelmed."
+    },
+    {
+      title: "Example 3: producer -> queue -> consumer, decoupled",
+      description: "<p>A queue lets a producer hand off work without waiting; consumers process at their own pace and scale independently.</p>",
+      code: "// web: enqueue + return immediately\n" +
+        "queue.send('process-upload', { fileId: 9 }); // POST returns 202\n" +
+        "// worker(s): pull + process; add workers to raise throughput\n" +
+        "queue.consume('process-upload', job => transcode(job.fileId));\n" +
+        "// buffers bursts, survives consumer downtime, decouples producer from consumer."
+    },
+    {
+      title: "Example 4 (edge case): delivery semantics + the broker as infrastructure",
+      description: "<p>Queues are at-least-once with limited ordering, and the broker itself must be operated.</p>",
+      code: "// at-least-once -> consumers MUST be idempotent (dedupe by message id).\n" +
+        "// ordering is per-queue/partition only -> partition by key if order matters.\n" +
+        "// handle poison messages (max retries -> dead-letter queue), and set visibility\n" +
+        "//   timeout > processing time (or two workers grab the same message).\n" +
+        "// the broker (RabbitMQ/Kafka/SQS) is infra to run, monitor (queue depth/lag),\n" +
+        "//   secure, and make HA. Don't use a queue for request/response needing an immediate reply."
     }
   ],
   whenToUse: "<p>Use message queues to decouple services, process work asynchronously, absorb bursts, broadcast " +
@@ -1926,6 +3350,25 @@ C["rabbit-mq"] = {
       title: "Example 2: Work queue with acks",
       description: "<p>Distribute tasks reliably across workers.</p>",
       code: "// Multiple workers consume one queue (competing consumers).\n// Each message ack'd after processing -> redelivered if a worker dies.\n// Great for background jobs / task distribution."
+    },
+    {
+      title: "Example 3: flexible routing via exchanges",
+      description: "<p>RabbitMQ routes messages from exchanges to queues by binding rules - great for task distribution and complex routing.</p>",
+      code: "// publish to an exchange with a routing key; bindings decide which queues get it:\n" +
+        "//   direct:  routingKey 'orders.eu' -> eu-queue\n" +
+        "//   topic:   'orders.*'            -> all-orders-queue\n" +
+        "//   fanout:  -> every bound queue (broadcast)\n" +
+        "// consumers ack messages; unacked -> redelivered. Good for work queues + RPC."
+    },
+    {
+      title: "Example 4 (edge case): RabbitMQ vs Kafka - different tools",
+      description: "<p>RabbitMQ is a message BROKER (consume-and-remove); it's not built for retained, replayable event streams at Kafka scale.</p>",
+      code: "// RabbitMQ: messages are consumed + removed (queue semantics); rich routing, per-\n" +
+        "//   message ack, lower throughput. Best for TASK queues + complex routing + RPC.\n" +
+        "// Kafka: a retained, replayable LOG; consumers read at their own offset; very high\n" +
+        "//   throughput. Best for EVENT STREAMING + replay + multiple independent consumers.\n" +
+        "// don't force RabbitMQ to be an event log (no long retention/replay) or Kafka to do\n" +
+        "//   fine-grained routing/per-message ack. Pick by the access pattern."
     }
   ],
   whenToUse: "<p>Choose RabbitMQ for task queues, complex routing needs, request/reply, and traditional " +
@@ -1953,6 +3396,25 @@ C["kafka"] = {
       title: "Example 2: High-throughput streaming",
       description: "<p>Partitions enable parallelism + ordering per key.</p>",
       code: "// Partition by key (e.g. customerId) -> order preserved per key,\n//   parallelism across keys. Scales to millions of events/sec.\n// Used for: event sourcing, data pipelines, log aggregation, streaming."
+    },
+    {
+      title: "Example 3: a retained, replayable, partitioned log",
+      description: "<p>Kafka stores events in partitioned topics; consumer groups read at their own offset and can replay history.</p>",
+      code: "// topic 'orders' partitioned by orderId (key) -> order kept WITHIN a partition\n" +
+        "// producers append; multiple consumer GROUPS read independently:\n" +
+        "//   analytics-group  reads from offset 0 (full history)\n" +
+        "//   fulfillment-group reads latest only\n" +
+        "// events retained for days -> replay to rebuild state / onboard a new consumer."
+    },
+    {
+      title: "Example 4 (edge case): ordering, partitioning, and operational weight",
+      description: "<p>Kafka only orders within a partition, key choice is critical, and it's heavy to run for small needs.</p>",
+      code: "// global ordering doesn't exist -> only per-partition. To keep an entity's events\n" +
+        "//   ordered, key by entity id (same key -> same partition). A bad key -> hot\n" +
+        "//   partition (skew) or lost ordering.\n" +
+        "// at-least-once by default -> consumers idempotent; 'exactly once' needs extra config.\n" +
+        "// Kafka is operationally heavy (brokers, ZK/KRaft, partitions to plan) -> for a\n" +
+        "//   simple task queue, RabbitMQ/SQS is far less to run."
     }
   ],
   whenToUse: "<p>Use Kafka for high-throughput event streaming, retained/replayable event logs, data " +
@@ -1979,6 +3441,24 @@ C["web-sockets"] = {
       title: "Example 2: WebSocket vs HTTP/polling",
       description: "<p>Persistent + bidirectional vs request/response.</p>",
       code: "// HTTP/polling: client must keep asking; one-way, request/response\n// WebSocket: open once, both sides push -> low latency, less overhead\n//   for high-frequency, bidirectional updates"
+    },
+    {
+      title: "Example 3: a persistent, bidirectional connection",
+      description: "<p>WebSockets upgrade an HTTP connection to a full-duplex channel where client and server push messages anytime.</p>",
+      code: "// client opens it; both sides send freely after the handshake\n" +
+        "const ws = new WebSocket('wss://api.example.com/chat');\n" +
+        "ws.onmessage = e => render(JSON.parse(e.data));   // server -> client push\n" +
+        "ws.send(JSON.stringify({ text: 'hi' }));          // client -> server push\n" +
+        "// ideal for chat, multiplayer, collaborative editing, live trading."
+    },
+    {
+      title: "Example 4 (edge case): stateful connections are operationally harder",
+      description: "<p>Long-lived connections complicate scaling, reconnection, and load balancing - and are overkill for one-way updates.</p>",
+      code: "// connections are STATEFUL -> a server holds N open sockets; scaling/restart drops\n" +
+        "//   them. Need: reconnect + resume logic, heartbeats/ping, and a pub/sub backplane\n" +
+        "//   (Redis) so any instance can push to any client (sticky LB or shared state).\n" +
+        "// no built-in request/response or caching semantics; proxies/firewalls can block them.\n" +
+        "// if you only need SERVER->client updates, SSE is simpler. Use WS for true two-way."
     }
   ],
   whenToUse: "<p>Use WebSockets for genuinely <strong>bidirectional, real-time</strong> applications &mdash; " +
@@ -2007,6 +3487,27 @@ C["server-sent-events"] = {
       title: "Example 2: SSE vs WebSocket",
       description: "<p>Simple one-way vs full duplex.</p>",
       code: "// SSE: server -> client only; plain HTTP; auto-reconnect; simple\n//   -> great for feeds, notifications, progress, live updates\n// WebSocket: bidirectional; more complex; for two-way real-time (chat/games)"
+    },
+    {
+      title: "Example 3: one-way server push over plain HTTP",
+      description: "<p>SSE streams events from server to client over a long-lived HTTP response - simpler than WebSockets for one-way updates.</p>",
+      code: "// client\n" +
+        "const es = new EventSource('/notifications');\n" +
+        "es.onmessage = e => show(e.data);\n" +
+        "// server keeps the response open, writes text/event-stream:\n" +
+        "//   Content-Type: text/event-stream\n" +
+        "//   data: {\"type\":\"alert\",\"msg\":\"...\"}\\n\\n\n" +
+        "// auto-reconnect + Last-Event-ID resume are built into the browser EventSource."
+    },
+    {
+      title: "Example 4 (edge case): one-directional + connection limits",
+      description: "<p>SSE can't send client->server (use a normal request for that), is text-only, and HTTP/1.1 caps concurrent connections per domain.</p>",
+      code: "// client->server must use a separate HTTP request (SSE is server->client only).\n" +
+        "// text/UTF-8 only (no binary) -> base64 if you must send bytes.\n" +
+        "// HTTP/1.1: ~6 connections per domain in browsers -> many SSE streams exhaust them\n" +
+        "//   (HTTP/2 multiplexing fixes this). Some proxies buffer/close idle streams ->\n" +
+        "//   send periodic keep-alive comments.\n" +
+        "// for true two-way realtime use WebSockets; for one-way, SSE is the lighter choice."
     }
   ],
   whenToUse: "<p>Use SSE for <strong>one-way server-to-client</strong> real-time updates &mdash; notifications, " +
@@ -2035,6 +3536,25 @@ C["real-time-apis"] = {
       title: "Example 2: Scaling real-time",
       description: "<p>Stateful connections need a backplane.</p>",
       code: "// Many persistent connections across N servers ->\n//   use a pub/sub backplane so an event on server A reaches\n//   clients connected to server B. Plan connection limits + reconnection."
+    },
+    {
+      title: "Example 3: choosing the real-time transport",
+      description: "<p>Match the mechanism to the directionality and infrastructure you can support.</p>",
+      code: "// polling:    simplest, works everywhere, laggy + wasteful -> low-frequency updates\n" +
+        "// long-poll:  near-real-time without persistent connections\n" +
+        "// SSE:        server->client push over HTTP, auto-reconnect -> notifications/feeds\n" +
+        "// WebSocket:  full-duplex, low latency -> chat, games, collaborative editing\n" +
+        "// + a pub/sub backplane (Redis/Kafka) to fan out events to many connected clients."
+    },
+    {
+      title: "Example 4 (edge case): real-time adds state, scaling, and delivery concerns",
+      description: "<p>Live updates mean persistent connections and a fan-out problem that ordinary request/response avoids.</p>",
+      code: "// persistent connections are STATEFUL -> need sticky LB or a shared backplane so any\n" +
+        "//   server can push to any client; restarts/deploys drop connections (reconnect logic).\n" +
+        "// delivery: client offline briefly -> missed events -> need resume (Last-Event-ID)\n" +
+        "//   or a catch-up fetch on reconnect.\n" +
+        "// don't go real-time if periodic polling is good enough -> it's far simpler to run.\n" +
+        "// scale connection count deliberately (each open socket costs memory/fds)."
     }
   ],
   whenToUse: "<p>Build real-time APIs when users need live updates &mdash; messaging, collaborative tools, live " +
@@ -2066,6 +3586,27 @@ C["api-lifecycle-management"] = {
       title: "Example 2: Graceful deprecation",
       description: "<p>Give consumers time and signals.</p>",
       code: "// Announce deprecation + timeline in docs/changelog.\n// Signal in responses: Deprecation: true; Sunset: <date>\n// Support the old version during the migration window, then retire."
+    },
+    {
+      title: "Example 3: the API lifecycle stages",
+      description: "<p>An API moves through phases; managing them keeps consumers from being surprised.</p>",
+      code: "// design  -> spec-first, review the contract\n" +
+        "// develop -> build + test against the spec\n" +
+        "// publish -> version it, document it, onboard consumers\n" +
+        "// maintain-> monitor usage, patch, evolve ADDITIVELY (non-breaking)\n" +
+        "// deprecate-> announce + Deprecation/Sunset headers + migration guide\n" +
+        "// retire  -> remove only after the sunset window + low usage"
+    },
+    {
+      title: "Example 4 (edge case): deprecation needs notice, signals, and data",
+      description: "<p>Retiring an API or version abruptly breaks consumers; communicate via headers and usage metrics, not a surprise 410.</p>",
+      code: "// signal it in responses well ahead of removal:\n" +
+        "Deprecation: true\n" +
+        "Sunset: Sat, 31 Jan 2026 23:59:59 GMT\n" +
+        "Link: <https://docs/migrate-v2>; rel=\"deprecation\"\n" +
+        "// track who still calls the old version (per-key usage) before retiring -> don't\n" +
+        "//   break the one big customer still on it. Every live version is maintenance cost,\n" +
+        "//   so plan deprecation from day one - but give real notice + a migration path."
     }
   ],
   whenToUse: "<p>Apply lifecycle management to any API that consumers depend on, especially public/partner " +
@@ -2094,6 +3635,26 @@ C["standards-and-compliance"] = {
       title: "Example 2: Cross-cutting requirements",
       description: "<p>Common compliance themes for APIs.</p>",
       code: "// - Encrypt sensitive data in transit + at rest\n// - Strong access control + audit logging (who accessed what)\n// - Data retention/deletion policies\n// - Consent + transparency; minimize collected PII"
+    },
+    {
+      title: "Example 3: which regime applies to which data",
+      description: "<p>Compliance is data-driven - identify what you handle, then the obligations follow.</p>",
+      code: "// EU residents' personal data        -> GDPR\n" +
+        "// California residents' personal data -> CCPA/CPRA\n" +
+        "// payment card data                  -> PCI DSS\n" +
+        "// US health data (PHI)               -> HIPAA\n" +
+        "// any PII                            -> baseline data-protection duties\n" +
+        "// you can be subject to SEVERAL at once -> map your data flows first."
+    },
+    {
+      title: "Example 4 (edge case): compliance is org-wide, not a code checkbox",
+      description: "<p>An API change can't make you 'compliant' - it requires data handling, contracts, processes, and legal review (this is not legal advice).</p>",
+      code: "// engineering enables compliance (encryption, access control, deletion/export\n" +
+        "//   endpoints, audit logs, data minimization) but doesn't ACHIEVE it alone:\n" +
+        "//   also need DPAs/contracts, retention policies, breach processes, DPO/legal review.\n" +
+        "// regimes OVERLAP + CONFLICT (e.g. 'delete my data' vs an immutable audit log) ->\n" +
+        "//   resolve with legal, not ad hoc.\n" +
+        "// this is general info, NOT legal advice - involve your privacy/legal team."
     }
   ],
   whenToUse: "<p>Address standards and compliance whenever your API handles regulated data (personal, health, " +
@@ -2121,6 +3682,26 @@ C["gdpr"] = {
       title: "Example 2: Core obligations",
       description: "<p>Minimize, protect, and be transparent.</p>",
       code: "// - Collect only necessary data (minimization) for a stated purpose\n// - Lawful basis/consent before processing\n// - Encrypt + secure personal data; breach notification (within 72h)\n// - Don't transfer EU data out without safeguards"
+    },
+    {
+      title: "Example 3: GDPR data-subject rights as API features",
+      description: "<p>GDPR rights translate into concrete endpoints/processes your API must support.</p>",
+      code: "// right to access/portability -> GET /me/export (machine-readable copy)\n" +
+        "// right to erasure ('be forgotten') -> DELETE /me (actually delete/anonymize)\n" +
+        "// right to rectification -> PATCH /me\n" +
+        "// consent + lawful basis -> record it; data minimization -> collect only what you need\n" +
+        "// breach notification within 72h -> you need monitoring + an incident process."
+    },
+    {
+      title: "Example 4 (edge case): erasure vs backups/logs/immutable stores",
+      description: "<p>'Delete my data' collides with backups, audit logs, and event-sourced/immutable data - resolve deliberately (not legal advice).</p>",
+      code: "// deleting from the primary DB but data lingers in backups, analytics, logs, and\n" +
+        "//   downstream systems -> erasure must cover ALL copies (or have a documented,\n" +
+        "//   time-bound backup-expiry policy).\n" +
+        "// immutable/event-sourced data conflicts with deletion -> crypto-shredding (delete\n" +
+        "//   the key) or anonymization.\n" +
+        "// applies regardless of where YOU are hosted if the user is an EU resident; fines\n" +
+        "//   are large. Involve legal - this is general info, not legal advice."
     }
   ],
   whenToUse: "<p>Comply with GDPR if your API processes any EU residents' personal data (regardless of where " +
@@ -2148,6 +3729,25 @@ C["ccpa"] = {
       title: "Example 2: CCPA vs GDPR",
       description: "<p>Related but distinct.</p>",
       code: "// Both: access, deletion, transparency, security.\n// CCPA emphasis: opt-OUT of data SALE (vs GDPR's opt-IN consent).\n// Applicability: CCPA has revenue/data-volume thresholds.\n// If you handle CA residents' data and qualify, comply."
+    },
+    {
+      title: "Example 3: CCPA/CPRA consumer rights",
+      description: "<p>California's law grants rights similar to (but distinct from) GDPR - notably around 'selling/sharing' data.</p>",
+      code: "// right to know   -> what data you collected + why (export)\n" +
+        "// right to delete -> remove their data on request\n" +
+        "// right to opt-out of 'sale/sharing' -> honor a 'Do Not Sell My Info' signal\n" +
+        "//   (incl. the Global Privacy Control header) -> a real flag in your data flows\n" +
+        "// right to correct + non-discrimination for exercising rights."
+    },
+    {
+      title: "Example 4 (edge case): CCPA's 'sale/sharing' is broad; differs from GDPR",
+      description: "<p>'Sale' covers more than money changing hands (e.g. sharing with ad/analytics partners), and CCPA is opt-OUT vs GDPR's opt-IN (not legal advice).</p>",
+      code: "// 'sharing data with an advertising/analytics partner' can count as a 'sale' even\n" +
+        "//   with no payment -> you must offer opt-out + honor GPC.\n" +
+        "// model differs: CCPA = opt-OUT (allowed until they object); GDPR = opt-IN\n" +
+        "//   (need lawful basis/consent first) -> don't assume one implementation covers both.\n" +
+        "// thresholds apply (revenue / # of consumers / data-selling) -> check if you're in\n" +
+        "//   scope. General info, not legal advice - consult your privacy team."
     }
   ],
   whenToUse: "<p>Comply with CCPA/CPRA if your business meets the thresholds and handles California residents' " +
@@ -2175,6 +3775,25 @@ C["pci-dss"] = {
       title: "Example 2: Core PCI requirements",
       description: "<p>If you do handle card data.</p>",
       code: "// - Encrypt cardholder data in transit + at rest\n// - NEVER store CVV/sensitive auth data after authorization\n// - Strict access control + audit logging\n// - Network segmentation, vulnerability scans, pen testing"
+    },
+    {
+      title: "Example 3: minimize scope - don't touch raw card data",
+      description: "<p>The cheapest path to PCI compliance is to never let card numbers hit your servers; use a tokenizing payment provider.</p>",
+      code: "// DON'T: card number flows through your API/DB -> you're fully in PCI scope.\n" +
+        "// DO: client sends card data DIRECTLY to Stripe/Adyen -> you receive a TOKEN:\n" +
+        "//   frontend -> provider.js -> token 'tok_abc'\n" +
+        "//   your API -> charge with the token, store only the token + last4\n" +
+        "// you never see/store the PAN -> dramatically reduced PCI scope (SAQ-A)."
+    },
+    {
+      title: "Example 4 (edge case): hidden scope creep + what you may never store",
+      description: "<p>Card data sneaks into logs, support tickets, and analytics; and some data must never be stored at all (not legal advice).</p>",
+      code: "// NEVER store: full magnetic stripe, CVV/CVC, or PIN - period (even encrypted).\n" +
+        "// PAN if stored MUST be encrypted/truncated; storing it pulls you into far stricter SAQs.\n" +
+        "// scope creep: a card number pasted into a support ticket, a debug log dumping the\n" +
+        "//   request body, or an analytics event -> now those systems are in scope too.\n" +
+        "//   redact aggressively. Compliance is validated (SAQ/audit), not self-declared -\n" +
+        "//   consult a QSA. General info, not legal advice."
     }
   ],
   whenToUse: "<p>PCI DSS applies if your API stores, processes, or transmits payment card data. <strong>Gotchas:</strong> " +
@@ -2202,6 +3821,25 @@ C["hipaa"] = {
       title: "Example 2: Business Associate Agreements",
       description: "<p>Vendors handling PHI must be covered.</p>",
       code: "// Any third party (cloud, SaaS, analytics) that touches PHI needs a\n//   signed BAA. Use HIPAA-eligible services + configure them compliantly.\n// Minimize PHI collected/retained; restrict who/what can access it."
+    },
+    {
+      title: "Example 3: HIPAA safeguards as engineering controls",
+      description: "<p>The Security Rule's safeguards map to concrete API/infra controls around PHI.</p>",
+      code: "// access control: least-privilege + per-user auth; unique IDs (no shared accounts)\n" +
+        "// audit controls: log who accessed which PHI, when (tamper-evident)\n" +
+        "// integrity + transmission security: encrypt PHI in transit (TLS) AND at rest\n" +
+        "// minimum necessary: return only the PHI needed for the task\n" +
+        "// + a signed BAA with every vendor/cloud that touches PHI."
+    },
+    {
+      title: "Example 4 (edge case): BAAs, logging PHI, and 'de-identified' data",
+      description: "<p>Every downstream service touching PHI needs a BAA, logs/analytics easily leak PHI, and de-identification has a strict bar (not legal advice).</p>",
+      code: "// any vendor processing PHI (cloud, logging SaaS, email) needs a Business Associate\n" +
+        "//   Agreement -> using a non-BAA service for PHI is a violation.\n" +
+        "// PHI in logs/error messages/analytics = a breach -> redact; treat logs as PHI stores.\n" +
+        "// 'de-identified' (Safe Harbor / Expert Determination) data escapes some rules, but\n" +
+        "//   the bar is strict - partial masking is NOT de-identification.\n" +
+        "// breaches have mandatory notification + heavy penalties. General info, not legal advice."
     }
   ],
   whenToUse: "<p>Comply with HIPAA if your API creates, receives, stores, or transmits PHI (US healthcare " +
@@ -2229,6 +3867,25 @@ C["pii"] = {
       title: "Example 2: PII in API responses",
       description: "<p>Return only what's needed; filter server-side.</p>",
       code: "// Don't dump full records: return only the PII the client truly needs.\n// Apply field-level access (an admin may see more than a normal user).\n// Don't expose PII in URLs (logged everywhere) - use the body over HTTPS."
+    },
+    {
+      title: "Example 3: minimize, protect, and mask PII",
+      description: "<p>Collect the least PII you need, encrypt it, and never expose more than required.</p>",
+      code: "// data minimization: don't collect/return fields you don't need\n" +
+        "// encrypt in transit (TLS) + at rest; restrict who/what can read it (least privilege)\n" +
+        "// mask in responses + logs:\n" +
+        "//   email: s***@example.com   phone: ***-***-1234   card: **** 1234\n" +
+        "// allow-list response fields (DTOs) so PII isn't leaked by default."
+    },
+    {
+      title: "Example 4 (edge case): PII hides in unexpected places + indirect identifiers",
+      description: "<p>PII isn't just name/email - IPs, device ids, and combinations can identify someone, and it leaks via logs, URLs, and analytics.</p>",
+      code: "// indirect PII: IP address, device/advertising id, precise location, or a COMBO of\n" +
+        "//   quasi-identifiers (zip + birthdate + gender) can re-identify a person.\n" +
+        "// common leaks: PII in URLs (-> logs, history, Referer), in error messages, in\n" +
+        "//   analytics events, in third-party log sinks -> redact at the boundary.\n" +
+        "// what counts as PII varies by regulation (GDPR is broad) -> when unsure, treat it\n" +
+        "//   as PII and protect it. General info, not legal advice."
     }
   ],
   whenToUse: "<p>Protect PII in any API that handles user data &mdash; effectively all of them. It underpins " +

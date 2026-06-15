@@ -32,6 +32,26 @@ C["use-standard-authentication"] = {
         "//   'Sign in with Google/Microsoft' via OpenID Connect\n" +
         "//   -> the IdP handles credentials, MFA, breach detection\n" +
         "//   -> your API just validates the issued token"
+    },
+    {
+      title: "Example 3: a constant-time credential comparison",
+      description: "<p>Even with standards, comparisons must be timing-safe - a naive <code>===</code> on secrets leaks length/content via timing.</p>",
+      code: "// Vulnerable: '===' short-circuits -> response time reveals how much matched\n" +
+        "if (providedApiKey === storedApiKey) {} // timing oracle\n" +
+        "// Safe: constant-time compare (whole length always checked)\n" +
+        "import { timingSafeEqual } from 'crypto';\n" +
+        "timingSafeEqual(Buffer.from(providedApiKey), Buffer.from(storedApiKey));\n" +
+        "// bcrypt.compare / library verify() are already constant-time."
+    },
+    {
+      title: "Example 4 (edge case): using a standard incorrectly is still insecure",
+      description: "<p>'Use OAuth/JWT' isn't enough - misconfiguration reintroduces the very holes the standard prevents.</p>",
+      code: "// Real-world misconfigurations that defeat the standard:\n" +
+        "//   - JWT verify with alg:'none' accepted -> unsigned forged tokens\n" +
+        "//   - OAuth redirect_uri not exact-matched -> token theft\n" +
+        "//   - bcrypt cost factor of 4 -> brute-forceable\n" +
+        "//   - storing the JWT in localStorage -> XSS steals it\n" +
+        "// Adopt the standard AND its secure defaults; keep the library patched."
     }
   ],
   whenToUse: "<p>Apply this to <em>every</em> API that authenticates anyone. There is essentially never a good " +
@@ -66,6 +86,24 @@ C["authentication-mechanisms"] = {
         "Authorization: Bearer eyJhbGciOiJIUzI1NiIs...\n" +
         "// Server validates the token's signature, expiry, issuer, audience\n" +
         "// before processing the request."
+    },
+    {
+      title: "Example 3: matching the mechanism to the caller",
+      description: "<p>Different clients call for different auth - pick by who's calling and from where.</p>",
+      code: "// browser SPA / mobile -> OAuth2/OIDC + short-lived tokens (or secure cookies)\n" +
+        "// server-to-server     -> client credentials (OAuth) or mTLS / signed requests\n" +
+        "// third-party devs     -> API keys (identify the app) + scopes + rate limits\n" +
+        "// internal microservices -> mTLS / a service mesh identity\n" +
+        "// 'who calls and from where' decides the right mechanism."
+    },
+    {
+      title: "Example 4 (edge case): API keys are identification, not strong auth",
+      description: "<p>A common conflation - API keys identify a caller but are bearer secrets that leak easily; don't treat them as user authentication.</p>",
+      code: "// API key in a public mobile app / frontend JS -> extractable by anyone.\n" +
+        "//   keys identify the APP, not a user; they're long-lived bearer secrets.\n" +
+        "// So: scope keys narrowly, rate-limit per key, rotate them, and NEVER use a\n" +
+        "//   single shared key as the only thing protecting sensitive data.\n" +
+        "// For user identity use OAuth/OIDC tokens, not a static key."
     }
   ],
   whenToUse: "<p>Decide the mechanism early, based on who calls your API and from where. <strong>Gotchas:</strong> " +
@@ -98,6 +136,24 @@ C["max-retry-jail"] = {
       code: "// attempt 1-3: allowed immediately\n" +
         "// attempt 4: wait 2s ; 5: wait 4s ; 6: wait 8s ...\n" +
         "// Slows automated guessing to a crawl without fully locking real users out."
+    },
+    {
+      title: "Example 3: lock out after repeated failures (with backoff)",
+      description: "<p>Throttle and temporarily block credential attempts to stop brute-force/credential-stuffing.</p>",
+      code: "// track failures per account AND per IP:\n" +
+        "//   5 fails -> require CAPTCHA\n" +
+        "//   10 fails -> lock the account for an increasing window (1m, 5m, 30m...)\n" +
+        "// store attempts in Redis with a TTL; reset the counter on a successful login.\n" +
+        "// pair with rate limiting at the gateway so attempts can't fan out."
+    },
+    {
+      title: "Example 4 (edge case): lockouts become a denial-of-service on users",
+      description: "<p>An attacker who knows a username can deliberately trip the lockout to lock real users out - balance protection against DoS.</p>",
+      code: "// Locking an ACCOUNT after N fails -> attacker fails logins on purpose to lock\n" +
+        "//   the victim out (account-lockout DoS).\n" +
+        "// Mitigations: lockout/throttle primarily by IP + device, use exponential backoff\n" +
+        "//   and CAPTCHA rather than hard permanent locks, and prefer MFA over aggressive\n" +
+        "//   lockouts. Also return the SAME generic error so you don't reveal valid usernames."
     }
   ],
   whenToUse: "<p>Apply to all login, password-reset, OTP, and token endpoints. <strong>Gotchas:</strong> a naive " +
@@ -129,6 +185,24 @@ C["sensitive-data-encryption"] = {
       code: "// In transit: HTTPS/TLS 1.2+ everywhere (APIs, internal service calls)\n" +
         "// At rest:    enabled DB encryption, encrypted volumes, encrypted backups\n" +
         "// Keys:       managed by a KMS (AWS KMS, Vault), rotated, access-controlled"
+    },
+    {
+      title: "Example 3: encrypt in transit AND at rest, with the right primitive",
+      description: "<p>Use TLS for traffic, authenticated encryption for stored data, and a slow hash (not encryption) for passwords.</p>",
+      code: "// in transit:  TLS 1.2+/1.3 everywhere (no plaintext HTTP)\n" +
+        "// at rest:     AES-256-GCM (authenticated) with keys in a KMS/Vault\n" +
+        "// passwords:   NOT encrypted - hashed with bcrypt/argon2 (one-way, salted)\n" +
+        "// the choice differs: data you must read back = encrypt; secrets you only verify = hash."
+    },
+    {
+      title: "Example 4 (edge case): key management is the hard part",
+      description: "<p>Encryption is only as strong as key handling - hardcoded keys, no rotation, or keys stored next to the data defeat it.</p>",
+      code: "// Defeats encryption:\n" +
+        "//   const KEY = 'hardcoded-in-source';        // in git history forever\n" +
+        "//   key stored in the same DB as the ciphertext // steal one, steal both\n" +
+        "//   no rotation -> a leaked key compromises ALL historical data\n" +
+        "// Do: keep keys in a KMS/HSM, rotate them, use envelope encryption, and never\n" +
+        "//   commit secrets. Also: ECB mode / a fixed IV leak patterns - use GCM + random IV."
     }
   ],
   whenToUse: "<p>Always &mdash; encrypt all traffic with TLS and encrypt sensitive data at rest. " +
@@ -162,6 +236,24 @@ C["good-jwt-secret"] = {
       code: "// RS256: sign with a PRIVATE key (kept secret on the issuer)\n" +
         "//        verify with the PUBLIC key (safe to distribute)\n" +
         "// Good when many services must verify tokens but only one issues them."
+    },
+    {
+      title: "Example 3: a strong, high-entropy signing secret",
+      description: "<p>HMAC JWT secrets must be long, random, and stored outside the code - a weak secret is brute-forceable.</p>",
+      code: "// Weak (brute-forceable / guessable):\n" +
+        "const SECRET = 'secret123';\n" +
+        "// Strong: >= 256 bits of randomness, from a secret store/env, never in git\n" +
+        "//   openssl rand -base64 48\n" +
+        "const SECRET = process.env.JWT_SECRET; // injected at runtime, rotated periodically"
+    },
+    {
+      title: "Example 4 (edge case): prefer asymmetric keys for distributed verification",
+      description: "<p>With HS256 every verifier needs the signing secret (more leak surface); RS256/ES256 let services verify with only the public key.</p>",
+      code: "// HS256: one shared secret signs AND verifies -> every service that validates\n" +
+        "//   tokens holds the secret -> any one of them leaking = full forgery power.\n" +
+        "// RS256/ES256: the IdP signs with a PRIVATE key; services verify with the PUBLIC\n" +
+        "//   key (safe to distribute via JWKS). Rotate keys via 'kid' in the header.\n" +
+        "// Use asymmetric when many independent services verify tokens."
     }
   ],
   whenToUse: "<p>Whenever you issue JWTs. <strong>Gotchas:</strong> a leaked HS256 secret = total compromise " +
@@ -193,6 +285,24 @@ C["jwt-algorithm"] = {
       code: "// If you expect RS256 (asymmetric), NEVER also accept HS256 with the\n" +
         "// same key material - an attacker could sign an HS256 token using your\n" +
         "// PUBLIC key as the secret and have it verified. Lock to one alg family."
+    },
+    {
+      title: "Example 3: pin the expected algorithm on verify",
+      description: "<p>Always tell the verifier which algorithm(s) to accept - never trust the token's own header.</p>",
+      code: "// Vulnerable: trusts whatever alg the token claims\n" +
+        "jwt.verify(token, key);\n" +
+        "// Safe: explicitly allow only what you issue\n" +
+        "jwt.verify(token, key, { algorithms: ['RS256'] });\n" +
+        "// rejects a forged token that says alg:'none' or swaps RS256->HS256."
+    },
+    {
+      title: "Example 4 (edge case): the alg:'none' and RS256->HS256 confusion attacks",
+      description: "<p>Two classic JWT exploits both come from letting the attacker choose the algorithm.</p>",
+      code: "// 1. alg:'none' attack: attacker sets header alg:'none', strips the signature ->\n" +
+        "//    a lib that honors it accepts the unsigned token. Reject 'none'.\n" +
+        "// 2. Key-confusion: server uses RS256 (public key known). Attacker signs with\n" +
+        "//    HS256 USING THE PUBLIC KEY as the HMAC secret; a lib that picks alg from the\n" +
+        "//    header verifies it. Pin algorithms to break both."
     }
   ],
   whenToUse: "<p>On every JWT verification. <strong>Gotchas:</strong> many JWT libraries historically defaulted " +
@@ -223,6 +333,25 @@ C["token-expiry"] = {
       code: "// The verifier must enforce expiry:\n" +
         "//   { exp: 1718000000 } -> reject if now > exp\n" +
         "// (Reputable libraries check exp automatically - don't disable it.)"
+    },
+    {
+      title: "Example 3: short access token + long refresh token",
+      description: "<p>The standard pattern: a short-lived access token limits leak damage; a refresh token (revocable, server-tracked) gets new ones.</p>",
+      code: "// access token:  exp ~15 min  -> if stolen, useful only briefly\n" +
+        "// refresh token: days/weeks, stored server-side (revocable), rotated on use\n" +
+        "//   client -> /refresh (with refresh token) -> new access token\n" +
+        "// revoking the refresh token (logout/compromise) ends the session;\n" +
+        "//   the access token simply expires shortly after."
+    },
+    {
+      title: "Example 4 (edge case): you can't un-issue a JWT before it expires",
+      description: "<p>A stateless JWT stays valid until <code>exp</code> even after logout/ban - revocation needs extra machinery.</p>",
+      code: "// User is compromised/banned, but their 15-min access token still works ->\n" +
+        "//   stateless tokens have no built-in 'logout'.\n" +
+        "// Options: keep access tokens SHORT (accept the small window), maintain a\n" +
+        "//   server-side denylist of revoked token ids (reintroduces state), or rotate\n" +
+        "//   refresh tokens + detect reuse. Don't set multi-hour access-token expiry to\n" +
+        "//   'avoid refreshing' - that widens the unrevocable window."
     }
   ],
   whenToUse: "<p>Always set sensible expiry. <strong>Gotchas:</strong> the core JWT weakness is that you " +
@@ -256,6 +385,23 @@ C["jwt-payload"] = {
         "//   sub (user id), roles/scopes, iss, aud, exp, iat\n" +
         "// Need the user's email/profile? Fetch it from the DB by sub,\n" +
         "//   don't embed sensitive details in the token."
+    },
+    {
+      title: "Example 3: the payload is signed, not encrypted - it's readable",
+      description: "<p>Anyone holding the token can base64-decode the claims; signing prevents tampering, not reading.</p>",
+      code: "// header.PAYLOAD.signature  - middle part is just base64url JSON:\n" +
+        "atob('eyJzdWIiOiIxMjMiLCJyb2xlIjoiYWRtaW4ifQ'); // {\"sub\":\"123\",\"role\":\"admin\"}\n" +
+        "// So NEVER put secrets in claims: no passwords, SSNs, card numbers, internal flags.\n" +
+        "// Put only non-sensitive identity/authorization data (sub, roles, exp)."
+    },
+    {
+      title: "Example 4 (edge case): stale claims and trusting unverified data",
+      description: "<p>Claims reflect the moment of issue (roles can be revoked) and must only be trusted after signature verification.</p>",
+      code: "// User demoted from admin, but their token still says role:'admin' until exp ->\n" +
+        "//   keep tokens short, or check critical permissions against the DB, not just claims.\n" +
+        "// And: decoding != verifying. NEVER read claims before verifying the signature:\n" +
+        "//   const claims = jwt.decode(token);   // UNVERIFIED - attacker-controlled!\n" +
+        "//   const claims = jwt.verify(token, key, {algorithms:['RS256']}); // trust THIS"
     }
   ],
   whenToUse: "<p>Every time you design token claims. <strong>Gotchas:</strong> the #1 mistake is assuming JWT " +
@@ -285,6 +431,24 @@ C["payload-size"] = {
       code: "// Instead of embedding 200 fine-grained permissions in the token,\n" +
         "//   embed a role/scope and resolve permissions server-side,\n" +
         "//   or cache them keyed by user id."
+    },
+    {
+      title: "Example 3: keep tokens small - they ride on every request",
+      description: "<p>A JWT is sent in a header on each call; bloated claims inflate every request and can break header size limits.</p>",
+      code: "// Bloated: embedding every permission in the token\n" +
+        "{ sub:'1', permissions:[ /* 400 entries */ ] } // multi-KB header on EVERY request\n" +
+        "// Lean: a role or reference; resolve fine-grained perms server-side\n" +
+        "{ sub:'1', role:'editor' }\n" +
+        "// big tokens also risk 431 'Request Header Fields Too Large' at proxies/servers."
+    },
+    {
+      title: "Example 4 (edge case): the cookie/header size ceiling",
+      description: "<p>Servers and proxies cap header sizes (often ~8KB); an over-large JWT silently fails with a 400/431.</p>",
+      code: "// nginx default large_client_header_buffers ~8k; exceed it -> 400/431 errors that\n" +
+        "//   are confusing to debug (the request never reaches your app cleanly).\n" +
+        "// If claims must be large, store the data server-side and put a reference id in\n" +
+        "//   the token, or use opaque tokens + introspection. Prefer roles over exhaustive\n" +
+        "//   permission lists in the token."
     }
   ],
   whenToUse: "<p>When designing claims, especially for users with many roles/permissions. <strong>Gotchas:</strong> " +
@@ -317,6 +481,26 @@ C["throttle-requests"] = {
       code: "// Token bucket in Redis (shared across all API servers):\n" +
         "//   capacity 100, refill 10/sec -> allows bursts, bounds sustained rate\n" +
         "// Must be SHARED, or each instance enforces N separate limits."
+    },
+    {
+      title: "Example 3: rate-limit per identity with clear 429 responses",
+      description: "<p>Cap requests per key/user/IP and tell clients how to back off via standard headers.</p>",
+      code: "// token bucket per API key: 100 burst, 10/sec refill\n" +
+        "// over the limit:\n" +
+        "//   HTTP 429 Too Many Requests\n" +
+        "//   Retry-After: 30\n" +
+        "//   X-RateLimit-Limit / X-RateLimit-Remaining / X-RateLimit-Reset\n" +
+        "// tier it (free vs paid), and limit expensive endpoints (search, export) harder."
+    },
+    {
+      title: "Example 4 (edge case): per-instance limits and shared IPs",
+      description: "<p>Naive in-memory limits don't aggregate across instances, and IP-based limits punish users behind shared NATs.</p>",
+      code: "// 5 app instances, each '100/min' in memory -> real global limit is 500/min.\n" +
+        "//   Use a SHARED store (Redis) for a true cluster-wide limit.\n" +
+        "// IP-based limiting blocks a whole office/mobile carrier behind one NAT IP ->\n" +
+        "//   prefer per-API-key/per-user where authenticated; use IP only for anonymous.\n" +
+        "// Also distinguish throttling (429, slow down) from blocking (abuse) - don't\n" +
+        "//   permanently ban legitimate bursty clients."
     }
   ],
   whenToUse: "<p>On all public and authenticated endpoints, especially auth, search, and write-heavy ones. " +
@@ -347,6 +531,24 @@ C["use-https"] = {
       code: "// If a client accidentally calls http://api/... once with its\n" +
         "//   Authorization header, the token is sent in CLEARTEXT and can be\n" +
         "//   sniffed -> account compromise. HTTPS-only prevents this."
+    },
+    {
+      title: "Example 3: redirect HTTP to HTTPS and use modern TLS",
+      description: "<p>Serve only over HTTPS, force-upgrade plaintext, and disable old protocol versions/ciphers.</p>",
+      code: "// redirect all HTTP -> HTTPS (301)\n" +
+        "// TLS config: enable 1.2 + 1.3 only; disable SSLv3/TLS1.0/1.1 + weak ciphers\n" +
+        "// use a valid cert (Let's Encrypt) with auto-renewal\n" +
+        "// then add HSTS so browsers refuse plaintext on future visits."
+    },
+    {
+      title: "Example 4 (edge case): the plaintext-redirect window and mixed content",
+      description: "<p>The initial HTTP request before the redirect is interceptable, and a single HTTP asset on an HTTPS page breaks the security guarantee.</p>",
+      code: "// First request to http:// can be MITM'd before the 301 -> add HSTS (and ideally\n" +
+        "//   HSTS preload) so the browser never sends plaintext after the first visit.\n" +
+        "// Mixed content: an https page loading http://script.js -> browser blocks it or\n" +
+        "//   the page is no longer truly secure. Serve EVERYTHING over https.\n" +
+        "// Also terminate TLS at the edge but re-encrypt internal hops if the network\n" +
+        "//   isn't trusted (don't let LB->app be plaintext over an untrusted segment)."
     }
   ],
   whenToUse: "<p>Always &mdash; this is non-negotiable for any API handling auth or data. <strong>Gotchas:</strong> " +
@@ -377,6 +579,23 @@ C["hsts-header"] = {
       code: "// Without HSTS: attacker on the network rewrites https->http,\n" +
         "//   intercepting the plaintext connection.\n" +
         "// With HSTS: the browser REFUSES http for your domain -> attack fails."
+    },
+    {
+      title: "Example 3: the HSTS header and preloading",
+      description: "<p>HSTS tells browsers to always use HTTPS for your domain; preload bakes it into the browser before the first visit.</p>",
+      code: "Strict-Transport-Security: max-age=63072000; includeSubDomains; preload\n" +
+        "//   max-age 2y, applies to subdomains, eligible for the browser preload list\n" +
+        "// after the first HTTPS response, the browser refuses plaintext to your domain ->\n" +
+        "//   closes the MITM window that a plain HTTP->HTTPS redirect leaves open."
+    },
+    {
+      title: "Example 4 (edge case): HSTS is hard to undo - test before committing",
+      description: "<p>A long max-age (especially with includeSubDomains/preload) locks browsers to HTTPS; a misconfigured subdomain or cert becomes unreachable.</p>",
+      code: "// Set includeSubDomains but a subdomain only serves HTTP -> it's now BROKEN in\n" +
+        "//   browsers for max-age (up to 2 years), and you can't quickly revert.\n" +
+        "// Preload removal takes weeks/months to propagate.\n" +
+        "// Roll out safely: start with a SHORT max-age (e.g. 300s), verify ALL subdomains\n" +
+        "//   work on HTTPS, then ramp up and only then add preload."
     }
   ],
   whenToUse: "<p>Set HSTS on all HTTPS sites/APIs served to browsers. <strong>Gotchas:</strong> only enable it " +
@@ -407,6 +626,23 @@ C["directory-listings"] = {
       code: "// A directory listing might expose:\n" +
         "//   .env, config.bak, db_dump.sql, .git/, internal scripts\n" +
         "// -> credentials, source code, data. Disable listings + block dotfiles."
+    },
+    {
+      title: "Example 3: turn off automatic directory listings",
+      description: "<p>Disable the server feature that lists folder contents when there's no index file - it exposes your file structure.</p>",
+      code: "// nginx:  autoindex off;        (it's off by default - keep it off)\n" +
+        "// Apache: Options -Indexes\n" +
+        "// without this, GET /uploads/ returns a browsable list of every file ->\n" +
+        "//   attackers discover backups, configs, and other users' uploads."
+    },
+    {
+      title: "Example 4 (edge case): listings off doesn't make files private",
+      description: "<p>Disabling listings only hides the index - files at guessable/known URLs are still downloadable; you also need access control.</p>",
+      code: "// /uploads/ no longer lists files, but GET /uploads/invoice_1001.pdf still works\n" +
+        "//   if the name is guessable or leaked (predictable ids = enumeration).\n" +
+        "// Real fix: authn/authz on file access, unguessable names (UUIDs), or serve via\n" +
+        "//   signed/expiring URLs. Also block dotfiles/backups (.git, .env, *.bak) explicitly.\n" +
+        "// 'Hidden' is not 'protected'."
     }
   ],
   whenToUse: "<p>On any web/API server that serves files or static content. <strong>Gotchas:</strong> beyond " +
@@ -439,6 +675,25 @@ C["restrict-private-apis"] = {
       code: "// Expose /metrics, /actuator, /admin, /debug only internally\n" +
         "//   (separate port/network + auth). Publicly exposed management\n" +
         "//   endpoints are a classic breach vector."
+    },
+    {
+      title: "Example 3: keep internal/admin endpoints off the public surface",
+      description: "<p>Don't expose admin/internal routes to the internet - bind them to a private network and require strong auth.</p>",
+      code: "// /admin, /metrics, /internal, debug endpoints:\n" +
+        "//   - bind to a private subnet / VPN / separate port not internet-routable\n" +
+        "//   - require admin auth + IP allow-list even internally\n" +
+        "//   - don't rely on 'nobody knows the URL' (that's not access control)\n" +
+        "// public traffic should hit ONLY the intended public endpoints."
+    },
+    {
+      title: "Example 4 (edge case): security by obscurity and SSRF reaching internal APIs",
+      description: "<p>An unauthenticated 'internal' endpoint is one SSRF or misrouted request away from exposure.</p>",
+      code: "// 'It's internal, so it has no auth' -> an SSRF bug (server fetches an\n" +
+        "//   attacker-supplied URL) can make YOUR server call http://internal-admin/...\n" +
+        "//   from inside the trusted network -> full compromise.\n" +
+        "// Also: a gateway/path misconfig can accidentally expose /internal publicly.\n" +
+        "// Defense in depth: internal APIs still need authentication + authorization,\n" +
+        "//   not just network placement."
     }
   ],
   whenToUse: "<p>For any API with internal/admin functionality. <strong>Gotchas:</strong> 'private' must mean " +
@@ -472,6 +727,25 @@ C["oauth-redirect-ui"] = {
       code: "// Loose match allowing https://app.example.com.evil.com\n" +
         "//   or //evil.com -> the auth code is delivered to the attacker\n" +
         "//   -> they exchange it for tokens. Always exact-match."
+    },
+    {
+      title: "Example 3: exact-match registered redirect URIs",
+      description: "<p>The authorization server must only redirect to pre-registered, exactly-matched URIs - this is what stops token theft.</p>",
+      code: "// registered: https://app.example.com/callback   (exact)\n" +
+        "// request redirect_uri must match EXACTLY - reject:\n" +
+        "//   https://app.example.com/callback/../evil   (path tricks)\n" +
+        "//   https://app.example.com.attacker.com/callback (suffix tricks)\n" +
+        "//   open patterns like https://app.example.com/* (too permissive)\n" +
+        "// no exact match -> no redirect, no leaked code/token."
+    },
+    {
+      title: "Example 4 (edge case): open redirect = stolen authorization codes",
+      description: "<p>A loose redirect_uri (wildcards, partial match) lets an attacker receive the victim's auth code and complete the login as them.</p>",
+      code: "// Permissive matching -> attacker crafts redirect_uri to a domain they control ->\n" +
+        "//   the auth server sends the code/token THERE -> account takeover.\n" +
+        "// Defenses: exact string match only, no wildcards, validate scheme/host/path,\n" +
+        "//   and ALWAYS combine with PKCE + 'state' (the code alone shouldn't be enough).\n" +
+        "// Open redirects elsewhere in the app can also be chained to bypass the check."
     }
   ],
   whenToUse: "<p>In every OAuth2/OIDC integration. <strong>Gotchas:</strong> use <em>exact</em> URI matching, " +
@@ -502,6 +776,24 @@ C["response-type-token"] = {
       code: "// Client generates code_verifier -> sends code_challenge (hash)\n" +
         "// On token exchange, presents the verifier -> server checks it matches\n" +
         "// -> a stolen auth code is useless without the verifier."
+    },
+    {
+      title: "Example 3: use the Authorization Code flow with PKCE",
+      description: "<p>The token never appears in the URL - the client exchanges a code (with a PKCE verifier) for tokens server-side / over a back channel.</p>",
+      code: "// 1. client -> /authorize?response_type=code&code_challenge=...&state=...\n" +
+        "// 2. user authenticates -> redirect back with ?code=...&state=...\n" +
+        "// 3. client -> /token (code + code_verifier) -> receives tokens\n" +
+        "// the access token is NOT in any redirect URL/history -> far less leak surface.\n" +
+        "// PKCE protects public clients (SPA/mobile) that can't keep a client secret."
+    },
+    {
+      title: "Example 4 (edge case): why the legacy Implicit flow (token in URL) is deprecated",
+      description: "<p>response_type=token returns the access token in the redirect fragment, where it leaks via history, logs, and referrers.</p>",
+      code: "// Implicit flow: ...#access_token=eyJ...  -> the token sits in:\n" +
+        "//   browser history, server/proxy logs (if it ever hits a query), Referer headers.\n" +
+        "// No way to deliver a refresh token safely either.\n" +
+        "// The OAuth 2.0 Security BCP DEPRECATES implicit -> use Auth Code + PKCE even for\n" +
+        "//   SPAs. If you see response_type=token in a new integration, change it."
     }
   ],
   whenToUse: "<p>For all new OAuth integrations, especially SPAs and mobile apps. <strong>Gotchas:</strong> the " +
@@ -534,6 +826,25 @@ C["oauth-state"] = {
       code: "// state should be random + tied to the user's session.\n" +
         "// Don't put sensitive data in it (it's visible); use it as a\n" +
         "//   one-time anti-CSRF nonce (optionally a lookup key to your own data)."
+    },
+    {
+      title: "Example 3: the state parameter prevents CSRF on the callback",
+      description: "<p>Generate a random, unguessable <code>state</code>, store it, and verify it on return to ensure the response matches a request you started.</p>",
+      code: "// before redirect: create + store a random value tied to the session\n" +
+        "const state = crypto.randomUUID(); session.oauthState = state;\n" +
+        "//   -> /authorize?...&state=${state}\n" +
+        "// on callback: it MUST match\n" +
+        "if (req.query.state !== session.oauthState) throw new Error('CSRF'); // reject\n" +
+        "// stops an attacker from injecting their own auth response into your session."
+    },
+    {
+      title: "Example 4 (edge case): state must be unguessable, single-use, and session-bound",
+      description: "<p>A static, predictable, or unchecked <code>state</code> provides no protection - and PKCE solves a different problem (don't conflate them).</p>",
+      code: "// Useless 'state': a constant, or one you generate but never verify on callback.\n" +
+        "// Do: cryptographically random, bound to THIS session, used once, expired after.\n" +
+        "// state (CSRF protection) and PKCE (code-interception protection) are DIFFERENT -\n" +
+        "//   use BOTH. Some also pack a return-URL into state -> then you must integrity-\n" +
+        "//   protect it or it becomes an open-redirect vector."
     }
   ],
   whenToUse: "<p>In every OAuth2/OIDC authorization request. <strong>Gotchas:</strong> <code>state</code> must " +
@@ -564,6 +875,26 @@ C["oauth-validate-scope"] = {
       code: "// A read-only widget should request scope 'orders:read' only -\n" +
         "//   not 'orders:write' or a broad 'admin'. Least privilege limits damage\n" +
         "//   if the token leaks. Verify the granted scope matches the need."
+    },
+    {
+      title: "Example 3: enforce the required scope per endpoint",
+      description: "<p>A valid token isn't enough - check it carries the scope the specific operation requires.</p>",
+      code: "// token is authenticated, but does it have the RIGHT scope?\n" +
+        "function requireScope(scope) {\n" +
+        "  return (req, res, next) =>\n" +
+        "    req.token.scopes.includes(scope) ? next() : res.status(403).end();\n" +
+        "}\n" +
+        "app.delete('/users/:id', requireScope('users:delete'), handler);\n" +
+        "// a read-only token (users:read) is correctly rejected from a delete."
+    },
+    {
+      title: "Example 4 (edge case): authentication is not authorization (BOLA/BFLA)",
+      description: "<p>Checking the token's scope still misses object-level checks - the #1 API vuln is a valid token accessing someone else's data.</p>",
+      code: "// Has scope 'orders:read' AND a valid token -> but can they read THIS order?\n" +
+        "GET /orders/42 with token for user A -> must verify order 42 BELONGS to user A.\n" +
+        "//   skipping this = BOLA (Broken Object Level Authorization), OWASP API #1.\n" +
+        "// Scope = 'what kind of action'; object-level check = 'on which resource'.\n" +
+        "// Always do BOTH: validate scope AND that the subject owns/may access the object."
     }
   ],
   whenToUse: "<p>On every protected endpoint that consumes OAuth access tokens. <strong>Gotchas:</strong> don't " +
@@ -597,6 +928,25 @@ C["proper-http-methods"] = {
       code: "// BAD: GET /orders/42/delete  (mutating via GET)\n" +
         "//   -> can be triggered by prefetch/crawlers/CSRF, and is cached.\n" +
         "// GOOD: DELETE /orders/42"
+    },
+    {
+      title: "Example 3: match the HTTP method to the operation's effect",
+      description: "<p>Safe/idempotent semantics aren't just style - they affect caching, retries, and CSRF exposure.</p>",
+      code: "// GET    - read only, SAFE + idempotent, cacheable, no side effects\n" +
+        "// POST   - create / non-idempotent action\n" +
+        "// PUT    - replace, idempotent\n" +
+        "// PATCH  - partial update\n" +
+        "// DELETE - remove, idempotent\n" +
+        "// proxies/browsers may cache + prefetch GETs and auto-retry them -> never mutate on GET."
+    },
+    {
+      title: "Example 4 (edge case): state changes on GET are dangerous",
+      description: "<p>A GET that changes state can be triggered by prefetching, caching, or a simple link/img tag (CSRF) - and gets silently retried.</p>",
+      code: "// BAD: GET /account/delete?id=5  or  GET /transfer?to=x&amt=100\n" +
+        "//   - a browser prefetch or <img src> on another site triggers it (CSRF)\n" +
+        "//   - a proxy may cache or auto-retry it -> duplicate effects\n" +
+        "// Use POST/DELETE for mutations + CSRF protection. Conversely, don't make a\n" +
+        "//   read-only operation a POST 'to be safe' - it breaks caching and clarity."
     }
   ],
   whenToUse: "<p>When designing every endpoint. <strong>Gotchas:</strong> never perform state changes on GET " +
@@ -627,6 +977,25 @@ C["validate-content-type"] = {
       code: "// If you only accept JSON, an attacker can't sneak in an XML payload\n" +
         "//   to trigger XML External Entity (XXE) parsing. Strict Content-Type\n" +
         "//   + a strict parser closes that door."
+    },
+    {
+      title: "Example 3: reject unexpected Content-Types",
+      description: "<p>Only accept the media types you actually handle, and parse strictly accordingly.</p>",
+      code: "// expect JSON -> reject everything else with 415\n" +
+        "if (req.headers['content-type'] !== 'application/json')\n" +
+        "  return res.status(415).send('Unsupported Media Type');\n" +
+        "// also cap body size to prevent memory-exhaustion DoS:\n" +
+        "app.use(express.json({ limit: '100kb' }));"
+    },
+    {
+      title: "Example 4 (edge case): content-type confusion and CSRF implications",
+      description: "<p>Trusting the declared type, or parsing one format as another, enables injection and CSRF bypasses.</p>",
+      code: "// Don't infer/trust blindly: a request claiming JSON but containing XML, parsed\n" +
+        "//   leniently, can smuggle XXE; a parser that sniffs can be tricked.\n" +
+        "// CSRF angle: simple form content-types (application/x-www-form-urlencoded,\n" +
+        "//   text/plain) can be sent cross-site without preflight -> requiring\n" +
+        "//   application/json + a custom header forces a CORS preflight, adding protection.\n" +
+        "// Validate the type AND parse strictly as that exact type."
     }
   ],
   whenToUse: "<p>On all endpoints that accept request bodies. <strong>Gotchas:</strong> also validate/limit the " +
@@ -658,6 +1027,27 @@ C["validate-user-input"] = {
         "//   db.query('SELECT * FROM users WHERE id = ?', [id]);  // safe\n" +
         "// and ENCODE output for the context (HTML/JS) to stop XSS.\n" +
         "// Defense in depth: validate input AND escape on use."
+    },
+    {
+      title: "Example 3: validate against a strict schema (allow-list)",
+      description: "<p>Define the exact shape/type/range you accept and reject everything else - allow-list, never block-list.</p>",
+      code: "const schema = z.object({\n" +
+        "  email: z.string().email(),\n" +
+        "  age:   z.number().int().min(0).max(150),\n" +
+        "  role:  z.enum(['user', 'editor']),       // not free text\n" +
+        "});\n" +
+        "const data = schema.parse(req.body);   // throws on anything unexpected\n" +
+        "// reject unknown fields too (strict) to block mass-assignment."
+    },
+    {
+      title: "Example 4 (edge case): validation is not output encoding (injection)",
+      description: "<p>Even validated data must be escaped/parameterized at each sink - SQL, HTML, shell, etc. - because 'valid' input can still be malicious in context.</p>",
+      code: "// A perfectly valid name O'Brien still breaks naive SQL:\n" +
+        "db.query(\"... WHERE name = '\" + name + \"'\"); // SQL injection\n" +
+        "db.query('... WHERE name = ?', [name]);        // parameterized -> safe\n" +
+        "// Rendered in HTML -> escape it (XSS); passed to a shell -> avoid/escape.\n" +
+        "// Validate on input AND encode for the specific OUTPUT context. Also re-validate\n" +
+        "//   on the server even if the client already did."
     }
   ],
   whenToUse: "<p>On every input, everywhere &mdash; the single most important habit for API security. " +
@@ -689,6 +1079,25 @@ C["authorization-header"] = {
         "// 2. Validate signature + exp + iss + aud (+ scope)\n" +
         "// 3. Resolve the user, check authorization for THIS resource\n" +
         "// 4. Only then process the request. Reject early with 401/403."
+    },
+    {
+      title: "Example 3: send credentials in the Authorization header",
+      description: "<p>Put the token in the standard header (or a secure cookie) - never in the URL.</p>",
+      code: "// correct:\n" +
+        "GET /orders\n" +
+        "Authorization: Bearer eyJhbGciOi...\n" +
+        "// or a Secure, HttpOnly, SameSite cookie for browser sessions.\n" +
+        "// NEVER: GET /orders?token=eyJ... (URL) - see why below."
+    },
+    {
+      title: "Example 4 (edge case): tokens in URLs leak everywhere",
+      description: "<p>A credential in the query string ends up in logs, browser history, bookmarks, and the Referer header sent to third parties.</p>",
+      code: "// GET /data?api_key=SECRET appears in:\n" +
+        "//   - access logs (yours + every proxy/CDN)\n" +
+        "//   - browser history + bookmarks\n" +
+        "//   - the Referer header sent to any external resource the page loads\n" +
+        "// Use the Authorization header. For browsers, prefer HttpOnly cookies so JS\n" +
+        "//   (and XSS) can't read the token at all; that trades for needing CSRF defense."
     }
   ],
   whenToUse: "<p>On all authenticated endpoints. <strong>Gotchas:</strong> never put tokens/API keys in URLs " +
@@ -719,6 +1128,25 @@ C["only-server-side-encryption"] = {
       code: "// In transit: TLS (handled by the platform)\n" +
         "// At rest: AES-256 with KMS-managed keys, on the server\n" +
         "// The server is the single trusted place keys exist."
+    },
+    {
+      title: "Example 3: enforce security on the server, never trust the client",
+      description: "<p>The client is fully attacker-controlled; authorization, validation, and encryption decisions must happen server-side.</p>",
+      code: "// The attacker can edit JS, replay requests, and forge any client-side value:\n" +
+        "//   - hiding an 'admin' button does NOT stop the admin API call -> authorize on server\n" +
+        "//   - client-side price/total can be tampered -> recompute on server\n" +
+        "//   - 'isAdmin: false' in the request body is meaningless -> derive from the token\n" +
+        "// client-side checks are UX; server-side checks are SECURITY."
+    },
+    {
+      title: "Example 4 (edge case): when client-side crypto IS appropriate (E2E)",
+      description: "<p>End-to-end encryption deliberately encrypts on the client - but then the server can't read the data, which is the point (and the trade-off).</p>",
+      code: "// E2E (Signal, password managers): client encrypts so even the SERVER can't read\n" +
+        "//   it -> strong privacy, but you lose server-side search/processing + key recovery\n" +
+        "//   becomes the user's problem (lost key = lost data).\n" +
+        "// That's a CONSCIOUS design choice. For normal apps where the server protects data,\n" +
+        "//   do the encryption/authz server-side - don't push it to the client for\n" +
+        "//   convenience and call it secure."
     }
   ],
   whenToUse: "<p>Whenever your backend is responsible for protecting data. <strong>Gotchas:</strong> client-side " +
@@ -751,6 +1179,25 @@ C["api-gateway"] = {
         "//   (inconsistent, error-prone).\n" +
         "// With a gateway: policy enforced once, uniformly; internal services\n" +
         "//   stay private behind it."
+    },
+    {
+      title: "Example 3: centralize cross-cutting controls at the gateway",
+      description: "<p>A gateway enforces auth, rate limiting, TLS, and routing in one place so each service doesn't reimplement them.</p>",
+      code: "// client -> API GATEWAY -> services\n" +
+        "//   gateway does: TLS termination, authN (validate JWT), rate limiting, IP allow-\n" +
+        "//   lists, request logging, routing, request/response size limits.\n" +
+        "// services receive clean, pre-authenticated traffic + focus on business logic.\n" +
+        "// one place to apply a new security policy across the whole API."
+    },
+    {
+      title: "Example 4 (edge case): the gateway is not the only line of defense",
+      description: "<p>Trusting the gateway blindly (services accept any internal request) collapses if a service is reachable directly.</p>",
+      code: "// Services trust 'X-User-Id' set by the gateway -> if a service is reachable\n" +
+        "//   directly (misconfig, SSRF, internal attacker), that header is forgeable ->\n" +
+        "//   bypassed auth.\n" +
+        "// Defense in depth: lock services to ONLY accept gateway traffic (mTLS/private\n" +
+        "//   network) AND still authorize inside each service.\n" +
+        "// The gateway is also a SPOF + bottleneck -> run it HA; keep it thin (no business logic)."
     }
   ],
   whenToUse: "<p>For most multi-service/microservice APIs and any public API needing centralized control. " +
@@ -783,6 +1230,25 @@ C["endpoint-authentication"] = {
       description: "<p>Opt-out is fragile; opt-in is safe.</p>",
       code: "// FRAGILE: add @Authenticated to each route (forget one -> exposed)\n" +
         "// ROBUST: deny by default; a route is public only if explicitly marked."
+    },
+    {
+      title: "Example 3: secure by default - deny, then allow explicitly",
+      description: "<p>Require auth on everything by default and opt specific routes into public access, so a new endpoint is never accidentally open.</p>",
+      code: "// default: every route requires authentication\n" +
+        "app.use(requireAuth);\n" +
+        "// explicitly allow the few public ones BEFORE the guard, or mark them:\n" +
+        "const PUBLIC = ['/health', '/login', '/signup'];\n" +
+        "// a newly-added /admin route is protected automatically (fails closed),\n" +
+        "//   rather than being public until someone remembers to add a guard."
+    },
+    {
+      title: "Example 4 (edge case): forgotten/unlisted endpoints (the open-by-default trap)",
+      description: "<p>Block-listing public routes means any endpoint you forget to protect is exposed - and debug/internal routes are easy to miss.</p>",
+      code: "// Block-list approach: 'protect everything except this list' -> add a new endpoint,\n" +
+        "//   forget the list -> it's WIDE OPEN. (Fail-open = bad.)\n" +
+        "// Commonly-missed: /metrics, /actuator, /debug, /graphql introspection, old API\n" +
+        "//   versions, and HTTP methods you didn't think about (OPTIONS/HEAD).\n" +
+        "// Audit the actual route table in CI; prefer deny-by-default (fail closed)."
     }
   ],
   whenToUse: "<p>Across the whole API. <strong>Gotchas:</strong> audit your route list to confirm none are " +
@@ -814,6 +1280,23 @@ C["avoid-personal-id-urls"] = {
       code: "// GET /orders/8f14e45f-...  (non-guessable)\n" +
         "// AND verify the authenticated user owns/permits THIS order\n" +
         "//   (don't rely on the id being unguessable alone)."
+    },
+    {
+      title: "Example 3: don't expose sequential IDs in URLs",
+      description: "<p>Sequential ids leak counts and invite enumeration; pair opaque ids with proper authorization.</p>",
+      code: "// Enumerable: GET /users/1, /users/2, ... -> attacker walks every record,\n" +
+        "//   and /orders/1024 leaks 'you have ~1024 orders' (business intel).\n" +
+        "// Better: opaque ids -> GET /users/8f3a-... (UUID)\n" +
+        "// BUT the real fix is authorization (next example) - opaque ids alone aren't enough."
+    },
+    {
+      title: "Example 4 (edge case): opaque IDs don't replace authorization (IDOR/BOLA)",
+      description: "<p>Unguessable ids only slow enumeration; without an ownership check, a leaked/shared id still exposes the object.</p>",
+      code: "// GET /docs/8f3a-... with user A's token -> if you don't verify A may access that\n" +
+        "//   doc, anyone who obtains the (UUID) link reads it -> IDOR/BOLA (OWASP API #1).\n" +
+        "// UUIDs leak via Referer, shared links, logs -> they are NOT a secret.\n" +
+        "// ALWAYS check 'does the authenticated subject own/may access THIS object?'\n" +
+        "//   server-side. Opaque ids are defense in depth, not the defense."
     }
   ],
   whenToUse: "<p>When designing URLs and identifiers. <strong>Gotchas:</strong> opaque/UUID ids reduce " +
@@ -842,6 +1325,23 @@ C["prefer-uuid"] = {
       code: "// UUIDs make GUESSING hard, but a leaked/shared UUID is still usable.\n" +
         "// ALWAYS check: does the authenticated user have access to THIS resource?\n" +
         "// UUIDs are a hardening layer, not an access-control mechanism."
+    },
+    {
+      title: "Example 3: UUIDs as non-enumerable public identifiers",
+      description: "<p>A v4 UUID is random enough that callers can't guess the next/other ids.</p>",
+      code: "// external id: 9f1c8e2a-3b4d-4c5e-8f6a-1234567890ab (unguessable)\n" +
+        "// you can keep a fast integer PK INTERNALLY for the DB and expose the UUID:\n" +
+        "//   users(id BIGINT PK, public_id UUID UNIQUE)\n" +
+        "// best of both: efficient joins internally, non-enumerable ids externally."
+    },
+    {
+      title: "Example 4 (edge case): UUID version/performance trade-offs",
+      description: "<p>Use random UUIDs (v4) for unguessability; random ids as a primary key can hurt DB index performance, which v7 addresses.</p>",
+      code: "// v4 (random): unguessable - right for PUBLIC ids. But as a clustered PK, random\n" +
+        "//   inserts fragment the index (page splits) -> slower writes on big tables.\n" +
+        "// v1 (timestamp+MAC): ordered but can LEAK time/MAC -> not for secret ids.\n" +
+        "// v7 (time-ordered random): index-friendly AND unguessable -> good modern PK choice.\n" +
+        "// And remember: a UUID is not a capability - still authorize access to the object."
     }
   ],
   whenToUse: "<p>For externally-exposed resource identifiers, especially user-scoped data. <strong>Gotchas:</strong> " +
@@ -874,6 +1374,25 @@ C["disable-entity-parsing-xml"] = {
         "//   - disallow DOCTYPE/DTD declarations\n" +
         "//   - disable external general + parameter entities\n" +
         "// (Exact flags vary by library; many have a 'secure processing' mode.)"
+    },
+    {
+      title: "Example 3: disable external entities to stop XXE",
+      description: "<p>Turn off DTD/external-entity processing in the XML parser - this is the fix for XML External Entity attacks.</p>",
+      code: "// Vulnerable XXE payload reads local files:\n" +
+        "//   <!DOCTYPE x [ <!ENTITY e SYSTEM \"file:///etc/passwd\"> ]> <data>&e;</data>\n" +
+        "// Fix - disable DTDs/external entities (Java example):\n" +
+        "factory.setFeature('http://apache.org/xml/features/disallow-doctype-decl', true);\n" +
+        "factory.setFeature('http://xml.org/sax/features/external-general-entities', false);\n" +
+        "// or use a parser configured secure-by-default."
+    },
+    {
+      title: "Example 4 (edge case): XXE hides in non-obvious XML inputs (SSRF too)",
+      description: "<p>Many formats are XML under the hood, and XXE can do more than read files - it can perform SSRF.</p>",
+      code: "// XML lurks in: SOAP, SVG uploads, DOCX/XLSX (zipped XML), RSS, config files,\n" +
+        "//   SAML assertions -> all are XXE vectors if parsed unsafely.\n" +
+        "// XXE -> SSRF: <!ENTITY e SYSTEM \"http://169.254.169.254/...\"> hits cloud metadata.\n" +
+        "// Disable external entities EVERYWHERE you parse XML; prefer JSON when you can,\n" +
+        "//   and never feed user-controlled XML to a default-configured parser."
     }
   ],
   whenToUse: "<p>Anywhere you parse XML (SOAP, SVG, config, document uploads, XML APIs). <strong>Gotchas:</strong> " +
@@ -905,6 +1424,24 @@ C["disable-entity-expansion"] = {
       description: "<p>Forbid DTDs / limit expansion depth and size.</p>",
       code: "// Safest: disable DTD processing entirely.\n" +
         "// Else: cap entity expansion count/depth and total expanded size."
+    },
+    {
+      title: "Example 3: the 'billion laughs' entity-expansion bomb",
+      description: "<p>Nested entity definitions expand exponentially, exhausting memory/CPU from a tiny payload - a denial-of-service.</p>",
+      code: "// a few KB expands to gigabytes:\n" +
+        "//   <!ENTITY lol \"lol\">\n" +
+        "//   <!ENTITY lol2 \"&lol;&lol;&lol;...\">  (each references the previous, x10)\n" +
+        "//   ... &lol9; -> ~1e9 'lol's -> OOM / CPU spike\n" +
+        "// Fix: disable DTDs entirely, or cap entity expansion limits in the parser."
+    },
+    {
+      title: "Example 4 (edge case): expansion limits and quadratic blowup",
+      description: "<p>Even with DTDs partly allowed, set hard limits - and watch for related quadratic-blowup variants.</p>",
+      code: "// If you can't fully disable DTDs, set secure limits:\n" +
+        "//   max entity expansions, max nesting depth, max entity size, total parsed size.\n" +
+        "// Variant: 'quadratic blowup' uses ONE large entity referenced many times\n" +
+        "//   (sidesteps simple depth limits) -> cap TOTAL expanded size, not just depth.\n" +
+        "// Simplest safe default: disallow-doctype-decl = true (no DTDs at all)."
     }
   ],
   whenToUse: "<p>On all XML parsing. <strong>Gotchas:</strong> like XXE, this stems from unsafe parser " +
@@ -934,6 +1471,26 @@ C["cdn-for-file-uploads"] = {
       code: "// Serve user files from a SEPARATE domain (e.g. usercontent.example.com)\n" +
         "//   -> limits XSS/cookie exposure on your main domain.\n" +
         "// Scan uploads for malware; set correct Content-Type; never execute them."
+    },
+    {
+      title: "Example 3: upload/download via the CDN/object store, not your app",
+      description: "<p>Use signed URLs so clients transfer files directly to/from storage - your app never proxies the bytes.</p>",
+      code: "// 1. client asks your API for permission\n" +
+        "// 2. API returns a short-lived PRE-SIGNED URL (write, this key, 5-min expiry)\n" +
+        "// 3. client PUTs the file straight to S3/CDN -> app servers never handle the GBs\n" +
+        "// downloads work the same with read-scoped signed URLs.\n" +
+        "// offloads bandwidth + serves files from the edge (low latency)."
+    },
+    {
+      title: "Example 4 (edge case): you still must validate and lock down uploads",
+      description: "<p>Direct-to-storage uploads skip your app's checks, so malicious files, content-type spoofing, and public buckets are real risks.</p>",
+      code: "// Risks of trusting the client upload:\n" +
+        "//   - content-type lie: a .exe/SVG-with-script named image.png -> validate the\n" +
+        "//     actual bytes server-side AFTER upload, set Content-Disposition: attachment\n" +
+        "//   - serving user HTML/SVG from your domain -> stored XSS; serve from a separate\n" +
+        "//     origin and force download\n" +
+        "//   - misconfigured PUBLIC bucket -> data leak; keep buckets private + signed URLs only\n" +
+        "//   - scope/expire signed URLs tightly (one key, write-only, short TTL)."
     }
   ],
   whenToUse: "<p>For any API handling user file uploads/downloads at scale. <strong>Gotchas:</strong> still " +
@@ -964,6 +1521,24 @@ C["avoid-http-blocking"] = {
       code: "// Set timeouts on DB queries, HTTP calls, locks.\n" +
         "//   downstream hangs -> your request fails fast (not forever)\n" +
         "// Pair with circuit breakers so a failing dependency can't pile up."
+    },
+    {
+      title: "Example 3: don't block the request thread on slow work",
+      description: "<p>Use async/non-blocking I/O and offload long tasks so one slow operation doesn't tie up capacity.</p>",
+      code: "// Blocking: thread waits on a slow downstream -> pool fills -> new requests 503\n" +
+        "const r = slowDownstream();            // ties up a worker for seconds\n" +
+        "// Non-blocking: free the thread while waiting\n" +
+        "const r = await slowDownstreamAsync();\n" +
+        "// Long job? return 202 + jobId and process in a background worker/queue."
+    },
+    {
+      title: "Example 4 (edge case): no timeouts -> cascading thread-pool exhaustion",
+      description: "<p>This is a security concern too: a slow/hung dependency without timeouts is a built-in DoS, and Slowloris-style slow clients exploit it.</p>",
+      code: "// No timeout on an outbound call -> threads pile up on a hung dependency -> the\n" +
+        "//   whole API stops responding (self-inflicted DoS).\n" +
+        "//   Set connect + read timeouts on EVERY outbound call; add circuit breakers.\n" +
+        "// Slowloris: many clients send bytes v-e-r-y slowly to hold connections open ->\n" +
+        "//   set server request/header/idle timeouts + connection limits (often at the LB)."
     }
   ],
   whenToUse: "<p>In any API under real load or with slow dependencies. <strong>Gotchas:</strong> this is both a " +
@@ -994,6 +1569,25 @@ C["debug-mode-off"] = {
       code: "// Ensure: DEBUG=false / NODE_ENV=production / app.debug=False\n" +
         "// Disable debug toolbars, /debug routes, detailed error pages,\n" +
         "//   directory listings, and verbose framework banners."
+    },
+    {
+      title: "Example 3: disable debug mode and verbose errors in production",
+      description: "<p>Production should return generic errors and never expose stack traces, internal paths, or framework debug pages.</p>",
+      code: "// dev: detailed error pages help you. prod: they help ATTACKERS.\n" +
+        "if (NODE_ENV === 'production') app.set('debug', false);\n" +
+        "// generic client response:\n" +
+        "res.status(500).json({ error: 'Internal Server Error', id: traceId });\n" +
+        "// log the full stack trace SERVER-SIDE only, keyed by traceId for support."
+    },
+    {
+      title: "Example 4 (edge case): what debug mode leaks",
+      description: "<p>Framework debug pages and verbose errors expose a roadmap for attackers - paths, versions, queries, even secrets.</p>",
+      code: "// A stack trace / debug page can reveal:\n" +
+        "//   - file paths + framework & versions (-> known CVEs to target)\n" +
+        "//   - SQL queries + schema (-> tailored injection)\n" +
+        "//   - env vars / config / connection strings on some debug toolbars\n" +
+        "// Famous class of breach: a left-on debug endpoint (e.g. Django DEBUG=True).\n" +
+        "// Verify in CI that DEBUG is off and error responses are generic before deploy."
     }
   ],
   whenToUse: "<p>Always, in every production deployment. <strong>Gotchas:</strong> this is a leading cause of " +
@@ -1023,6 +1617,25 @@ C["non-executable-stacks"] = {
       description: "<p>The root cause is unsafe memory handling.</p>",
       code: "// Memory-safe runtimes (Go, Rust, Java, JS) avoid most of these bugs.\n" +
         "// Still keep the OS + native dependencies patched and protections on."
+    },
+    {
+      title: "Example 3: NX/DEP marks memory non-executable",
+      description: "<p>Non-executable stacks/heaps stop injected shellcode from running, mitigating classic buffer-overflow exploits.</p>",
+      code: "// hardening flags for native builds:\n" +
+        "//   -z noexecstack            (mark the stack non-executable)\n" +
+        "//   -fstack-protector-strong  (stack canaries detect overflow)\n" +
+        "//   -D_FORTIFY_SOURCE=2, PIE + ASLR, RELRO\n" +
+        "// CPU NX bit + OS DEP then refuse to execute data pages -> shellcode on the\n" +
+        "//   stack won't run even if an overflow occurs."
+    },
+    {
+      title: "Example 4 (edge case): NX is bypassable (ROP) and mostly N/A for managed languages",
+      description: "<p>It's a mitigation, not a cure - return-oriented programming defeats NX alone - and it's irrelevant for memory-safe runtimes.</p>",
+      code: "// ROP: attackers chain existing executable code ('gadgets') instead of injecting\n" +
+        "//   new code -> NX alone doesn't stop it. Combine with ASLR, stack canaries, CFI.\n" +
+        "// Managed languages (Java, C#, Go, JS) are memory-safe -> this rarely applies to\n" +
+        "//   YOUR code, but DOES apply to native dependencies/runtimes you ship.\n" +
+        "// The strongest fix for memory-corruption bugs is memory-safe languages + patched deps."
     }
   ],
   whenToUse: "<p>Most relevant for native/low-level services and any system running C/C++ components. " +
@@ -1055,6 +1668,23 @@ C["no-sniff-header"] = {
       code: "// A user-uploaded file served as text/plain, or a JSON API response,\n" +
         "//   won't be sniffed into executable HTML/JS -> blocks an XSS path.\n" +
         "// Pair with correct Content-Type + CSP."
+    },
+    {
+      title: "Example 3: stop MIME sniffing with X-Content-Type-Options",
+      description: "<p>This header forces the browser to honor your declared Content-Type instead of guessing - blocking a class of XSS.</p>",
+      code: "X-Content-Type-Options: nosniff\n" +
+        "// without it, a browser may 'sniff' a file you serve as text/plain and decide\n" +
+        "//   it's actually HTML/JS -> execute it. nosniff makes it trust your Content-Type.\n" +
+        "// pair with a correct, explicit Content-Type on every response."
+    },
+    {
+      title: "Example 4 (edge case): nosniff only works with correct Content-Types",
+      description: "<p>The header is necessary but not sufficient - mislabeled responses or user content served from your origin still cause trouble.</p>",
+      code: "// If you serve a user-uploaded file as text/html (wrong) WITH nosniff, the browser\n" +
+        "//   still renders it as HTML -> stored XSS. nosniff stops GUESSING, not a wrong label.\n" +
+        "// So: set accurate Content-Types, serve user content from a SEPARATE origin with\n" +
+        "//   Content-Disposition: attachment, and add CSP as defense in depth.\n" +
+        "// nosniff is one cheap, always-on layer - not the whole answer."
     }
   ],
   whenToUse: "<p>On all responses, especially APIs and anything serving user-supplied content. " +
@@ -1083,6 +1713,24 @@ C["x-frame-options-deny"] = {
       code: "// Attacker frames your 'Delete account' page invisibly over a game.\n" +
         "// Victim 'clicks the game' but actually clicks your button.\n" +
         "// Framing protection blocks the page from loading in their frame."
+    },
+    {
+      title: "Example 3: block framing to prevent clickjacking",
+      description: "<p>X-Frame-Options (or CSP frame-ancestors) stops other sites from embedding your page in an invisible iframe.</p>",
+      code: "X-Frame-Options: DENY                 // no one may frame this page\n" +
+        "// or allow only yourself:\n" +
+        "Content-Security-Policy: frame-ancestors 'self';   // modern, more flexible\n" +
+        "// prevents clickjacking: an attacker overlaying your 'Confirm transfer' button\n" +
+        "//   inside a hidden iframe and tricking the user into clicking it."
+    },
+    {
+      title: "Example 4 (edge case): X-Frame-Options is legacy; CSP frame-ancestors supersedes it",
+      description: "<p>The old header can't express multiple allowed origins and is inconsistently supported; prefer CSP, set both for older browsers.</p>",
+      code: "// X-Frame-Options ALLOW-FROM is deprecated/unsupported in modern browsers ->\n" +
+        "//   you can't reliably allow a SPECIFIC partner origin with it.\n" +
+        "// Use CSP for that:  frame-ancestors 'self' https://partner.example.com;\n" +
+        "// Set X-Frame-Options: DENY too as a fallback for legacy clients.\n" +
+        "// Only matters for HTML pages (not pure JSON APIs, which can't be 'clicked' in a frame)."
     }
   ],
   whenToUse: "<p>On any HTML pages your service serves (dashboards, auth pages, admin UIs). <strong>Gotchas:</strong> " +
@@ -1116,6 +1764,27 @@ C["csp-header"] = {
       code: "// 'unsafe-inline' allows inline <script> -> largely defeats CSP vs XSS.\n" +
         "// Prefer external scripts + nonces/hashes for any inline you truly need:\n" +
         "//   script-src 'self' 'nonce-RANDOM'"
+    },
+    {
+      title: "Example 3: a restrictive Content-Security-Policy",
+      description: "<p>CSP allow-lists where scripts/styles/content may load from, drastically reducing XSS impact.</p>",
+      code: "Content-Security-Policy:\n" +
+        "  default-src 'self';\n" +
+        "  script-src 'self';                 // no inline scripts, no third-party JS\n" +
+        "  object-src 'none'; frame-ancestors 'none'; base-uri 'self';\n" +
+        "// even if an attacker injects <script>, the browser refuses to run inline/\n" +
+        "//   off-origin code -> XSS payload is blocked by policy."
+    },
+    {
+      title: "Example 4 (edge case): unsafe-inline and nonces - the common pitfalls",
+      description: "<p>CSP is powerful but easy to neuter; <code>'unsafe-inline'</code> defeats it, and inline scripts need nonces/hashes.</p>",
+      code: "// Adding 'unsafe-inline' to script-src (often to 'make it work') -> reopens XSS;\n" +
+        "//   it's the thing CSP exists to stop.\n" +
+        "// For legitimately-needed inline scripts use a per-response NONCE:\n" +
+        "//   script-src 'nonce-r4nd0m';  <script nonce=\"r4nd0m\">...</script>\n" +
+        "// Roll out with Content-Security-Policy-Report-Only first to find breakage\n" +
+        "//   without blocking, then enforce. CSP is defense-in-depth, not a substitute for\n" +
+        "//   escaping output."
     }
   ],
   whenToUse: "<p>On all HTML responses (web apps, dashboards, auth/admin UIs). <strong>Gotchas:</strong> CSP is " +
@@ -1148,6 +1817,24 @@ C["remove-fingerprint-header"] = {
       code: "// Express: app.disable('x-powered-by')\n" +
         "// Nginx:   server_tokens off;\n" +
         "// Or strip them at the API gateway/reverse proxy for everything."
+    },
+    {
+      title: "Example 3: strip version/fingerprint headers",
+      description: "<p>Remove headers that advertise your server/framework and version, so attackers can't trivially look up matching exploits.</p>",
+      code: "// reduce/remove:\n" +
+        "//   Server: Apache/2.4.49        -> attacker greps CVEs for that exact version\n" +
+        "//   X-Powered-By: Express        -> reveals the stack\n" +
+        "//   X-AspNet-Version, X-Generator, etc.\n" +
+        "// nginx: server_tokens off;   Express: app.disable('x-powered-by');"
+    },
+    {
+      title: "Example 4 (edge case): this is obscurity, not security",
+      description: "<p>Hiding versions slows casual scanners but doesn't fix vulnerabilities - patching does. Don't mistake a clean header for being secure.</p>",
+      code: "// Attackers can still fingerprint via behavior, error formats, default files, and\n" +
+        "//   timing -> removing 'Server' just raises the bar slightly.\n" +
+        "// The REAL defense is keeping the software PATCHED so the version doesn't matter.\n" +
+        "// Do both: strip the headers (cheap) AND patch promptly (essential). Never rely\n" +
+        "//   on 'they don't know our version' as protection."
     }
   ],
   whenToUse: "<p>On all responses. <strong>Gotchas:</strong> this is obscurity, not security &mdash; it doesn't " +
@@ -1177,6 +1864,25 @@ C["force-content-type"] = {
       code: "// Serving a user-uploaded .html or .svg as text/html lets it run\n" +
         "//   scripts in your origin. Force a safe Content-Type (or\n" +
         "//   Content-Disposition: attachment) + nosniff + separate domain."
+    },
+    {
+      title: "Example 3: always set an explicit, correct Content-Type",
+      description: "<p>Declare exactly what you return so the client/browser interprets it correctly (and nosniff can enforce it).</p>",
+      code: "res.set('Content-Type', 'application/json; charset=utf-8');\n" +
+        "// for downloads of user content, force a non-rendering type + attachment:\n" +
+        "res.set('Content-Type', 'application/octet-stream');\n" +
+        "res.set('Content-Disposition', 'attachment; filename=\"file.bin\"');\n" +
+        "// never leave it to the browser to guess."
+    },
+    {
+      title: "Example 4 (edge case): wrong/missing type enables XSS and rendering bugs",
+      description: "<p>Returning user-influenced data as <code>text/html</code> (or with no type) lets the browser execute it.</p>",
+      code: "// Returning a JSON string that reflects user input but labeled text/html ->\n" +
+        "//   <script> in the data executes -> reflected XSS.\n" +
+        "// Always: JSON -> application/json (NOT text/html), and pair with X-Content-Type-\n" +
+        "//   Options: nosniff so the browser won't second-guess you.\n" +
+        "// Serve user-uploaded HTML/SVG from a separate origin as an attachment, never\n" +
+        "//   inline on your app's domain."
     }
   ],
   whenToUse: "<p>On every response, particularly APIs and anything returning user-influenced data. " +
@@ -1206,6 +1912,24 @@ C["avoid-sensitive-data"] = {
       code: "// If the API returns SSN/email/roles that the UI doesn't show,\n" +
         "//   attackers still read them from the raw response.\n" +
         "// Filter on the SERVER; never rely on the client to hide data."
+    },
+    {
+      title: "Example 3: return only the fields the client needs (allow-list DTO)",
+      description: "<p>Explicitly shape responses instead of serializing the whole record, so sensitive fields can't slip out.</p>",
+      code: "// Leaks everything (incl. passwordHash, internal flags):\n" +
+        "res.json(user);\n" +
+        "// Allow-list a response DTO - only what's intended to be public:\n" +
+        "res.json({ id: user.id, name: user.name, avatarUrl: user.avatarUrl });\n" +
+        "// add new sensitive fields to the model later -> they're NOT exposed by default."
+    },
+    {
+      title: "Example 4 (edge case): excessive data exposure relies on clients to hide data",
+      description: "<p>OWASP API #3 - the API returns too much and trusts the UI to filter it; attackers just read the raw response.</p>",
+      code: "// 'The mobile app only shows name + avatar' -> but the API response also contains\n" +
+        "//   email, phone, role, internalNotes -> visible in the raw HTTP response/DevTools.\n" +
+        "// NEVER rely on the client to hide fields. Filter server-side.\n" +
+        "// Watch nested objects + generic serializers that include relations\n" +
+        "//   (user.orders[].paymentDetails). Default to a deny-list-free, explicit DTO."
     }
   ],
   whenToUse: "<p>On every response. <strong>Gotchas:</strong> 'Excessive Data Exposure' is an OWASP API Top 10 " +
@@ -1238,6 +1962,24 @@ C["proper-response-code"] = {
       code: "// Login: return the SAME generic error for 'no such user' and\n" +
         "//   'wrong password' -> don't let attackers enumerate accounts.\n" +
         "// Sometimes return 404 instead of 403 to hide a resource's existence."
+    },
+    {
+      title: "Example 3: use the status code that matches the outcome",
+      description: "<p>Correct codes let clients react properly (retry, re-auth, fix input) without parsing the body.</p>",
+      code: "// 200/201/204  success (created / no content)\n" +
+        "// 400 bad input   401 not authenticated   403 authenticated but not allowed\n" +
+        "// 404 not found   409 conflict   422 validation failed\n" +
+        "// 429 rate limited (+ Retry-After)   5xx server error (client may retry w/ backoff)\n" +
+        "// e.g. return 401 (not 200 with {error}) so clients know to refresh the token."
+    },
+    {
+      title: "Example 4 (edge case): 403 vs 404 can leak existence; don't over-share in errors",
+      description: "<p>The 'correct' code sometimes reveals information - choose deliberately, and keep error bodies generic.</p>",
+      code: "// GET /admin/users/42 by a non-admin:\n" +
+        "//   403 'forbidden' confirms the resource EXISTS (info leak / enumeration aid).\n" +
+        "//   returning 404 hides existence -> common for sensitive/owned resources.\n" +
+        "// Also: don't put internal detail in error bodies ('SQL error at users.email') ->\n" +
+        "//   generic message + a server-side trace id. Be correct AND minimal."
     }
   ],
   whenToUse: "<p>On every endpoint. <strong>Gotchas:</strong> correctness aids clients, but be mindful that " +
@@ -1272,6 +2014,26 @@ C["unit-integration-tests"] = {
         "// - requires auth on protected routes (401)\n" +
         "// - enforces rate limits (429)\n" +
         "// Run on every commit in CI."
+    },
+    {
+      title: "Example 3: test the abuse cases, not just the happy path",
+      description: "<p>Security holds only if you test for what attackers do - missing auth, wrong owner, malformed input.</p>",
+      code: "// beyond 'valid user gets their data':\n" +
+        "test('rejects no token', () => expect(GET('/orders/1')).status(401));\n" +
+        "test('blocks other users data', () =>            // BOLA/IDOR check\n" +
+        "  expect(GET('/orders/1', tokenForUserB)).status(403));\n" +
+        "test('rejects malformed body', () => expect(POST('/orders', '{bad')).status(400));\n" +
+        "// these tests fail loudly if someone later removes an authorization check."
+    },
+    {
+      title: "Example 4 (edge case): integration tests catch what unit tests mock away",
+      description: "<p>Mocks can hide real auth/serialization/DB behavior; some bugs only appear end-to-end.</p>",
+      code: "// A unit test mocking the auth middleware will PASS even if the real route forgot\n" +
+        "//   to apply it -> add integration tests that hit the real stack (router + auth +\n" +
+        "//   DB via Testcontainers).\n" +
+        "// Don't over-mock the very layer you're trying to verify.\n" +
+        "// Keep a fast unit base + a smaller integration layer that exercises the real\n" +
+        "//   security path; run both in CI on every change."
     }
   ],
   whenToUse: "<p>Continuously, on every change. <strong>Gotchas:</strong> teams often test happy paths but not " +
@@ -1305,6 +2067,26 @@ C["code-review-process"] = {
         "//   [ ] no secrets committed\n" +
         "//   [ ] parameterized queries\n" +
         "//   [ ] no sensitive data in logs/responses"
+    },
+    {
+      title: "Example 3: a security-aware review checklist",
+      description: "<p>Reviewers should look for security regressions, not just style and logic.</p>",
+      code: "// in every PR, check:\n" +
+        "//   - is the new endpoint behind authN + authZ (incl. object-level/ownership)?\n" +
+        "//   - is all input validated; are queries parameterized; is output encoded?\n" +
+        "//   - any secrets/keys committed? any new dependency (vetted?)\n" +
+        "//   - does it log sensitive data? leak detail in errors?\n" +
+        "//   - least privilege on new permissions/IAM?"
+    },
+    {
+      title: "Example 4 (edge case): rubber-stamping and reviewing your own code",
+      description: "<p>A review process only helps if reviews are real - LGTM-without-reading and self-merges defeat the control.</p>",
+      code: "// Failure modes: 'LGTM' on a 2000-line PR (too big to review), or an author\n" +
+        "//   approving/merging their own change.\n" +
+        "// Make it effective: small PRs, REQUIRED review from someone else (branch\n" +
+        "//   protection), reviewers who understand the security implications, and\n" +
+        "//   automated checks (SAST, secret scanning, dep audit) to back up humans.\n" +
+        "// Pair human review WITH automated gates - neither alone is enough."
     }
   ],
   whenToUse: "<p>For all code changes, always. <strong>Gotchas:</strong> reviews are only effective if reviewers " +
@@ -1337,6 +2119,25 @@ C["run-security-analysis"] = {
       description: "<p>Catch issues before they ship, automatically.</p>",
       code: "// Run scans on PRs so problems surface during review,\n" +
         "//   not in production. Track and triage findings; tune to cut noise."
+    },
+    {
+      title: "Example 3: layered automated security scanning in CI",
+      description: "<p>Different tools catch different issues - run SAST, dependency scanning, secret scanning, and DAST.</p>",
+      code: "// CI security gates:\n" +
+        "//   SAST   - static analysis of YOUR code (CodeQL, Semgrep) -> injection, unsafe APIs\n" +
+        "//   SCA    - dependency CVE scan (npm audit, Snyk, Dependabot)\n" +
+        "//   secrets- scan for committed keys/tokens (gitleaks, trufflehog)\n" +
+        "//   DAST   - probe the RUNNING app (OWASP ZAP) -> headers, auth, injection\n" +
+        "//   IaC    - scan Terraform/k8s for misconfig (open S3, no encryption)"
+    },
+    {
+      title: "Example 4 (edge case): false positives, false negatives, and alert fatigue",
+      description: "<p>Scanners are necessary but imperfect - too noisy and teams ignore them; passing scans don't mean 'secure'.</p>",
+      code: "// Noise: 500 'findings', mostly false positives -> devs disable the gate -> the\n" +
+        "//   one REAL issue is missed. Tune rules, triage, and suppress with justification.\n" +
+        "// False negatives: a green scan misses business-logic flaws (BOLA, broken authz)\n" +
+        "//   that tools can't reason about -> still need design review + pentest.\n" +
+        "// Treat scanners as one LAYER; don't equate 'no findings' with 'safe to ship'."
     }
   ],
   whenToUse: "<p>In every CI/CD pipeline. <strong>Gotchas:</strong> automated tools produce false positives " +
@@ -1368,6 +2169,25 @@ C["check-dependencies"] = {
       code: "// Commit lockfiles (package-lock.json, etc.) for reproducible builds.\n" +
         "// Maintain an SBOM so when 'CVE in library X' hits, you instantly know\n" +
         "//   if/where you use it and can patch fast."
+    },
+    {
+      title: "Example 3: scan dependencies and pin with a lockfile",
+      description: "<p>Most code is third-party - audit it continuously and lock exact versions for reproducible, reviewable upgrades.</p>",
+      code: "npm audit            # report known CVEs in the dep tree\n" +
+        "npm audit fix        # bump to patched versions where possible\n" +
+        "// commit package-lock.json -> exact versions, reproducible builds, reviewable\n" +
+        "//   diffs when a dep changes. Enable Dependabot/Renovate for automated PRs.\n" +
+        "// keep an SBOM so you can answer 'are we affected by CVE-X?' fast."
+    },
+    {
+      title: "Example 4 (edge case): transitive deps, supply-chain attacks, and blind auto-upgrade",
+      description: "<p>The risk is usually deep in the tree, and upgrading carelessly can itself pull in a compromised version.</p>",
+      code: "// The vulnerable package is often a dep-of-a-dep you never chose -> 'npm ls <pkg>'\n" +
+        "//   to find who pulls it; use overrides/resolutions to force a safe version.\n" +
+        "// Supply-chain: typosquatting (lodahs), and compromised releases of popular pkgs.\n" +
+        "//   pin versions, verify integrity (lockfile hashes), be wary of brand-new/odd deps.\n" +
+        "// Don't blindly auto-merge upgrades to latest -> a new version can be the\n" +
+        "//   malicious one. Review + test dependency PRs."
     }
   ],
   whenToUse: "<p>Continuously &mdash; in CI and via ongoing alerts. <strong>Gotchas:</strong> transitive " +
@@ -1397,6 +2217,25 @@ C["rollback-deployments"] = {
       code: "// Canary: release to 5% of traffic first; auto-rollback if error/\n" +
         "//   security alerts trip -> most users never hit the bad version.\n" +
         "// Keep deployments immutable + versioned so rollback is deterministic."
+    },
+    {
+      title: "Example 3: fast, safe rollback strategies",
+      description: "<p>Be able to revert a bad (or vulnerable) deploy in seconds without downtime.</p>",
+      code: "// blue-green: keep the previous version running; flip traffic back instantly\n" +
+        "// canary: ship to 5% first; auto-rollback if error rate/latency spikes\n" +
+        "// immutable, versioned artifacts + one-command revert to the last-known-good\n" +
+        "// security angle: a compromised/vulnerable release can be pulled FAST,\n" +
+        "//   shrinking the exposure window."
+    },
+    {
+      title: "Example 4 (edge case): irreversible migrations break naive rollback",
+      description: "<p>Rolling back code is easy; rolling back a destructive DB migration is not - decouple schema changes from deploys.</p>",
+      code: "// Deploy v2 with a migration that DROPs a column -> roll back to v1 -> v1 expects\n" +
+        "//   the column -> crash. The code reverted; the data didn't.\n" +
+        "// Use EXPAND/CONTRACT (backward-compatible) migrations: add new first, deploy\n" +
+        "//   code that works with old+new, remove old only after the new is stable.\n" +
+        "// TEST rollback in staging - an untested rollback path fails exactly when you\n" +
+        "//   need it during an incident."
     }
   ],
   whenToUse: "<p>For all production deployments. <strong>Gotchas:</strong> rollback must be <em>tested</em> &mdash; " +
@@ -1430,6 +2269,25 @@ C["centralized-logins"] = {
       code: "// 'Suspicious IP did what?' -> query centralized logs:\n" +
         "//   failed logins, accessed endpoints, data touched, across all servers.\n" +
         "// Impossible if logs live only on individual, ephemeral instances."
+    },
+    {
+      title: "Example 3: centralize structured logs with a correlation id",
+      description: "<p>Ship logs from all instances to one place, in JSON, tagged with a request/trace id so you can follow one request across services.</p>",
+      code: "// structured (queryable) + correlation id propagated across services:\n" +
+        "log.info({ event:'login', userId, traceId, ip });\n" +
+        "// all instances -> a central store (ELK / Loki / CloudWatch / Datadog)\n" +
+        "// now you can search 'traceId=abc' and see the WHOLE request path, and detect\n" +
+        "//   security events (failed logins, anomalies) across the fleet."
+    },
+    {
+      title: "Example 4 (edge case): logs are a sensitive store and an attack surface",
+      description: "<p>Centralized logs concentrate data - they can leak secrets/PII and are themselves a target; also beware log injection.</p>",
+      code: "// NEVER log secrets/PII (passwords, tokens, card/SSN) -> redact at the logging layer;\n" +
+        "//   the central store is often less protected than the DB. Apply access control +\n" +
+        "//   retention limits + encryption to logs too.\n" +
+        "// Log injection: unsanitized user input with newlines can forge fake log lines ->\n" +
+        "//   encode/escape logged values. Keep an IMMUTABLE audit trail for security events\n" +
+        "//   so an attacker can't erase their tracks."
     }
   ],
   whenToUse: "<p>For any multi-instance/distributed system. <strong>Gotchas:</strong> use <strong>structured</strong> " +
@@ -1463,6 +2321,25 @@ C["monitor-everything"] = {
         "// Logs:    'what happened' (auth events, errors, audit trail)\n" +
         "// Traces:  'where it went' across services\n" +
         "// Combine for full visibility -> feed alerts + dashboards."
+    },
+    {
+      title: "Example 3: monitor health, performance, AND security signals",
+      description: "<p>Track the operational golden signals plus security-relevant metrics so you detect both outages and attacks.</p>",
+      code: "// operational: error rate, p99 latency, throughput, saturation (RED/USE)\n" +
+        "// security:    spikes in 401/403, failed logins, 429s, unusual geos/user-agents,\n" +
+        "//              sudden data-export volume, new-IP admin access\n" +
+        "// business:    signups, payments (a drop can signal an outage OR an attack)\n" +
+        "// emit metrics + structured logs + traces (the three pillars)."
+    },
+    {
+      title: "Example 4 (edge case): 'monitor everything' becomes noise + cost",
+      description: "<p>Collecting all the things without focus creates high-cardinality bills and dashboards no one reads - monitor what's actionable.</p>",
+      code: "// Tagging metrics with userId/requestId -> cardinality explosion + huge bill;\n" +
+        "//   aggregate to bounded dimensions, keep raw detail in logs/traces.\n" +
+        "// 200 dashboards nobody watches != observability. Define SLOs and alert on\n" +
+        "//   SYMPTOMS that violate them; use the rest for diagnosis, not paging.\n" +
+        "// Also: ensure the monitoring is INDEPENDENT of the system (an outage shouldn't\n" +
+        "//   blind your monitoring)."
     }
   ],
   whenToUse: "<p>On every production system. <strong>Gotchas:</strong> 'monitor everything' doesn't mean " +
@@ -1494,6 +2371,26 @@ C["set-alerts"] = {
       code: "// Tie alerts to SLOs / real impact, set severities (page vs ticket),\n" +
         "//   include context + a runbook. Route to on-call / SIEM.\n" +
         "// Avoid noisy alerts that get ignored (alert fatigue)."
+    },
+    {
+      title: "Example 3: alert on actionable security + reliability conditions",
+      description: "<p>Page humans for things that need a human now; route the rest to dashboards/tickets.</p>",
+      code: "// page-worthy:\n" +
+        "//   error rate > 2% for 5m (SLO breach)\n" +
+        "//   p99 latency > 1s\n" +
+        "//   failed-login spike (brute force) / WAF block surge\n" +
+        "//   circuit breaker opened / queue backlog growing unbounded\n" +
+        "//   each alert links a RUNBOOK ('what do I do?') and has an owner."
+    },
+    {
+      title: "Example 4 (edge case): alert fatigue vs missed incidents",
+      description: "<p>Too many noisy alerts get muted (so the real one is missed); too few and you find out from users.</p>",
+      code: "// Noisy/flapping thresholds -> on-call mutes the channel -> the genuine incident\n" +
+        "//   is ignored. Tune thresholds, dedupe, and only page on user-impacting symptoms.\n" +
+        "// Conversely, no alert on 'failed logins x1000' means an attack runs unnoticed.\n" +
+        "// Review alert-to-incident ratio regularly; delete alerts no one acts on.\n" +
+        "// Also alert on the ABSENCE of signal (no traffic / no successful logins) -\n" +
+        "//   silence can mean a total outage."
     }
   ],
   whenToUse: "<p>For all critical and security-relevant conditions. <strong>Gotchas:</strong> the biggest " +
@@ -1525,6 +2422,26 @@ C["avoid-logging-sensitive-data"] = {
       code: "// Auto-logging full requests/responses can capture tokens/PII.\n" +
         "// Exceptions may include sensitive values. Configure logging to\n" +
         "//   redact known-sensitive keys (password, token, secret, ssn, card)."
+    },
+    {
+      title: "Example 3: redact sensitive data at the logging layer",
+      description: "<p>Mask or drop secrets/PII before they're written, centrally, so no individual log call can leak them.</p>",
+      code: "// a serializer/filter strips known-sensitive keys everywhere:\n" +
+        "const redact = ['password','token','authorization','ssn','card','cvv'];\n" +
+        "logger.use(maskFields(redact));   // -> password: '[REDACTED]'\n" +
+        "// log a USER ID, not the email/PII; log a token's id/prefix, never the token.\n" +
+        "// centralizing redaction beats remembering on every log call."
+    },
+    {
+      title: "Example 4 (edge case): indirect/accidental logging is the real trap",
+      description: "<p>Secrets leak via places you didn't think of - full request dumps, error objects, query logs, and third-party log sinks.</p>",
+      code: "// Sneaky leaks:\n" +
+        "//   log.info(req)                 -> dumps Authorization header, cookies, body\n" +
+        "//   log.error(err)               -> error may embed the failing SQL + params (PII)\n" +
+        "//   ORM/HTTP debug logging        -> logs full queries / payloads\n" +
+        "//   tokens in URLs                -> end up in access logs\n" +
+        "// Audit what actually lands in logs; never log whole requests/responses verbatim.\n" +
+        "//   Logs are often shipped to third parties -> assume wide exposure."
     }
   ],
   whenToUse: "<p>Everywhere you log. <strong>Gotchas:</strong> indirect logging is the trap &mdash; full " +
@@ -1555,6 +2472,24 @@ C["use-ids-ips-system"] = {
       code: "// Edge: WAF (OWASP rules) blocks injection/XSS/known exploits.\n" +
         "// Network/host IDS: flags lateral movement, unusual connections.\n" +
         "// Feeds alerts into your SIEM / monitoring for correlation."
+    },
+    {
+      title: "Example 3: detection (IDS) vs prevention (IPS), plus a WAF",
+      description: "<p>An IDS alerts on suspicious traffic; an IPS actively blocks it; a WAF filters HTTP-layer attacks for APIs.</p>",
+      code: "// IDS: monitors + alerts (out-of-band) -> 'we saw a SQLi attempt from IP X'\n" +
+        "// IPS: inline -> DROPS/blocks the malicious traffic in real time\n" +
+        "// WAF: HTTP-aware -> blocks injection/XSS patterns, bad bots, known exploits\n" +
+        "//   (e.g. AWS WAF, Cloudflare, ModSecurity) - the most relevant layer for APIs.\n" +
+        "// layer these IN FRONT of the app, feeding your central monitoring/SIEM."
+    },
+    {
+      title: "Example 4 (edge case): false positives, evasion, and not a substitute for secure code",
+      description: "<p>Signature-based defenses block legit traffic when too strict, are evadable when too loose, and never fix the underlying vulnerability.</p>",
+      code: "// Too strict WAF rule -> blocks a user whose comment contains 'SELECT' or '<' ->\n" +
+        "//   false positives. Run in COUNT/monitor mode first, tune, then enforce.\n" +
+        "// Attackers evade signatures (encoding, fragmentation) -> a WAF is a SPEED BUMP,\n" +
+        "//   not a fix. The real defense is parameterized queries + output encoding + authz.\n" +
+        "// Use IDS/IPS/WAF as DEFENSE IN DEPTH on top of secure code - never instead of it."
     }
   ],
   whenToUse: "<p>For internet-facing APIs and systems with meaningful risk/compliance needs. <strong>Gotchas:</strong> " +

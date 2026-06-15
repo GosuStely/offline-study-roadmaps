@@ -40,6 +40,26 @@ C["introduction"] = {
         "// - Consistency:  must reads be immediately correct (bank) or eventual (likes)?\n" +
         "// - Availability: 99.9% or 99.99%?\n" +
         "// The answers decide SQL vs NoSQL, sync vs async, caching, replication..."
+    },
+    {
+      title: "Example 3: back-of-the-envelope capacity estimation",
+      description: "<p>Rough math turns vague scale into concrete infrastructure decisions.</p>",
+      code: "// 100M daily active users, each makes 10 requests/day\n" +
+        "//   requests/day = 1e9  ->  /86400 ~= 11,600 req/s average\n" +
+        "//   peak (x3)    ~= 35,000 req/s\n" +
+        "// If a server handles 1,000 req/s -> ~35 app servers at peak (+headroom).\n" +
+        "// Storage: 1e9 events/day * 1KB = 1 TB/day -> retention drives the DB choice.\n" +
+        "// These numbers decide sharding, caching, and whether one DB can cope."
+    },
+    {
+      title: "Example 4 (edge case): the simplest design that meets requirements wins",
+      description: "<p>Premature distributed-systems complexity is itself a failure mode - scale on evidence, not anticipation.</p>",
+      code: "// A single Postgres + a cache serves a LOT (tens of thousands of req/s).\n" +
+        "// Don't open with microservices + Kafka + sharding for a 1k-user app:\n" +
+        "//   - more failure modes, harder debugging, slower delivery\n" +
+        "//   - distributed transactions/eventual consistency you didn't need\n" +
+        "// Add complexity only when a measured limit forces it. 'Boring' scales further\n" +
+        "// than most teams expect."
     }
   ],
   whenToUse: "<p>You do system design whenever you build (or interview about) a system that must scale beyond a " +
@@ -78,6 +98,27 @@ C["what-is-system-design"] = {
         "// Horizontal (scale out): more machines behind a load balancer\n" +
         "//   near-unlimited, fault-tolerant, but needs statelessness + coordination\n" +
         "// Modern large systems favor horizontal scaling."
+    },
+    {
+      title: "Example 3: functional vs non-functional requirements",
+      description: "<p>System design is dominated by the non-functional ('-ilities') - they shape the architecture far more than the features.</p>",
+      code: "// Functional (WHAT it does):\n" +
+        "//   users can post, follow, and view a timeline\n" +
+        "// Non-functional (HOW WELL - these drive the design):\n" +
+        "//   scalability:   100M users, 50k req/s peak\n" +
+        "//   availability:  99.99% (< 1h downtime/year)\n" +
+        "//   latency:       timeline p99 < 200ms\n" +
+        "//   consistency:   eventual is fine for feeds; strong for follower counts? maybe not\n" +
+        "//   durability:    never lose a posted message"
+    },
+    {
+      title: "Example 4 (edge case): there is no single 'correct' design",
+      description: "<p>System design is the art of defensible trade-offs - the interview/real-world skill is justifying choices against constraints, not memorizing one blueprint.</p>",
+      code: "// 'Use a CDN' is only right if you serve cacheable static content to a wide geo.\n" +
+        "// 'Shard the DB' is wrong until a single node can't keep up.\n" +
+        "// The same prompt yields different valid designs for:\n" +
+        "//   read-heavy vs write-heavy, strong vs eventual consistency, cost-sensitive\n" +
+        "//   vs latency-sensitive. State your assumptions, then design FOR them."
     }
   ],
   whenToUse: "<p>Apply system design thinking when a system must handle significant scale, stay highly " +
@@ -117,6 +158,28 @@ C["how-to-approach-system-design"] = {
         "//   How to generate short codes? base62 of an auto-increment id,\n" +
         "//   or a hash + collision check? Trade-offs: predictability, length,\n" +
         "//   coordination across servers (e.g. a key-generation service)."
+    },
+    {
+      title: "Example 3: a step-by-step interview framework",
+      description: "<p>A repeatable order keeps you from jumping to a solution before understanding the problem.</p>",
+      code: "1. Clarify requirements + scope (functional + non-functional)\n" +
+        "2. Estimate scale (users, QPS, storage, bandwidth)\n" +
+        "3. Define the API (the contract between client and system)\n" +
+        "4. Sketch the high-level design (boxes + arrows)\n" +
+        "5. Design the data model / storage choice\n" +
+        "6. Deep-dive 1-2 components the interviewer cares about\n" +
+        "7. Identify bottlenecks + scale them (cache, shard, queue, replicate)"
+    },
+    {
+      title: "Example 4 (edge case): the biggest mistake - designing before clarifying",
+      description: "<p>Jumping straight to components without nailing requirements leads to solving the wrong problem.</p>",
+      code: "// Anti-pattern: 'I'll use Kafka and Cassandra' before asking the read/write ratio.\n" +
+        "// Always ask first:\n" +
+        "//   - read-heavy or write-heavy? expected QPS?\n" +
+        "//   - strong or eventual consistency?\n" +
+        "//   - what's the SLA / acceptable latency?\n" +
+        "// Then narrow, deep-dive, and re-evaluate bottlenecks. Driving the conversation\n" +
+        "// with assumptions (and stating them) is what's actually being assessed."
     }
   ],
   whenToUse: "<p>Use this framework in system design interviews and when kicking off a real architecture. It " +
@@ -156,6 +219,27 @@ C["performance-vs-scalability"] = {
         "// Scales poorly:   load x10 (same servers)  -> latency 50ms -> 5s\n" +
         "// Worse: a shared bottleneck (one DB) means adding app servers\n" +
         "//        doesn't help - you must scale the bottleneck itself."
+    },
+    {
+      title: "Example 3: the two problems need different fixes",
+      description: "<p>Performance = make one request faster; scalability = handle more requests. Confusing them wastes effort.</p>",
+      code: "// Symptom: requests are slow even with ONE user\n" +
+        "//   -> PERFORMANCE problem: optimize the code path, add an index, cache\n" +
+        "\n" +
+        "// Symptom: fast with 1 user, falls over at 10,000 concurrent users\n" +
+        "//   -> SCALABILITY problem: add servers, shard, load-balance, queue\n" +
+        "// Adding servers won't fix a slow O(n^2) query; tuning code won't fix a\n" +
+        "// single box that's simply out of CPU/connections."
+    },
+    {
+      title: "Example 4 (edge case): scaling can hurt per-request performance",
+      description: "<p>The trade-off: distributing for scale adds network hops, coordination, and eventual consistency that make individual requests slower.</p>",
+      code: "// Single node: an in-process call is ~nanoseconds.\n" +
+        "// Scaled out: the same data now requires a network round-trip (~ms), plus\n" +
+        "//   replication lag and possible cross-shard joins.\n" +
+        "// So a system that scales to 100x traffic may have HIGHER p99 latency per\n" +
+        "// request than the simple version. Optimize for the metric that matters\n" +
+        "// to users, and don't scale out until you must."
     }
   ],
   whenToUse: "<p>Diagnose which problem you actually have before optimizing &mdash; they need different fixes. " +
@@ -194,6 +278,24 @@ C["latency-vs-throughput"] = {
         "// Batching: buffer 1000 events, write together every 100ms\n" +
         "//   much higher throughput, but each event waits up to 100ms (more latency)\n" +
         "// Choose based on whether speed-per-item or total-volume matters more."
+    },
+    {
+      title: "Example 3: they're not the same - and batching trades one for the other",
+      description: "<p>Latency is time per operation; throughput is operations per second. You can raise throughput while raising latency.</p>",
+      code: "// Process records one-by-one: 5ms each -> latency 5ms, throughput 200/s\n" +
+        "// Batch 100 records per call: 200ms per batch\n" +
+        "//   -> latency 200ms (WORSE), throughput ~500/s (BETTER)\n" +
+        "// Batching/pipelining amortizes overhead = more throughput, but each item\n" +
+        "// waits longer. Pick based on whether users feel per-item latency."
+    },
+    {
+      title: "Example 4 (edge case): measure tail latency, not the average",
+      description: "<p>Averages hide pain - p99/p999 is what slow users actually experience, and it compounds across fan-out calls.</p>",
+      code: "// avg = 50ms looks fine, but p99 = 800ms means 1% of requests are awful.\n" +
+        "// Worse with fan-out: a page making 20 parallel calls, each p99=100ms,\n" +
+        "//   is likely to hit at least one slow call -> the PAGE p99 >> 100ms.\n" +
+        "// Always report percentiles (p50/p95/p99). A throughput number with no\n" +
+        "// latency distribution is nearly meaningless."
     }
   ],
   whenToUse: "<p>Optimize for <strong>latency</strong> when user-perceived speed matters most (interactive " +
@@ -231,6 +333,24 @@ C["availability-vs-consistency"] = {
         "// Social media 'like' count -> availability (AP). Stale count is fine.\n" +
         "// Shopping cart             -> often AP with conflict resolution (merge carts).\n" +
         "// Match the trade-off to the cost of being wrong vs being down."
+    },
+    {
+      title: "Example 3: same product, different choice per feature",
+      description: "<p>The decision is per-dataset, not per-system - one app rationally mixes both.</p>",
+      code: "// E-commerce site:\n" +
+        "//   Payment / order total   -> CONSISTENCY (never double-charge; reject if unsure)\n" +
+        "//   Product reviews / counts -> AVAILABILITY (a stale 'likes' number is fine)\n" +
+        "//   Inventory at checkout    -> CONSISTENCY (don't oversell the last item)\n" +
+        "//   Recommendations          -> AVAILABILITY (serve something, even if stale)"
+    },
+    {
+      title: "Example 4 (edge case): 'highly available' can mean serving stale or conflicting data",
+      description: "<p>Choosing availability under partition means accepting reads that may be out-of-date and writes that later need conflict resolution.</p>",
+      code: "// During a network partition, an AP store keeps accepting reads/writes on both\n" +
+        "// sides -> two users 'win' the same username, or a read shows an old value.\n" +
+        "// You must then reconcile (last-write-wins, CRDTs, vector clocks) and design\n" +
+        "// the UX to tolerate it. Availability isn't free - it pushes consistency work\n" +
+        "// onto the application."
     }
   ],
   whenToUse: "<p>Make this trade-off consciously for every piece of data in a distributed system. Favor " +
@@ -270,6 +390,25 @@ C["cap-theorem"] = {
         "//     (refuses to serve possibly-stale reads/writes)\n" +
         "// AP: Node B answers from its local copy -> may be STALE,\n" +
         "//     reconciles with A when the partition heals (eventual consistency)"
+    },
+    {
+      title: "Example 3: CP vs AP databases in practice",
+      description: "<p>Real systems land on one side of the partition trade-off; knowing which guides the choice.</p>",
+      code: "// CP (consistency + partition tolerance): reject/await during a partition\n" +
+        "//   e.g. HBase, MongoDB (default), ZooKeeper, etcd, traditional RDBMS clusters\n" +
+        "// AP (availability + partition tolerance): keep serving, reconcile later\n" +
+        "//   e.g. Cassandra, DynamoDB, Riak, CouchDB\n" +
+        "// Partitions WILL happen in any real network, so the real choice is C vs A\n" +
+        "// when one occurs - not whether to 'have' P."
+    },
+    {
+      title: "Example 4 (edge case): CAP is about partitions only; PACELC is the fuller picture",
+      description: "<p>A common misread: CAP only constrains you <em>during</em> a partition. The everyday trade-off (latency vs consistency when healthy) is captured by PACELC.</p>",
+      code: "// PACELC: if Partition -> choose A or C; Else (normal ops) -> choose L or C.\n" +
+        "//   DynamoDB/Cassandra: PA/EL  (available under partition, low-latency normally)\n" +
+        "//   Strongly-consistent stores: PC/EC (consistent always, at latency cost)\n" +
+        "// So even with NO partition you still trade consistency for latency on every\n" +
+        "// read (e.g. quorum reads cost more). CAP alone oversimplifies this."
     }
   ],
   whenToUse: "<p>Use CAP as a lens when choosing a distributed database or designing a multi-node data layer: " +
@@ -306,6 +445,24 @@ C["consistency-patterns"] = {
       code: "// Weak:     live video/voice (a lost frame is irrelevant; latest matters)\n" +
         "// Eventual: DNS, social feeds, view counts, S3 (scales, stays available)\n" +
         "// Strong:   bank transfers, inventory decrements, unique-username checks"
+    },
+    {
+      title: "Example 3: the spectrum from weak to strong",
+      description: "<p>Consistency isn't binary - models trade freshness guarantees against latency and availability.</p>",
+      code: "// strong:    every read sees the latest write (linearizable) - costly\n" +
+        "// read-your-writes: a user always sees their OWN updates immediately\n" +
+        "// monotonic reads:  you never see data go 'backwards' in time\n" +
+        "// eventual:   replicas converge given no new writes - cheapest, most available\n" +
+        "// weak:       no guarantee a read sees a prior write at all"
+    },
+    {
+      title: "Example 4 (edge case): 'read-your-writes' surprises users when missing",
+      description: "<p>A classic eventual-consistency bug: a user updates data, then a read hits a lagging replica and shows the old value.</p>",
+      code: "// User edits their profile -> write goes to primary\n" +
+        "// Immediate GET routes to a read replica that hasn't caught up -> shows OLD name\n" +
+        "// User thinks the save failed and tries again.\n" +
+        "// Fixes: route a user's reads to the primary for a short window, or pin them to\n" +
+        "// the same replica (session/sticky consistency)."
     }
   ],
   whenToUse: "<p>Choose a consistency model per dataset based on how much staleness the feature can tolerate " +
@@ -341,6 +498,23 @@ C["weak-consistency"] = {
         "// reads may be slightly off, occasionally missing increments.\n" +
         "// That's acceptable - nobody needs an exact live count, and the\n" +
         "// looseness keeps it cheap and fast at huge scale."
+    },
+    {
+      title: "Example 3: where dropping a write is acceptable",
+      description: "<p>Weak consistency fits firehose data where only the latest value matters and a lost update is harmless.</p>",
+      code: "// Live video chat / VoIP: a dropped audio packet is gone - resending it late\n" +
+        "//   would be worse than skipping it.\n" +
+        "// Real-time game state / cursor position: only the newest matters.\n" +
+        "// Live view-counter: an occasional missed increment doesn't matter.\n" +
+        "// These favor speed/availability over guaranteeing every read sees every write."
+    },
+    {
+      title: "Example 4 (edge case): never use it for data you can't afford to lose",
+      description: "<p>The failure mode is silent data loss - catastrophic for money, orders, or anything auditable.</p>",
+      code: "// WRONG: weak consistency for a bank balance or an order record\n" +
+        "//   a lost write = lost money / lost order, with no error surfaced.\n" +
+        "// Weak consistency makes NO promise a read reflects a prior write, so it's\n" +
+        "// only safe when the data is transient and self-correcting (next update fixes it)."
     }
   ],
   whenToUse: "<p>Use weak consistency for real-time, high-volume data where only the most recent value matters " +
@@ -376,6 +550,24 @@ C["eventual-consistency"] = {
         "// Social feeds: your post may take a moment to appear for others\n" +
         "// DynamoDB/Cassandra: tunable, often eventual reads by default\n" +
         "// 'Read-your-own-writes' is often added so YOU at least see your update."
+    },
+    {
+      title: "Example 3: replicas converge after a short lag",
+      description: "<p>Writes propagate asynchronously; given no new writes, all replicas eventually agree.</p>",
+      code: "// t=0   write 'likes=101' to primary\n" +
+        "// t=0   replica A still returns 100 (not yet propagated)\n" +
+        "// t=50ms replica A now returns 101 -> converged\n" +
+        "// DynamoDB, Cassandra, DNS, and most CDNs work this way. The window is usually\n" +
+        "// tiny, which is why it's fine for likes, feeds, counts, and caches."
+    },
+    {
+      title: "Example 4 (edge case): concurrent writes need conflict resolution",
+      description: "<p>Eventual consistency must decide what happens when two replicas accept conflicting writes - last-write-wins can silently lose data.</p>",
+      code: "// Two users edit the same cart on different replicas at the same time:\n" +
+        "//   last-write-wins -> one update is silently discarded\n" +
+        "//   better: CRDTs (merge automatically), vector clocks (detect conflict),\n" +
+        "//           or app-level merge (e.g. union both carts)\n" +
+        "// Also surfaces read anomalies (non-monotonic reads) you must design the UX around."
     }
   ],
   whenToUse: "<p>Use eventual consistency for the large class of data where brief staleness is acceptable and " +
@@ -413,6 +605,24 @@ C["strong-consistency"] = {
         "//   reflect it - showing the old (higher) balance could allow overdraft.\n" +
         "// Unique username: two simultaneous signups must not both 'succeed'.\n" +
         "// These need strong consistency (often a transaction + unique constraint)."
+    },
+    {
+      title: "Example 3: quorum reads/writes for strong consistency",
+      description: "<p>Many distributed stores achieve strong reads by requiring overlapping read/write quorums (R + W &gt; N).</p>",
+      code: "// N=3 replicas. Choose W=2 (write to 2), R=2 (read from 2).\n" +
+        "//   R + W = 4 > N = 3  ->  read set always overlaps the latest write set\n" +
+        "//   so a read is guaranteed to see the most recent committed value.\n" +
+        "// Cost: every read/write contacts multiple nodes -> higher latency, and a\n" +
+        "// partition that breaks quorum makes the operation FAIL (CP behavior)."
+    },
+    {
+      title: "Example 4 (edge case): strong consistency costs latency and availability",
+      description: "<p>The guarantee isn't free - coordination/consensus adds latency, and unavailability when a quorum can't be reached.</p>",
+      code: "// Consensus (Raft/Paxos) or 2-phase commit means cross-node round-trips on the\n" +
+        "// hot path -> slower writes, especially across regions (add inter-region RTT).\n" +
+        "// Under partition, a CP system rejects writes rather than risk divergence.\n" +
+        "// Don't impose it globally 'to be safe' - reserve it for money, inventory,\n" +
+        "// and uniqueness constraints; use eventual elsewhere."
     }
   ],
   whenToUse: "<p>Use strong consistency where correctness is immediate and critical &mdash; financial " +
@@ -450,6 +660,25 @@ C["availability-patterns"] = {
         "//   99.9% * 99.9% * 99.9% = ~99.7% (worse than any single component)\n" +
         "// In PARALLEL (redundant copies): unavailability multiplies\n" +
         "//   1 - (0.1% * 0.1%) = 99.9999% (far better)"
+    },
+    {
+      title: "Example 3: active-passive vs active-active",
+      description: "<p>Two core redundancy models trade cost and complexity against failover speed and capacity.</p>",
+      code: "// Active-Passive: standby takes over when primary fails\n" +
+        "//   + simpler, no conflict handling   - idle capacity, failover gap\n" +
+        "// Active-Active: all nodes serve traffic simultaneously\n" +
+        "//   + full capacity, instant failover - needs load balancing + conflict/\n" +
+        "//     consistency handling across active nodes\n" +
+        "// Combine with health checks + automatic failover for real resilience."
+    },
+    {
+      title: "Example 4 (edge case): redundancy that shares a failure domain isn't redundant",
+      description: "<p>Two replicas in the same rack/AZ/region fail together - true availability requires independent failure domains.</p>",
+      code: "// 'We have 2 servers' - but both in the same rack on one power feed -> a single\n" +
+        "//   PDU failure takes both down. Same trap: 2 DB nodes in one AZ.\n" +
+        "// Spread across racks -> AZs -> regions per your SLA. Also avoid correlated\n" +
+        "// failures: a shared dependency (one DNS, one config service) is a hidden SPOF\n" +
+        "// even behind redundant app servers."
     }
   ],
   whenToUse: "<p>Apply availability patterns to any system where downtime is costly &mdash; revenue-generating " +
@@ -493,6 +722,24 @@ C["fail-over"] = {
         "//   both accepting writes -> data divergence/corruption.\n" +
         "// Mitigation: quorum/witness node, fencing, or a consensus system\n" +
         "//   (Raft/ZooKeeper) to agree on exactly one leader."
+    },
+    {
+      title: "Example 3: active-passive failover with a heartbeat",
+      description: "<p>The standby monitors the primary and promotes itself when heartbeats stop.</p>",
+      code: "// primary --heartbeat--> standby (every 1s)\n" +
+        "// missed N heartbeats -> standby promotes to primary, takes over the VIP\n" +
+        "// clients reconnect to the same virtual IP / DNS name\n" +
+        "// failover gap = detection time + promotion time (seconds to minutes).\n" +
+        "// Faster detection risks false positives; slower risks longer outages."
+    },
+    {
+      title: "Example 4 (edge case): split-brain",
+      description: "<p>If the standby wrongly believes the primary is dead (network blip), both act as primary - corrupting data.</p>",
+      code: "// Network partition between primary and standby (primary is actually FINE):\n" +
+        "//   standby promotes -> now TWO primaries accept writes -> divergent data.\n" +
+        "// Mitigations: quorum/witness node to break ties, fencing (STONITH - shoot the\n" +
+        "//   other node), and a lease the primary must keep renewing. Never decide\n" +
+        "// failover from a single observer's view."
     }
   ],
   whenToUse: "<p>Use fail-over for any component whose failure would cause an outage &mdash; databases, load " +
@@ -531,6 +778,24 @@ C["replication"] = {
         "// Pros: write availability even if one is down; geo-distributed writes\n" +
         "// Cons: concurrent writes to the same row on A and B CONFLICT\n" +
         "//   -> need conflict resolution (last-write-wins, version vectors, app logic)"
+    },
+    {
+      title: "Example 3: primary-replica read scaling",
+      description: "<p>Writes go to the primary; reads fan out to replicas - the standard way to scale a read-heavy workload.</p>",
+      code: "// writes -> PRIMARY --async replication--> REPLICA 1, REPLICA 2, REPLICA 3\n" +
+        "// reads  -> load-balanced across replicas (10x read capacity)\n" +
+        "// Add replicas to absorb more reads. Multi-primary exists too but needs\n" +
+        "// conflict resolution, so primary-replica is the common default."
+    },
+    {
+      title: "Example 4 (edge case): replication lag breaks read-your-writes",
+      description: "<p>Async replicas trail the primary, so an immediate read after a write can return stale data; and a lost primary can lose un-replicated writes.</p>",
+      code: "// write 'balance=100' to primary -> immediate read hits a lagging replica -> 90\n" +
+        "// Fixes: read-after-write from primary, or synchronous replication (slower).\n" +
+        "//\n" +
+        "// Async replication + primary crash = the last few un-shipped writes are LOST.\n" +
+        "// Synchronous replication avoids loss but adds write latency. Pick per durability\n" +
+        "// requirement; monitor replication lag as a first-class metric."
     }
   ],
   whenToUse: "<p>Use replication to scale reads (add replicas), survive node failures (promote a replica), and " +
@@ -570,6 +835,25 @@ C["availability-in-numbers"] = {
         "// PARALLEL (either works):   1 - (1-A)(1-B)\n" +
         "//   1 - (0.001 * 0.001) = 99.9999%  (much better)\n" +
         "// Lesson: minimize serial dependencies; add parallel redundancy."
+    },
+    {
+      title: "Example 3: what the nines actually allow",
+      description: "<p>Each extra nine cuts allowed downtime by ~10x - the cost to achieve it rises steeply.</p>",
+      code: "// 99%     (two nines)  -> ~3.65 days/year  downtime\n" +
+        "// 99.9%   (three)     -> ~8.76 hours/year\n" +
+        "// 99.99%  (four)      -> ~52.6 minutes/year\n" +
+        "// 99.999% (five)      -> ~5.26 minutes/year\n" +
+        "// Going from 3 to 5 nines often means multi-region, automated failover, and\n" +
+        "// rigorous ops - a large cost step. Match the target to business need."
+    },
+    {
+      title: "Example 4 (edge case): dependencies multiply in series, improve in parallel",
+      description: "<p>Chained dependencies reduce overall availability; redundancy increases it. People routinely overestimate a multi-component system's uptime.</p>",
+      code: "// Series (request needs ALL): 0.99 * 0.99 * 0.99 = 0.970 -> only 97%!\n" +
+        "//   more hard dependencies = LOWER combined availability.\n" +
+        "// Parallel redundancy (any one works): 1 - (1-0.99)^2 = 0.9999 -> 99.99%\n" +
+        "// Lesson: minimize hard dependencies on the critical path, and add redundancy\n" +
+        "// where you can't. A 99.9% service calling five 99.9% services is < 99.9%."
     }
   ],
   whenToUse: "<p>Use availability math to set realistic SLAs/SLOs and to decide where redundancy is worth it. " +
@@ -612,6 +896,25 @@ C["background-jobs"] = {
         "//   reacts immediately to something happening\n" +
         "// Schedule-driven: every night at 02:00 -> job: rebuild search index\n" +
         "//   runs on a fixed timer regardless of events (cron)"
+    },
+    {
+      title: "Example 3: move slow work off the request path",
+      description: "<p>The web request enqueues work and returns immediately; a worker processes it asynchronously.</p>",
+      code: "// Synchronous (bad): user waits 8s for the request\n" +
+        "POST /signup -> create user -> send welcome email (3s) -> resize avatar (5s) -> 200\n" +
+        "\n" +
+        "// With a background job (good): user gets a fast response\n" +
+        "POST /signup -> create user -> enqueue(welcomeEmail, resizeAvatar) -> 202 Accepted\n" +
+        "// workers process the queue; the user isn't blocked on slow side-effects."
+    },
+    {
+      title: "Example 4 (edge case): jobs must be idempotent and retry-safe",
+      description: "<p>Queues deliver at-least-once, so a job can run twice (worker crash after side-effect, before ack) - design for it.</p>",
+      code: "// Naive: a retried 'charge card' job double-charges the customer.\n" +
+        "// Idempotent: key the operation so a repeat is a no-op:\n" +
+        "if (!alreadyProcessed(jobId)) { charge(); markProcessed(jobId); }\n" +
+        "// Also add: dead-letter queue for poison messages, max retries with backoff,\n" +
+        "// and monitoring of queue depth (a growing backlog = workers can't keep up)."
     }
   ],
   whenToUse: "<p>Use background jobs whenever work is slow, can fail and need retries, must be rate-limited, or " +
@@ -649,6 +952,24 @@ C["event-driven"] = {
       code: "// Need to also start a fraud check on signup? Add a consumer:\n" +
         "//   subscribe('UserSignedUp', e => fraudService.screen(e.userId));\n" +
         "// No change to the signup code - that's the event-driven win."
+    },
+    {
+      title: "Example 3: trigger work from an event, not a clock",
+      description: "<p>Event-driven jobs start as soon as something happens - lower latency than waiting for the next scheduled run.</p>",
+      code: "// order.placed event -> fan out to independent handlers:\n" +
+        "//   - reserve inventory\n" +
+        "//   - send confirmation email\n" +
+        "//   - update analytics\n" +
+        "// Each handler subscribes; new handlers are added without touching the producer.\n" +
+        "// Reacts in milliseconds vs a cron job that polls 'any new orders?' every minute."
+    },
+    {
+      title: "Example 4 (edge case): ordering and duplicate delivery",
+      description: "<p>Event systems rarely guarantee global order and usually deliver at-least-once - consumers must tolerate out-of-order and repeated events.</p>",
+      code: "// 'item.updated' may arrive BEFORE 'item.created' on different partitions.\n" +
+        "// Handle with: idempotent consumers, version/sequence numbers to drop stale\n" +
+        "// events, and partitioning by entity id so a single entity's events stay ordered.\n" +
+        "// Don't assume exactly-once or strict global ordering - design for neither."
     }
   ],
   whenToUse: "<p>Use event-driven jobs when work should begin promptly in response to something happening, when " +
@@ -684,6 +1005,24 @@ C["schedule-driven"] = {
         "// - Hourly:  retry failed payments, sync inventory\n" +
         "// - Daily:   delete expired sessions, send digest emails\n" +
         "// - Weekly:  database vacuum/maintenance, archive old logs"
+    },
+    {
+      title: "Example 3: cron-style periodic work",
+      description: "<p>Schedule-driven jobs run on a clock for predictable recurring tasks.</p>",
+      code: "// nightly cleanup of expired sessions\n" +
+        "0 3 * * *   ->  DELETE FROM sessions WHERE expires_at < now()\n" +
+        "// other classics: send daily digest emails, roll up hourly metrics,\n" +
+        "//   rebuild a search index, generate billing at month-end.\n" +
+        "// Triggered by time, regardless of whether anything 'happened'."
+    },
+    {
+      title: "Example 4 (edge case): overlapping runs and missed schedules in a cluster",
+      description: "<p>Running a cron on every instance fires the job N times; long-running jobs can overlap the next tick; downtime can skip a run entirely.</p>",
+      code: "// Same cron on 5 app servers -> the daily report is generated 5 times.\n" +
+        "//   Fix: a distributed lock / leader election so exactly one runs it (ShedLock,\n" +
+        "//        a scheduler like Quartz with a shared store, or a dedicated cron service).\n" +
+        "// If a job runs longer than its interval, guard against overlap.\n" +
+        "// If the box was down at 3am, decide: skip, or catch up on restart?"
     }
   ],
   whenToUse: "<p>Use schedule-driven jobs for periodic, predictable work that doesn't depend on a specific " +
@@ -721,6 +1060,26 @@ C["returning-results"] = {
         "// When finished, the server POSTs the result to that URL:\n" +
         "//   -> POST https://client/done { jobId: \"abc\", result: {...} }\n" +
         "// No polling; but the client must expose an endpoint and verify the call."
+    },
+    {
+      title: "Example 3: polling vs webhook vs websocket",
+      description: "<p>Three ways to deliver an async result, trading simplicity for latency and efficiency.</p>",
+      code: "// Polling: client asks repeatedly\n" +
+        "//   POST /jobs -> 202 + {jobId}; then GET /jobs/{id} until status=done\n" +
+        "//   simple, works everywhere; wastes calls, adds latency\n" +
+        "// Webhook (callback): server POSTs the result to the client's URL when ready\n" +
+        "//   efficient; needs the client to expose an endpoint\n" +
+        "// WebSocket / SSE: push over a persistent connection\n" +
+        "//   real-time; more infra (sticky sessions, connection limits)"
+    },
+    {
+      title: "Example 4 (edge case): polling intervals and webhook reliability",
+      description: "<p>Aggressive polling hammers the server; webhooks can be missed and need retries plus signature verification.</p>",
+      code: "// Polling too often = load + cost; too rarely = stale results.\n" +
+        "//   Use exponential backoff, or long-polling, instead of tight loops.\n" +
+        "// Webhooks: the receiver may be down -> you MUST retry with backoff, make the\n" +
+        "//   delivery idempotent, and SIGN the payload (HMAC) so the receiver can verify\n" +
+        "//   it's really from you. An unverified webhook endpoint is an attack surface."
     }
   ],
   whenToUse: "<p>Pick a result-return strategy by client capability and latency needs: <strong>polling</strong> " +
@@ -762,6 +1121,25 @@ C["domain-name-system"] = {
         "//   - weighted     -> split traffic %s across endpoints\n" +
         "//   - latency/geo  -> send users to the nearest region\n" +
         "//   - failover     -> route away from an unhealthy endpoint"
+    },
+    {
+      title: "Example 3: DNS as a load-balancing and routing tool",
+      description: "<p>Beyond name resolution, DNS features route users to the right place.</p>",
+      code: "// Round-robin: one name -> multiple A records -> spreads clients across IPs\n" +
+        "//   api.example.com -> 1.1.1.1, 1.1.1.2, 1.1.1.3\n" +
+        "// GeoDNS: return the nearest region's IP based on resolver location\n" +
+        "// Failover: health-checked records drop a dead endpoint from responses\n" +
+        "// Weighted: send 10% of traffic to a new version (canary)"
+    },
+    {
+      title: "Example 4 (edge case): TTL and propagation delays",
+      description: "<p>DNS is heavily cached by TTL, so changes (e.g. a failover IP) don't take effect everywhere immediately.</p>",
+      code: "// Record has TTL=3600 -> resolvers cache it for up to an hour.\n" +
+        "// You change the IP for failover, but clients keep hitting the OLD IP until\n" +
+        "//   their cache expires (and some ignore TTL).\n" +
+        "// Mitigation: LOWER the TTL (e.g. 60s) BEFORE a planned change; don't rely on\n" +
+        "//   DNS alone for fast failover - pair with a load balancer / anycast.\n" +
+        "// Resolution also adds latency on first lookup -> keep-alive + caching help."
     }
   ],
   whenToUse: "<p>You rely on DNS for every internet request, and you actively use it in design for global " +
@@ -799,6 +1177,23 @@ C["content-delivery-networks"] = {
         "// Control caching with headers:\n" +
         "//   Cache-Control: public, max-age=31536000, immutable  (hashed assets)\n" +
         "//   plus cache invalidation/versioned URLs for updates"
+    },
+    {
+      title: "Example 3: edge caching cuts latency and origin load",
+      description: "<p>A CDN serves content from a location near the user, so most requests never reach your origin.</p>",
+      code: "// Without CDN: user in Tokyo -> origin in Virginia = ~150ms+ per asset\n" +
+        "// With CDN:    user in Tokyo -> Tokyo edge (cache HIT) = ~10ms, origin untouched\n" +
+        "// A 95% cache hit ratio means your origin handles only 5% of asset traffic.\n" +
+        "// Great for images, JS/CSS, video, and even cacheable API/GET responses."
+    },
+    {
+      title: "Example 4 (edge case): cache invalidation and dynamic content",
+      description: "<p>The hard part is staleness - a cached asset can serve old content until it expires, and per-user/dynamic responses shouldn't be edge-cached.</p>",
+      code: "// Deploy new app.js but the CDN still serves the old one for its TTL.\n" +
+        "//   Fix: content-hashed filenames (app.4f9a.js) + long TTL -> new file = new URL.\n" +
+        "// Don't cache personalized/auth'd responses at a shared edge (you'd serve one\n" +
+        "//   user's data to another). Use Cache-Control: private / no-store for those.\n" +
+        "// Purging the whole CDN on every deploy is slow and costly - version instead."
     }
   ],
   whenToUse: "<p>Use a CDN for virtually any public web app or service that serves static assets, media, or " +
@@ -834,6 +1229,24 @@ C["push-cdns"] = {
         "//   Good for: small/static sites, infrequently updated large files,\n" +
         "//   low-traffic content (no benefit to lazy pull).\n" +
         "// PULL: CDN fetches from origin on first request, then caches (see Pull CDNs)."
+    },
+    {
+      title: "Example 3: you upload content to the CDN proactively",
+      description: "<p>With a push CDN you publish assets to the edge yourself, controlling exactly what's cached and when.</p>",
+      code: "// CI/CD step on deploy:\n" +
+        "//   build -> upload dist/* to the CDN's storage -> assets live at the edge\n" +
+        "// The origin is never hit for these files; you decide refresh timing.\n" +
+        "// Good for: a fixed set of large, rarely-changing files (game assets, software\n" +
+        "//   downloads, release binaries) on a low-traffic site."
+    },
+    {
+      title: "Example 4 (edge case): you own freshness and storage cost",
+      description: "<p>Push means more operational burden - forget to re-upload and users get stale files; you also pay to store everything at the edge.</p>",
+      code: "// Update a file but forget the push step -> the edge keeps serving the OLD one\n" +
+        "//   indefinitely (no origin fetch to self-correct, unlike a pull CDN).\n" +
+        "// You store ALL assets at the edge even if rarely requested -> wasted cost for\n" +
+        "//   large or churny catalogs. For frequently-changing or huge content sets,\n" +
+        "//   a pull CDN is usually the better default."
     }
   ],
   whenToUse: "<p>Choose a push CDN when content changes infrequently, when you have large files you want " +
@@ -870,6 +1283,24 @@ C["pull-cdns"] = {
         "//   Cache-Control: public, max-age=3600  -> edge caches for 1 hour\n" +
         "// After TTL, the edge re-validates/re-pulls from origin.\n" +
         "// Use long TTL + versioned URLs for assets that 'never change'."
+    },
+    {
+      title: "Example 3: lazy-loading on the first request",
+      description: "<p>A pull CDN fetches from origin on a cache miss, then serves cached copies until the TTL expires.</p>",
+      code: "// 1st user, Tokyo: edge MISS -> fetch from origin -> cache -> serve (slow once)\n" +
+        "// next users, Tokyo: edge HIT -> served locally for the TTL (fast)\n" +
+        "// You set caching via origin headers:  Cache-Control: max-age=86400\n" +
+        "// No manual upload step - the CDN mirrors your origin on demand."
+    },
+    {
+      title: "Example 4 (edge case): first-hit latency and the thundering herd",
+      description: "<p>Cache misses pay an origin round-trip, and many simultaneous misses for the same uncached object can stampede the origin.</p>",
+      code: "// Cold cache / just-expired popular asset: a spike of concurrent requests all\n" +
+        "//   miss at once and hit the origin together = 'thundering herd' / cache stampede.\n" +
+        "//   Mitigation: request coalescing (CDN dedupes concurrent misses), stale-while-\n" +
+        "//   revalidate, slightly randomized TTLs.\n" +
+        "// Also: a misconfigured Cache-Control (e.g. no-cache from origin) silently makes\n" +
+        "//   the CDN forward everything to origin - check your headers."
     }
   ],
   whenToUse: "<p>Choose a pull CDN (the usual default) for most websites and apps &mdash; especially with large " +
@@ -908,6 +1339,24 @@ C["load-balancers"] = {
         "// - SSL/TLS termination: decrypt HTTPS at the LB (offload from servers)\n" +
         "// - Session persistence ('sticky sessions'): pin a user to one server\n" +
         "// - Redundancy: run LBs in pairs (active-active/passive) - no single LB SPOF"
+    },
+    {
+      title: "Example 3: health checks remove dead backends automatically",
+      description: "<p>A load balancer probes each server and stops routing to unhealthy ones - the basis of high availability.</p>",
+      code: "// LB health check: GET /health every 5s\n" +
+        "//   server returns 200 -> in rotation\n" +
+        "//   server returns 503 / times out -> taken OUT of rotation\n" +
+        "// So a crashed app server stops receiving traffic within seconds, and rejoins\n" +
+        "// automatically once healthy. This is why endpoints expose a /health route."
+    },
+    {
+      title: "Example 4 (edge case): the LB is itself a single point of failure",
+      description: "<p>Putting everything behind one load balancer just moves the SPOF - you must make the LB redundant, and sticky sessions undermine stateless scaling.</p>",
+      code: "// One LB instance dies -> total outage. Run LBs in pairs (active-passive with a\n" +
+        "//   floating VIP) or use a managed/anycast LB.\n" +
+        "// Sticky sessions (pin a user to one server) break when that server dies and\n" +
+        "//   prevent even load spreading. Prefer STATELESS servers + shared session store\n" +
+        "//   (Redis) so any server can handle any request."
     }
   ],
   whenToUse: "<p>Use a load balancer any time you run more than one server (for scale or redundancy) &mdash; " +
@@ -949,6 +1398,25 @@ C["lb-vs-reverse-proxy"] = {
         "//   - AND load balancing across an upstream pool\n" +
         "// e.g. nginx: terminate TLS, route /api -> api pool, /img -> cache,\n" +
         "//      balancing each pool with round robin / least_conn."
+    },
+    {
+      title: "Example 3: overlapping but distinct roles",
+      description: "<p>A load balancer distributes across many backends; a reverse proxy is a single front door (which often also load-balances).</p>",
+      code: "// Reverse proxy (e.g. nginx) in front of ONE app: TLS termination, gzip,\n" +
+        "//   caching, request routing by path:\n" +
+        "//   /api/* -> app server,  /static/* -> file store\n" +
+        "// Load balancer: spread traffic across MANY identical app servers.\n" +
+        "// In practice nginx/Envoy do BOTH - a reverse proxy that load-balances."
+    },
+    {
+      title: "Example 4 (edge case): proxy misconfig and header handling",
+      description: "<p>A reverse proxy hides the real client - forget to forward the original IP/protocol and downstream logic breaks.</p>",
+      code: "// Without X-Forwarded-For, every request appears to come from the proxy's IP\n" +
+        "//   -> rate limiting, geo, and audit logs all see one IP.\n" +
+        "// Without X-Forwarded-Proto, the app thinks HTTPS traffic is HTTP -> bad\n" +
+        "//   redirects / insecure cookies.\n" +
+        "// Set and TRUST these headers correctly (and only from your proxy - a client\n" +
+        "// can spoof X-Forwarded-For if you trust it blindly)."
     }
   ],
   whenToUse: "<p>Use a <strong>reverse proxy</strong> when you want a single managed entry point providing " +
@@ -989,6 +1457,26 @@ C["load-balancing-algorithms"] = {
         "// IP hash / consistent hashing: hash(client_ip) -> same server each time\n" +
         "//   -> rough session stickiness; consistent hashing minimizes\n" +
         "//      reshuffling when servers are added/removed."
+    },
+    {
+      title: "Example 3: the common algorithms and when each fits",
+      description: "<p>Each algorithm makes a different assumption about request cost and server state.</p>",
+      code: "// round robin:        rotate evenly - good when requests are uniform\n" +
+        "// weighted round robin: bigger servers get more - mixed capacity\n" +
+        "// least connections:  send to the server with fewest active conns - long-lived\n" +
+        "//                      or uneven requests (websockets, slow queries)\n" +
+        "// least response time: factor in latency too\n" +
+        "// IP/consistent hash: same client -> same server (sticky / cache affinity)"
+    },
+    {
+      title: "Example 4 (edge case): round robin ignores load; consistent hashing minimizes reshuffling",
+      description: "<p>Naive round robin can overload a slow server; plain hashing remaps everything when a node is added - consistent hashing avoids that.</p>",
+      code: "// Round robin to servers handling wildly different requests -> one gets swamped\n" +
+        "//   by heavy requests while others idle. Prefer least-connections there.\n" +
+        "//\n" +
+        "// hash(key) % N for cache routing: adding ONE node changes N for ALL keys ->\n" +
+        "//   nearly every key remaps -> mass cache misses. Consistent hashing remaps\n" +
+        "//   only ~1/N of keys when the ring changes."
     }
   ],
   whenToUse: "<p>Pick the algorithm to match your traffic: <strong>round robin</strong> for uniform requests on " +
@@ -1029,6 +1517,25 @@ C["layer-7-load-balancing"] = {
         "// - HTTP-aware health checks (GET /health, check status code)\n" +
         "// - Rate limiting / WAF / request rewriting\n" +
         "// (All require reading the HTTP request - hence Layer 7.)"
+    },
+    {
+      title: "Example 3: content-aware routing at L7",
+      description: "<p>Operating at the application layer, an L7 LB can route by URL, host, header, or cookie.</p>",
+      code: "// One entry point, routed by path/host to different services:\n" +
+        "//   /api/*        -> api-service\n" +
+        "//   /images/*     -> image-service\n" +
+        "//   Host: admin.* -> admin-cluster\n" +
+        "// Also enables: TLS termination, sticky sessions by cookie, header rewrites,\n" +
+        "//   and per-route rate limiting - because it can read the HTTP request."
+    },
+    {
+      title: "Example 4 (edge case): more capability, more cost and a TLS trade-off",
+      description: "<p>Parsing every request and terminating TLS costs CPU/latency vs L4, and decryption at the LB means traffic to backends may be plaintext unless re-encrypted.</p>",
+      code: "// L7 must decrypt + parse HTTP -> higher latency/CPU than a pass-through L4 LB.\n" +
+        "// TLS terminates AT the LB, so LB->backend hops are unencrypted unless you\n" +
+        "//   re-encrypt (mTLS) inside the trusted network.\n" +
+        "// For raw throughput (non-HTTP, or huge volumes) L4 is cheaper; use L7 when you\n" +
+        "//   actually need the content-based features."
     }
   ],
   whenToUse: "<p>Use Layer 7 load balancing when you need content-aware routing &mdash; path/host-based " +
@@ -1067,6 +1574,23 @@ C["layer-4-load-balancing"] = {
         "// Layer 7: content-aware (path/host/header), TLS termination, richer\n" +
         "//   features; more CPU/latency per request.\n" +
         "// Many architectures use L4 at the edge + L7 deeper in."
+    },
+    {
+      title: "Example 3: routing on IP/port without reading payload",
+      description: "<p>An L4 LB forwards packets based on connection info only, so it's fast and protocol-agnostic.</p>",
+      code: "// Routes by (src IP, src port, dst IP, dst port) - never inspects HTTP.\n" +
+        "// Works for ANY TCP/UDP protocol: databases, game servers, gRPC, raw TCP.\n" +
+        "// Often does pass-through (DSR) so responses skip the LB -> very high throughput,\n" +
+        "//   lower latency than L7, and the LB stays simple."
+    },
+    {
+      title: "Example 4 (edge case): no content awareness",
+      description: "<p>Because it can't see the request, L4 can't do path routing, per-URL rate limits, or HTTP-cookie stickiness - and a single connection can't be split.</p>",
+      code: "// You CANNOT route /api vs /images at L4 - it doesn't see the URL.\n" +
+        "// Stickiness is by client IP only (breaks behind a shared NAT/proxy).\n" +
+        "// Long-lived connections (HTTP/2, websockets) pin to one backend for their\n" +
+        "//   whole life, so balancing is per-connection, not per-request.\n" +
+        "// Need content-based features? You need L7 (often L4 in front of L7)."
     }
   ],
   whenToUse: "<p>Use Layer 4 load balancing when you need maximum throughput and minimal latency, when traffic " +
@@ -1105,6 +1629,24 @@ C["horizontal-scaling"] = {
         "// GOOD (stateless): keep no local state; put sessions in Redis,\n" +
         "//   data in the DB, files in object storage\n" +
         "//   -> any of the N servers can handle any request; add/remove at will"
+    },
+    {
+      title: "Example 3: scale out vs scale up",
+      description: "<p>Horizontal scaling adds more machines; vertical scaling makes one machine bigger. They have very different ceilings.</p>",
+      code: "// Vertical (scale up): 4 cores -> 64 cores on one box\n" +
+        "//   + simple, no app changes   - hard ceiling, expensive, still a SPOF\n" +
+        "// Horizontal (scale out): 1 server -> 50 servers behind an LB\n" +
+        "//   + near-unlimited, fault-tolerant   - requires STATELESS app + shared state\n" +
+        "// Cloud autoscaling adds/removes instances based on CPU/QSP automatically."
+    },
+    {
+      title: "Example 4 (edge case): horizontal scaling demands statelessness",
+      description: "<p>The catch: requests can land on any instance, so servers must keep no local session/state - and the database often becomes the new bottleneck.</p>",
+      code: "// Storing a session in server memory breaks when the next request hits a\n" +
+        "//   different instance -> user 'logged out'. Move state to Redis/DB/JWT.\n" +
+        "// Adding 50 app servers just pushes load onto ONE database -> now the DB is the\n" +
+        "//   limit. Horizontal scaling of the app must be paired with DB read replicas /\n" +
+        "//   sharding / caching, or you've only moved the bottleneck."
     }
   ],
   whenToUse: "<p>Use horizontal scaling for systems that must grow beyond one machine's limits or need fault " +
@@ -1145,6 +1687,24 @@ C["application-layer"] = {
         "// Microservices: split by capability - independent deploy/scale per service,\n" +
         "//   but network calls, distributed data, and ops overhead.\n" +
         "// + service discovery so services can find each other dynamically."
+    },
+    {
+      title: "Example 3: separating the app layer from the web and data layers",
+      description: "<p>Keeping the application (business) layer distinct lets you scale and deploy it independently.</p>",
+      code: "// web tier (stateless)  -> handles HTTP, no business rules\n" +
+        "//   -> application tier  -> business logic, orchestration (scaled separately)\n" +
+        "//        -> data tier     -> databases, caches\n" +
+        "// Each tier scales to its own bottleneck; a stateless app tier can be cloned\n" +
+        "// behind a load balancer, while the data tier scales via replicas/shards."
+    },
+    {
+      title: "Example 4 (edge case): a 'distributed monolith' negates the benefit",
+      description: "<p>Splitting tiers/services that are still tightly coupled adds network latency and deployment pain without the independence you wanted.</p>",
+      code: "// Smell: service A can't deploy without service B, they share a database, and a\n" +
+        "//   change ripples across both -> you have a distributed monolith: all the\n" +
+        "//   network cost of microservices, none of the independence.\n" +
+        "// Keep layers loosely coupled with clear contracts; don't split unless the\n" +
+        "// parts truly vary or scale independently."
     }
   ],
   whenToUse: "<p>Think about the application layer's structure whenever you're organizing business logic for " +
@@ -1183,6 +1743,24 @@ C["microservices"] = {
         "//   order.place() -> payment.charge() OK -> inventory.reserve() FAILS\n" +
         "//   -> must compensate (refund) or use a saga; no easy DB transaction\n" +
         "//      spans services. Add retries, timeouts, circuit breakers."
+    },
+    {
+      title: "Example 3: decompose by business capability, each owning its data",
+      description: "<p>Services are split along domain boundaries and communicate over the network; no shared database.</p>",
+      code: "// order-service   (own DB) --HTTP/events--> payment-service (own DB)\n" +
+        "//                          --events-->        inventory-service (own DB)\n" +
+        "// Each deploys, scales, and fails independently; teams own end-to-end.\n" +
+        "// Boundaries follow business capabilities (orders, payments), not technical\n" +
+        "// layers - a 'shared database' across services is an anti-pattern."
+    },
+    {
+      title: "Example 4 (edge case): the operational and consistency tax",
+      description: "<p>Microservices trade in-process simplicity for distributed-systems hard problems - don't adopt them without the drivers (multiple teams, independent scaling).</p>",
+      code: "// You now must handle: no cross-service transactions (use sagas), network\n" +
+        "//   failures/retries/idempotency, distributed tracing, service discovery,\n" +
+        "//   versioned contracts, and many deploy pipelines.\n" +
+        "// For a small team/app this overhead dwarfs the benefit. Start with a modular\n" +
+        "// monolith; extract services only when a clear boundary needs independence."
     }
   ],
   whenToUse: "<p>Adopt microservices when you have real drivers: many teams needing to deploy independently, " +
@@ -1223,6 +1801,25 @@ C["service-discovery"] = {
         "// Server-side: caller hits a router/LB that resolves + forwards\n" +
         "//   order-svc -> [LB/gateway] -> resolves payment-svc -> forwards\n" +
         "// Kubernetes: DNS-based - call 'payment-svc' and the platform resolves it."
+    },
+    {
+      title: "Example 3: client-side vs server-side discovery",
+      description: "<p>Two models for finding healthy instances of a service whose IPs change as it scales.</p>",
+      code: "// Server-side: client -> load balancer (knows instances) -> picks one\n" +
+        "//   simpler clients; the LB/registry does the work (e.g. AWS ALB, k8s Service)\n" +
+        "// Client-side: client queries a registry (Eureka/Consul) -> gets instance list\n" +
+        "//   -> load-balances itself\n" +
+        "//   one fewer hop, but every client embeds discovery logic.\n" +
+        "// A registry tracks instances via health checks and TTL'd registrations."
+    },
+    {
+      title: "Example 4 (edge case): stale registry entries and platform overlap",
+      description: "<p>Registries are eventually consistent, so a just-died instance may still be listed; and on Kubernetes the platform already provides discovery.</p>",
+      code: "// A crashed instance lingers in the registry until its TTL/health check expires\n" +
+        "//   -> clients still try it -> must pair discovery with retries + circuit breakers.\n" +
+        "// On Kubernetes, Service DNS already does discovery + load balancing:\n" +
+        "//   http://order-service.default.svc.cluster.local\n" +
+        "//   so running a separate Eureka often just duplicates the platform."
     }
   ],
   whenToUse: "<p>Use service discovery whenever you run multiple, dynamically-scaled service instances whose " +
@@ -1267,6 +1864,26 @@ C["databases"] = {
         "//   great for relational data + transactions (orders, payments)\n" +
         "// NoSQL: flexible schema, horizontal scale, eventual consistency (often)\n" +
         "//   great for huge scale, simple access patterns, varied/sparse data"
+    },
+    {
+      title: "Example 3: matching the store to the access pattern",
+      description: "<p>The data model and query shape - not popularity - should pick the database.</p>",
+      code: "// relational, transactional, ad-hoc queries  -> SQL (Postgres/MySQL)\n" +
+        "// key lookups, caching, sessions             -> key-value (Redis/DynamoDB)\n" +
+        "// flexible documents, varied schema           -> document (MongoDB)\n" +
+        "// massive write volume, time-series           -> wide-column (Cassandra)\n" +
+        "// relationship-heavy traversals               -> graph (Neo4j)\n" +
+        "// full-text search/relevance                  -> search engine (Elasticsearch)"
+    },
+    {
+      title: "Example 4 (edge case): polyglot persistence and the scaling ceiling",
+      description: "<p>Different data in one app may warrant different stores; but each adds operational cost, and a single primary DB has a real write ceiling.</p>",
+      code: "// One app might use Postgres (orders) + Redis (cache/sessions) + Elasticsearch\n" +
+        "//   (search) - polyglot persistence. Each is another thing to run, back up,\n" +
+        "//   secure, and keep in sync (dual-write/CDC problems).\n" +
+        "// Don't reach for NoSQL just to 'scale' - a single Postgres handles a LOT.\n" +
+        "// The DB is usually the bottleneck, so scale it deliberately (replicas, then\n" +
+        "// sharding) rather than sprinkling new databases everywhere."
     }
   ],
   whenToUse: "<p>Invest the most design effort here &mdash; the database is typically the bottleneck. Default to " +
@@ -1304,6 +1921,25 @@ C["sql-vs-nosql"] = {
         "// Document (MongoDB):  JSON-ish documents - flexible, app-object-shaped\n" +
         "// Wide-Column (Cassandra): rows with dynamic columns - huge write scale\n" +
         "// Graph (Neo4j):  nodes + edges - relationship-heavy queries (social, fraud)"
+    },
+    {
+      title: "Example 3: the real trade-offs (not 'SQL is old')",
+      description: "<p>SQL gives ACID transactions, joins, and ad-hoc queries; NoSQL trades some of those for horizontal scale and schema flexibility.</p>",
+      code: "// SQL strengths: multi-row ACID transactions, JOINs, strong schema, flexible\n" +
+        "//   ad-hoc queries, mature tooling. Scales vertically + read replicas; sharding\n" +
+        "//   is manual.\n" +
+        "// NoSQL strengths: built-in horizontal scaling, flexible/evolving schema, high\n" +
+        "//   write throughput. Cost: limited/absent joins, often eventual consistency,\n" +
+        "//   queries must fit the access pattern you designed for."
+    },
+    {
+      title: "Example 4 (edge case): NoSQL 'schemaless' still has an implicit schema",
+      description: "<p>Flexibility shifts schema enforcement to the application, and modeling for one query pattern makes other queries expensive or impossible.</p>",
+      code: "// 'Schemaless' = the schema lives in your code. A typo'd field is a NEW field,\n" +
+        "//   not an error; old documents have a different shape than new ones.\n" +
+        "// You model for a specific access pattern (e.g. by userId). A new query 'all\n" +
+        "//   orders in the last hour across users' may require a full scan or a second\n" +
+        "//   table/index. SQL would just add a WHERE/index. Choose for YOUR queries."
     }
   ],
   whenToUse: "<p>Choose <strong>SQL</strong> as the default for most applications &mdash; structured, related " +
@@ -1342,6 +1978,24 @@ C["key-value-store"] = {
         "// - Sessions: store user session state by session id\n" +
         "// - Rate limiting / counters: INCR per key\n" +
         "// - Feature flags, leaderboards (Redis sorted sets), pub/sub"
+    },
+    {
+      title: "Example 3: classic key-value uses",
+      description: "<p>When every access is by a known key, a KV store gives O(1) lookups at huge scale.</p>",
+      code: "// session store:   SET session:abc {userId, expiry}  GET session:abc\n" +
+        "// cache:           SET user:42 {...} EX 300   (TTL expiry)\n" +
+        "// rate limiter:    INCR rate:ip:1.2.3.4   EXPIRE 60\n" +
+        "// feature flags / config by key\n" +
+        "// Redis, Memcached, DynamoDB - extremely fast, trivially shardable by key."
+    },
+    {
+      title: "Example 4 (edge case): no querying by value, and hot keys",
+      description: "<p>You can only fetch by key - 'find all sessions for user X' isn't possible - and a single very popular key can overload one shard.</p>",
+      code: "// Can't do: SELECT * WHERE country='NL' - there's no secondary query, only GET key.\n" +
+        "//   If you need that, maintain your own index keys, or use a different store.\n" +
+        "// Hot key: a viral item's key lives on ONE shard -> that node saturates while\n" +
+        "//   others idle. Mitigate with client-side caching, key replication, or sharding\n" +
+        "//   the hot key (key:1, key:2, ...). Large values also hurt - keep them small."
     }
   ],
   whenToUse: "<p>Use a key-value store when access is by a known key and you need very high throughput and low " +
@@ -1381,6 +2035,25 @@ C["document-store"] = {
         "// Reference when data is large/shared/independently updated:\n" +
         "//   order stores customerId; fetch the customer separately\n" +
         "// Model around HOW you read, not normalized purity."
+    },
+    {
+      title: "Example 3: self-contained documents avoid joins",
+      description: "<p>Related data is embedded in one document, so a single read returns everything for a view.</p>",
+      code: "// One read returns the whole order - no joins:\n" +
+        "{ _id: 1, customer: \"Sam\",\n" +
+        "  items: [ {sku:\"a\", qty:2}, {sku:\"b\", qty:1} ],\n" +
+        "  shipping: { city: \"Amsterdam\", country: \"NL\" } }\n" +
+        "// Great when you usually read the aggregate together and the shape varies\n" +
+        "// per record (e.g. product catalogs with different attributes)."
+    },
+    {
+      title: "Example 4 (edge case): embedding causes duplication and update anomalies",
+      description: "<p>Denormalized documents duplicate shared data, so updating it means touching many documents - and unbounded arrays bloat documents.</p>",
+      code: "// Customer's address embedded in every order document -> changing the address\n" +
+        "//   means updating thousands of order docs (or accepting stale copies).\n" +
+        "//   Reference instead when data is shared and mutable: store customerId, look up.\n" +
+        "// An ever-growing embedded array (e.g. all comments in a post doc) eventually\n" +
+        "//   hits document-size limits and slows every read - model those as a collection."
     }
   ],
   whenToUse: "<p>Use a document store when your data is naturally document-shaped, schemas vary or evolve " +
@@ -1421,6 +2094,27 @@ C["wide-column-store"] = {
         "//      messages_by_user(user_id, ...)\n" +
         "//      messages_by_channel(channel_id, ...)\n" +
         "// Write the data to both; reads stay fast and partition-local."
+    },
+    {
+      title: "Example 3: model the table around the query",
+      description: "<p>In Cassandra you design the partition/clustering keys for the exact read you need - the data layout follows the query, not the other way around.</p>",
+      code: "// Query: 'get a user's messages, newest first'\n" +
+        "CREATE TABLE messages_by_user (\n" +
+        "  user_id  uuid,           -- partition key: all a user's msgs on one node\n" +
+        "  sent_at  timestamp,      -- clustering key: stored sorted\n" +
+        "  body     text,\n" +
+        "  PRIMARY KEY (user_id, sent_at)\n" +
+        ") WITH CLUSTERING ORDER BY (sent_at DESC);\n" +
+        "// Reads are a fast single-partition scan. Different query? Make another table."
+    },
+    {
+      title: "Example 4 (edge case): no joins, and bad keys create hotspots",
+      description: "<p>Wide-column stores forbid ad-hoc queries/joins and punish poor key design with unbalanced partitions or unbounded rows.</p>",
+      code: "// You CAN'T 'SELECT ... JOIN' or filter on a non-key column efficiently - you\n" +
+        "//   duplicate data into a purpose-built table per query (write-heavy by design).\n" +
+        "// Low-cardinality partition key (e.g. country) -> few huge partitions -> hotspots.\n" +
+        "// A partition that grows without bound (all events for one device) eventually\n" +
+        "//   becomes too large. Choose high-cardinality, bounded partition keys."
     }
   ],
   whenToUse: "<p>Use a wide-column store for very high write volumes and huge, sparse datasets that must scale " +
@@ -1459,6 +2153,24 @@ C["graph-databases"] = {
         "// In a graph DB: a short traversal that stays fast even at depth.\n" +
         "// Great for: social networks, recommendations, fraud rings,\n" +
         "//   knowledge graphs, network/dependency analysis."
+    },
+    {
+      title: "Example 3: traversals that would be painful in SQL",
+      description: "<p>Graph queries express multi-hop relationship questions directly, without exploding joins.</p>",
+      code: "// 'friends of friends who like hiking' in Cypher:\n" +
+        "MATCH (me:User {id:1})-[:FRIEND]->()-[:FRIEND]->(fof)-[:LIKES]->(:Topic {name:'hiking'})\n" +
+        "RETURN DISTINCT fof\n" +
+        "// In SQL this is a self-join per hop; deep/variable-length traversals\n" +
+        "// (shortest path, recommendations, fraud rings) get ugly fast in relational."
+    },
+    {
+      title: "Example 4 (edge case): wrong tool for non-graph workloads",
+      description: "<p>Graph DBs excel at traversals but are a poor fit for bulk aggregations/analytics and high-volume simple CRUD, and they scale horizontally less easily.</p>",
+      code: "// Bad fit: 'sum revenue by month' over millions of rows - that's an OLAP/SQL job.\n" +
+        "// Bad fit: simple key lookups at massive scale - use KV.\n" +
+        "// Graphs are harder to shard (relationships cross partitions), so very large\n" +
+        "//   graphs need careful partitioning. Use them when the RELATIONSHIPS are the\n" +
+        "//   product (social, network, knowledge graph), not as a general database."
     }
   ],
   whenToUse: "<p>Use a graph database when relationships and traversals are central to your queries &mdash; " +
@@ -1496,6 +2208,24 @@ C["db-replication"] = {
         "// reloads (read -> replica that hasn't caught up) -> sees OLD data.\n" +
         "// Fixes: route read-after-write to the primary, or add\n" +
         "//   'read-your-writes' stickiness for a short window."
+    },
+    {
+      title: "Example 3: primary-replica vs multi-primary",
+      description: "<p>Replication topologies trade write simplicity against write availability.</p>",
+      code: "// Primary-replica: one writable node, many read-only replicas\n" +
+        "//   simple, no write conflicts; the single primary is a write bottleneck/SPOF\n" +
+        "// Multi-primary (multi-master): several nodes accept writes\n" +
+        "//   higher write availability; must resolve conflicting concurrent writes\n" +
+        "// Read replicas are the easy 80% win; multi-primary adds real complexity."
+    },
+    {
+      title: "Example 4 (edge case): replication lag and failover data loss",
+      description: "<p>Async replication means replicas trail the primary (stale reads) and a primary crash can lose the un-shipped tail of writes.</p>",
+      code: "// Read-after-write on a lagging replica returns stale data -> route critical\n" +
+        "//   reads to the primary, or use semi-sync replication.\n" +
+        "// Primary dies before shipping the last 50ms of writes -> those writes are GONE\n" +
+        "//   with async replication. Synchronous replication prevents loss but adds write\n" +
+        "//   latency (wait for replica ack). Monitor lag; it's a leading failure signal."
     }
   ],
   whenToUse: "<p>Use database replication early and often: it's the standard way to scale <strong>read-heavy</strong> " +
@@ -1535,6 +2265,24 @@ C["sharding"] = {
         "// Cross-shard transactions are hard (no single ACID boundary).\n" +
         "// A bad shard key -> 'hot shard' (e.g. one celebrity user) overloaded.\n" +
         "// Resharding (changing shard count) is painful -> consistent hashing helps."
+    },
+    {
+      title: "Example 3: choosing a shard key",
+      description: "<p>Sharding splits data across nodes by a key; the key choice determines balance and query efficiency.</p>",
+      code: "// hash(user_id) -> shard   : even distribution, but range scans hit all shards\n" +
+        "// range (A-M, N-Z)        : easy ranges, but uneven (hot ranges) and rebalancing\n" +
+        "// geographic (region)     : data locality, but skewed if one region dominates\n" +
+        "// Pick a HIGH-cardinality key aligned to your most common query so a query\n" +
+        "// usually targets ONE shard."
+    },
+    {
+      title: "Example 4 (edge case): cross-shard queries, joins, and hotspots",
+      description: "<p>Sharding breaks single-node guarantees - joins/transactions across shards are hard, and a bad key creates a hotspot or expensive scatter-gather.</p>",
+      code: "// Query not on the shard key -> scatter-gather across ALL shards + merge (slow).\n" +
+        "// Cross-shard transaction -> needs 2PC/saga; no simple ACID across shards.\n" +
+        "// Low-cardinality or skewed key -> one 'celebrity' shard saturates (hotspot).\n" +
+        "// Resharding to add capacity is a major migration. Shard LAST, after replicas\n" +
+        "// and caching are exhausted - it's the most operationally expensive step."
     }
   ],
   whenToUse: "<p>Shard when a single database can no longer handle your <strong>write volume or data size</strong> " +
@@ -1574,6 +2322,25 @@ C["federation"] = {
         "// You can't JOIN across separate databases -> the application must\n" +
         "//   query each and join in code, or you denormalize/duplicate data.\n" +
         "// Trade simpler scaling for harder cross-domain queries."
+    },
+    {
+      title: "Example 3: split databases by function",
+      description: "<p>Federation (functional partitioning) gives each functional area its own database, spreading load and shrinking each dataset.</p>",
+      code: "// one monolithic DB -> three function-specific DBs:\n" +
+        "//   users-db      (auth, profiles)\n" +
+        "//   products-db   (catalog)\n" +
+        "//   orders-db     (transactions)\n" +
+        "// Each is smaller, separately scalable/tunable, and reduces contention.\n" +
+        "// It's the natural data step toward microservices."
+    },
+    {
+      title: "Example 4 (edge case): cross-function joins and transactions break",
+      description: "<p>Once data lives in separate databases you lose cross-DB joins and single transactions - you must join in the app or denormalize.</p>",
+      code: "// 'orders with user names' now spans orders-db + users-db -> no SQL JOIN.\n" +
+        "//   Options: join in application code, denormalize the user name into orders,\n" +
+        "//   or keep a read-optimized view.\n" +
+        "// A write touching two functions can't be one ACID transaction -> sagas/\n" +
+        "//   eventual consistency. Federate along boundaries that rarely need to join."
     }
   ],
   whenToUse: "<p>Use federation when your database load comes from distinct functional areas that can be split " +
@@ -1612,6 +2379,23 @@ C["denormalization"] = {
         "//   keep a comment_count column on the post, updated on insert/delete.\n" +
         "// Reads are instant; writes do a little extra bookkeeping.\n" +
         "// (Materialized views are a managed form of this.)"
+    },
+    {
+      title: "Example 3: precompute to avoid expensive joins/aggregations",
+      description: "<p>Storing redundant or rolled-up data trades write cost and storage for fast reads.</p>",
+      code: "// Instead of COUNT(*) joining posts+comments on every page load, store a counter:\n" +
+        "//   posts(id, ..., comment_count)   -- updated when a comment is added\n" +
+        "// Read is now a single column fetch, not an aggregate over millions of rows.\n" +
+        "// Same idea: store author_name on the post to skip a join to users."
+    },
+    {
+      title: "Example 4 (edge case): duplicated data drifts out of sync",
+      description: "<p>Denormalized copies must be kept consistent on every write - miss one path and the copy becomes wrong.</p>",
+      code: "// comment_count can drift if a comment is deleted via a path that forgets to\n" +
+        "//   decrement it -> the displayed count is wrong.\n" +
+        "// Mitigations: update copies in the same transaction, use triggers/CDC, or\n" +
+        "//   periodically reconcile. Denormalize for PROVEN slow reads only - it adds\n" +
+        "//   write complexity and a correctness burden. Normalize first, optimize later."
     }
   ],
   whenToUse: "<p>Denormalize when reads dominate and specific queries are too slow due to joins or aggregations " +
@@ -1654,6 +2438,26 @@ C["sql-tuning"] = {
         "//  - eliminate N+1 queries -> one join/IN instead of a query per row\n" +
         "//  - add composite indexes matching multi-column filters\n" +
         "//  - paginate with keyset (WHERE id > ?) instead of large OFFSET"
+    },
+    {
+      title: "Example 3: read the query plan and add the right index",
+      description: "<p>EXPLAIN reveals full scans; the correct index turns them into fast lookups.</p>",
+      code: "EXPLAIN SELECT * FROM orders WHERE customer_id = 42 AND status = 'OPEN';\n" +
+        "//   Seq Scan on orders ... rows=2,000,000   <- reading the whole table\n" +
+        "\n" +
+        "CREATE INDEX idx_orders_cust_status ON orders(customer_id, status);\n" +
+        "//   Index Scan ... rows=12   <- now it jumps straight to matching rows\n" +
+        "// Composite index column ORDER matters: most-selective / equality columns first."
+    },
+    {
+      title: "Example 4 (edge case): indexes aren't free, and over-indexing hurts writes",
+      description: "<p>Every index speeds reads but slows writes and uses space; and queries that aren't 'sargable' can't use an index at all.</p>",
+      code: "// Each INSERT/UPDATE must maintain every index -> too many indexes slow writes.\n" +
+        "// Non-sargable predicates skip the index:\n" +
+        "//   WHERE YEAR(created_at) = 2026        -- function on the column -> full scan\n" +
+        "//   WHERE created_at >= '2026-01-01' ... -- range -> uses the index\n" +
+        "//   WHERE name LIKE '%sam%'              -- leading wildcard -> can't use index\n" +
+        "// Index for your real query patterns; drop unused indexes."
     }
   ],
   whenToUse: "<p>Tune SQL <em>first</em> whenever the database is slow &mdash; it's usually far cheaper and more " +
@@ -1697,6 +2501,24 @@ C["caching"] = {
         "// Web server    -> reverse proxy caches responses (nginx, Varnish)\n" +
         "// Application   -> in-memory / Redis caches query results, sessions\n" +
         "// Database      -> the DB's own buffer/query cache"
+    },
+    {
+      title: "Example 3: the cache-hit math",
+      description: "<p>A high hit ratio dramatically cuts both latency and load on the origin.</p>",
+      code: "// cache read ~0.5ms, DB read ~20ms. With a 95% hit ratio:\n" +
+        "//   avg latency = 0.95*0.5 + 0.05*20 = 1.5ms  (vs 20ms uncached)\n" +
+        "//   DB load     = only 5% of reads reach the database\n" +
+        "// Caching the hottest data gives outsized wins because access is usually skewed\n" +
+        "// (a small set of items gets most of the traffic)."
+    },
+    {
+      title: "Example 4 (edge case): invalidation, stampedes, and stale data",
+      description: "<p>'There are only two hard things... cache invalidation.' Expiry, consistency, and concurrent misses all bite.</p>",
+      code: "// Stale data: source changed but cache still serves the old value until TTL/\n" +
+        "//   explicit invalidation. Pick a TTL the feature can tolerate.\n" +
+        "// Stampede: a hot key expires and 1000 requests miss at once -> all hit the DB.\n" +
+        "//   Mitigate with locking/single-flight, or stale-while-revalidate.\n" +
+        "// Cold cache after a restart/deploy -> brief load spike; warm critical keys."
     }
   ],
   whenToUse: "<p>Cache read-heavy, expensive-to-produce, and frequently-requested data &mdash; query results, " +
@@ -1736,6 +2558,23 @@ C["refresh-ahead"] = {
         "// Refresh-ahead: predicted-hot entry is reloaded in advance ->\n" +
         "//   the request HITS fresh data; no user-facing miss.\n" +
         "// Trade-off: wasted refreshes if the prediction is wrong."
+    },
+    {
+      title: "Example 3: proactively refresh before expiry",
+      description: "<p>Refresh-ahead reloads a hot entry shortly before its TTL, so requests almost never wait on a miss.</p>",
+      code: "// entry TTL = 60s, refresh trigger at 80% of TTL (48s)\n" +
+        "// at 48s, on access, the cache asynchronously reloads from source\n" +
+        "//   -> the value is refreshed BEFORE it expires; reads keep hitting a warm cache\n" +
+        "// Eliminates the latency spike a plain cache-aside suffers at expiry for hot keys."
+    },
+    {
+      title: "Example 4 (edge case): wasted refreshes and prediction misses",
+      description: "<p>It only pays off for predictably-popular keys; refreshing rarely-accessed entries wastes load, and a wrong prediction still yields a cold miss.</p>",
+      code: "// Refresh-ahead on a key nobody reads again = pointless source load + churn.\n" +
+        "// If access is unpredictable (long-tail), you can't know what to pre-refresh\n" +
+        "//   -> you still get cold misses for the keys you didn't anticipate.\n" +
+        "// Best for a SMALL set of known-hot keys (homepage data, top products).\n" +
+        "// For general read-heavy data, cache-aside is the simpler default."
     }
   ],
   whenToUse: "<p>Use refresh-ahead for a relatively small set of <strong>predictably hot</strong> data where " +
@@ -1774,6 +2613,22 @@ C["write-behind"] = {
         "//   cache crashes during this window -> those writes are LOST.\n" +
         "// Mitigations: replicate/persist the cache (e.g. Redis AOF),\n" +
         "//   short flush intervals, or only use for loss-tolerant data."
+    },
+    {
+      title: "Example 3: write to cache now, persist later",
+      description: "<p>Write-behind (write-back) acknowledges the write to the cache immediately and flushes to the DB asynchronously, often batched.</p>",
+      code: "// write -> cache (ack immediately) -> async/batched flush -> database\n" +
+        "// e.g. buffer 1000 view-count increments in cache, flush one UPDATE/second.\n" +
+        "// Hugely reduces DB write load and write latency for write-heavy data\n" +
+        "// (counters, metrics, analytics)."
+    },
+    {
+      title: "Example 4 (edge case): data loss window on cache failure",
+      description: "<p>Because the DB lags the cache, a crash before flush loses the un-persisted writes - unacceptable for durable data.</p>",
+      code: "// Cache node dies with 5s of un-flushed writes -> those writes are GONE.\n" +
+        "// NEVER use write-behind for money/orders/anything that must be durable.\n" +
+        "// Mitigations: replicate/persist the cache (e.g. Redis AOF), keep the flush\n" +
+        "//   window small, and accept it only where some loss is tolerable (counters)."
     }
   ],
   whenToUse: "<p>Use write-behind for write-heavy workloads where write latency/throughput matters and some " +
@@ -1812,6 +2667,22 @@ C["write-through"] = {
         "// Con: every write waits on the DB (no speedup for writes), and you\n" +
         "//   cache items that might never be read (wasted cache space).\n" +
         "// Often paired with cache-aside reads, or write-behind for speed."
+    },
+    {
+      title: "Example 3: write to cache and DB synchronously",
+      description: "<p>Write-through updates the cache and the database together, so the cache is never stale and reads are immediately consistent.</p>",
+      code: "// write -> cache AND database (both succeed before ack)\n" +
+        "// next read -> cache HIT with the correct, just-written value\n" +
+        "// Pairs well with read-through. Guarantees read-after-write consistency and\n" +
+        "// durability, unlike write-behind."
+    },
+    {
+      title: "Example 4 (edge case): higher write latency and cold cache of write-only data",
+      description: "<p>Every write pays both stores' latency, and data that's written but never read still fills the cache.</p>",
+      code: "// Write latency = cache write + DB write (slower than write-behind's cache-only ack).\n" +
+        "// If writes are rarely read back, you've cached data nobody reads -> wasted memory.\n" +
+        "//   (write-around - write only to the DB, populate cache on read - fits that case.)\n" +
+        "// Also: partial failure (cache ok, DB fails) needs handling to avoid divergence."
     }
   ],
   whenToUse: "<p>Use write-through when read-after-write consistency and durability matter and you want the " +
@@ -1853,6 +2724,26 @@ C["cache-aside"] = {
         "  cache.delete('user:' + id);      // invalidate -> next read reloads fresh\n" +
         "}\n" +
         "// (Deleting is safer than updating the cache to avoid race conditions.)"
+    },
+    {
+      title: "Example 3: the lazy-loading read/write flow",
+      description: "<p>The application manages the cache: check it, fall back to the DB on a miss, and populate it.</p>",
+      code: "// READ:\n" +
+        "v = cache.get(key)\n" +
+        "if (v == null) { v = db.read(key); cache.set(key, v, ttl); }   // populate on miss\n" +
+        "return v\n" +
+        "// WRITE (invalidate, don't update, the cache):\n" +
+        "db.write(key, v)\n" +
+        "cache.delete(key)   // next read repopulates with fresh data"
+    },
+    {
+      title: "Example 4 (edge case): the update-vs-invalidate race",
+      description: "<p>Updating the cache on write (instead of deleting) can race with a concurrent read and leave a stale value cached - prefer delete-on-write.</p>",
+      code: "// Race if you cache.set on write:\n" +
+        "//   reader misses, reads OLD v from DB ... writer updates DB + cache to NEW ...\n" +
+        "//   reader's late cache.set(OLD) wins -> stale value sticks until TTL.\n" +
+        "// Safer: delete the key on write so the next read reloads fresh.\n" +
+        "// Cache-aside also serves stale data within the TTL window - tune TTL per need."
     }
   ],
   whenToUse: "<p>Cache-aside is the default, general-purpose caching strategy &mdash; use it for read-heavy data " +
@@ -1892,6 +2783,23 @@ C["client-caching"] = {
         "//   <script src=\"/app.a1b2c3.js\">   (hash changes when code changes)\n" +
         "// Old cached app.OLDHASH.js is simply never requested again.\n" +
         "// Pattern: long max-age on hashed assets + short/no-cache on the HTML."
+    },
+    {
+      title: "Example 3: HTTP caching headers control the browser cache",
+      description: "<p>The server tells the client how long to cache and how to revalidate.</p>",
+      code: "// Long-cache an immutable, content-hashed asset:\n" +
+        "Cache-Control: public, max-age=31536000, immutable   // app.4f9a.js\n" +
+        "// Revalidate a changeable resource cheaply:\n" +
+        "Cache-Control: no-cache\n" +
+        "ETag: \"abc123\"        // client sends If-None-Match -> 304 if unchanged (no body)"
+    },
+    {
+      title: "Example 4 (edge case): you can't force-expire a client cache",
+      description: "<p>Once you send a long max-age, you can't reach into the user's browser to invalidate it - which is why cache-busting URLs exist.</p>",
+      code: "// Ship max-age=31536000 on app.js, then push a bugfix -> users keep the OLD file\n" +
+        "//   for up to a year. You CANNOT purge their browser cache.\n" +
+        "// Fix: content-hashed filenames (app.<hash>.js) - a change = a new URL = a fresh\n" +
+        "//   fetch. Never long-cache HTML or user-specific/auth'd responses (use no-store)."
     }
   ],
   whenToUse: "<p>Use client caching for static assets (JS/CSS/images/fonts), and for API responses or data the " +
@@ -1931,6 +2839,24 @@ C["cdn-caching"] = {
         "// Update content via:\n" +
         "//   - versioned URLs (new URL = guaranteed fresh), or\n" +
         "//   - explicit purge/invalidation API for a path"
+    },
+    {
+      title: "Example 3: caching at the edge, keyed correctly",
+      description: "<p>The CDN caches responses near users; cache keys and Vary headers decide what counts as 'the same' response.</p>",
+      code: "// origin sets: Cache-Control: public, max-age=300\n" +
+        "// CDN caches per (URL + Vary headers). Beware: Vary: Cookie or unique query\n" +
+        "//   params fragment the cache (a separate entry per variation) -> low hit ratio.\n" +
+        "// Normalize cache keys (strip tracking params) and only Vary on what truly\n" +
+        "//   changes the response (e.g. Accept-Encoding)."
+    },
+    {
+      title: "Example 4 (edge case): never edge-cache personalized responses",
+      description: "<p>A shared edge cache can serve one user's private/auth'd response to another - a serious data leak.</p>",
+      code: "// Caching GET /account (per-user) at a shared CDN -> user B may receive user A's\n" +
+        "//   cached page. Mark these Cache-Control: private, no-store.\n" +
+        "// Only edge-cache responses that are identical for all users (or properly keyed).\n" +
+        "// Purging is also eventually-consistent across edges - use versioned URLs for\n" +
+        "//   instant updates rather than relying on global purge."
     }
   ],
   whenToUse: "<p>Use CDN caching for any content served to a geographically distributed audience that can be " +
@@ -1971,6 +2897,25 @@ C["web-server-caching"] = {
         "//      with at most a few seconds of staleness.\n" +
         "// Vary the cache key (cookie/auth) so logged-in users aren't served\n" +
         "//   another user's cached page."
+    },
+    {
+      title: "Example 3: reverse-proxy caching offloads the app",
+      description: "<p>nginx/Varnish caches responses so repeated requests are served without touching your application servers.</p>",
+      code: "# nginx micro-cache for hot, identical responses\n" +
+        "proxy_cache_path /tmp/cache keys_zone=app:10m;\n" +
+        "location /api/popular {\n" +
+        "  proxy_cache app;\n" +
+        "  proxy_cache_valid 200 10s;          # even 10s absorbs huge spikes\n" +
+        "  proxy_cache_lock on;                 # collapse concurrent misses -> 1 origin call\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): caching dynamic or auth'd responses",
+      description: "<p>Proxy caches key on URL by default, so caching personalized responses leaks data, and POST/non-idempotent responses must not be cached.</p>",
+      code: "// Don't cache responses that depend on a session cookie unless you key on it.\n" +
+        "//   proxy_cache_bypass $cookie_session;   # skip cache for logged-in users\n" +
+        "// Never cache POST/PUT/DELETE responses. A 'micro-cache' (1-10s) is the sweet\n" +
+        "//   spot for dynamic-but-hot GETs: tiny staleness, massive origin offload."
     }
   ],
   whenToUse: "<p>Use web server / reverse proxy caching to offload your application tier for responses that are " +
@@ -2009,6 +2954,24 @@ C["database-caching"] = {
         "// External cache (Redis, cache-aside): repeat reads skip the DB\n" +
         "//   ENTIRELY -> far less DB load and lower latency than even a\n" +
         "//   buffer-pool hit (no SQL parsing/execution at all)."
+    },
+    {
+      title: "Example 3: the DB buffer pool and the query cache distinction",
+      description: "<p>Databases cache hot pages in memory automatically; sizing that buffer is the biggest lever.</p>",
+      code: "// Buffer pool / shared_buffers caches frequently-read DATA PAGES in RAM ->\n" +
+        "//   reads served from memory instead of disk (orders of magnitude faster).\n" +
+        "//   Size it to hold your working set (e.g. ~25% of RAM for Postgres, more for MySQL).\n" +
+        "// Different from an application/query-result cache - this is automatic and\n" +
+        "//   page-level, not keyed on your specific query results."
+    },
+    {
+      title: "Example 4 (edge case): cold cache and the deprecated query cache",
+      description: "<p>After a restart the buffer pool is empty (slow until warmed), and MySQL's old query cache was removed for being a contention bottleneck.</p>",
+      code: "// Post-restart/failover: cold buffer pool -> first queries hit disk -> latency\n" +
+        "//   spike until the working set is re-cached. Some DBs support cache pre-warming.\n" +
+        "// MySQL's query_cache (cached full result sets) was REMOVED in 8.0 - under\n" +
+        "//   concurrency its global lock hurt more than it helped. Cache results in the\n" +
+        "//   application (Redis) instead, not the DB."
     }
   ],
   whenToUse: "<p>Rely on the database's built-in caching always (it's automatic) and <strong>tune the buffer " +
@@ -2051,6 +3014,24 @@ C["application-caching"] = {
         "// Shared cache (Redis): all servers read/write one cache\n" +
         "//   -> consistent, high hit ratio, central invalidation.\n" +
         "// Common combo: small local cache + shared Redis behind it."
+    },
+    {
+      title: "Example 3: in-process vs distributed application cache",
+      description: "<p>Local memory caches are fastest; a shared cache (Redis) keeps multiple instances consistent.</p>",
+      code: "// In-process (e.g. Caffeine): nanosecond access, but per-instance -> each server\n" +
+        "//   has its own copy that can diverge, and it doesn't survive a restart.\n" +
+        "// Distributed (Redis/Memcached): one shared cache across all instances ->\n" +
+        "//   consistent, survives restarts, network hop (~ms) but shared hit ratio.\n" +
+        "// Common combo: small local cache (L1) in front of a shared Redis (L2)."
+    },
+    {
+      title: "Example 4 (edge case): per-instance caches go stale across a cluster",
+      description: "<p>With horizontal scaling, an in-process cache on one node won't see an invalidation triggered on another - leading to inconsistent reads.</p>",
+      code: "// Server A caches user:42; server B updates the user and clears ITS local cache.\n" +
+        "//   Server A still serves the stale user:42 -> inconsistent depending on which\n" +
+        "//   node you hit.\n" +
+        "// Fixes: use a shared/distributed cache, short TTLs on local caches, or a pub/sub\n" +
+        "//   invalidation message to all nodes. Local caching + clustering needs care."
     }
   ],
   whenToUse: "<p>Use application caching for expensive or frequently-reused computed values, query results, " +
@@ -2095,6 +3076,26 @@ C["asynchronism"] = {
         "//   [API] --enqueue all--> [ queue ] --steady drip--> [workers x10]\n" +
         "// The queue buffers the burst; workers process at a sustainable rate\n" +
         "// instead of the database collapsing under simultaneous load."
+    },
+    {
+      title: "Example 3: decouple producers from consumers with a queue",
+      description: "<p>Async processing lets a fast producer hand work to slower consumers without blocking, smoothing spikes.</p>",
+      code: "// sync: request blocks until the slow work finishes (bad UX, fragile)\n" +
+        "// async:\n" +
+        "//   request -> enqueue(job) -> 202 Accepted (fast)\n" +
+        "//   worker pool -> dequeue -> process at its own pace -> notify/store result\n" +
+        "// Buffers bursts (queue absorbs the spike), enables retries, and lets producers\n" +
+        "// and consumers scale independently."
+    },
+    {
+      title: "Example 4 (edge case): async shifts complexity, it doesn't remove it",
+      description: "<p>You gain throughput but inherit eventual consistency, ordering, duplicate delivery, and harder debugging/observability.</p>",
+      code: "// Now you must handle:\n" +
+        "//   - results arrive LATER -> UI needs polling/push, not an immediate answer\n" +
+        "//   - at-least-once delivery -> consumers must be idempotent\n" +
+        "//   - no global ordering across the queue\n" +
+        "//   - failures are async -> need DLQs, retries, and tracing to debug\n" +
+        "// Don't make work async that genuinely needs a synchronous, immediate result."
     }
   ],
   whenToUse: "<p>Use asynchronism when work is slow, bursty, retryable, or doesn't need an immediate result &mdash; " +
@@ -2135,6 +3136,24 @@ C["back-pressure"] = {
         "//   consumer: 'send me 10 more items' (request(10))\n" +
         "//   producer sends at most 10, then waits for the next demand signal.\n" +
         "// The consumer's capacity governs the producer's rate -> no overload."
+    },
+    {
+      title: "Example 3: signaling a producer to slow down",
+      description: "<p>Back pressure propagates 'I'm full' upstream so the system degrades gracefully instead of collapsing.</p>",
+      code: "// Bounded queue full -> reject/slow new work:\n" +
+        "//   HTTP 429 Too Many Requests + Retry-After header\n" +
+        "//   TCP: shrink the receive window so the sender pauses\n" +
+        "//   Reactive streams: consumer requests N items; producer sends at most N\n" +
+        "// The producer adapts to the consumer's real capacity."
+    },
+    {
+      title: "Example 4 (edge case): unbounded buffers just defer the crash",
+      description: "<p>Absorbing overload with an infinite queue trades a fast failure for an OOM and ever-growing latency.</p>",
+      code: "// 'We'll just buffer it' with an unbounded queue:\n" +
+        "//   memory grows until OOM, and queued items get so old they're useless\n" +
+        "//   (a request waiting 60s in a queue has already timed out client-side).\n" +
+        "// Always bound queues. When full, choose a policy: reject (429), drop oldest,\n" +
+        "//   or block the producer - explicitly, rather than silently buffering forever."
     }
   ],
   whenToUse: "<p>Apply back pressure anywhere a fast producer can outpace a slower consumer &mdash; queues, " +
@@ -2178,6 +3197,23 @@ C["task-queues"] = {
         "//   priority: 'high'                      // jump ahead of low-pri work\n" +
         "// })\n" +
         "// Failed-after-retries tasks go to a dead-letter queue for inspection."
+    },
+    {
+      title: "Example 3: producer enqueues, worker pool consumes",
+      description: "<p>A task queue holds units of work that a pool of workers pulls and processes, scaling by adding workers.</p>",
+      code: "// web: queue.enqueue('resize_image', {id: 42})   -> returns immediately\n" +
+        "// workers (N processes): loop { job = queue.dequeue(); process(job); ack(); }\n" +
+        "// Throughput scales by adding workers; queue depth tells you when to scale.\n" +
+        "// e.g. Celery, Sidekiq, Resque, BullMQ on top of Redis/RabbitMQ."
+    },
+    {
+      title: "Example 4 (edge case): poison messages and visibility timeouts",
+      description: "<p>A job that always fails can loop forever, and a worker crash mid-job must not lose the work - hence acks, retries, and dead-letter queues.</p>",
+      code: "// Worker pulls a job (made invisible for a 'visibility timeout'), crashes before\n" +
+        "//   ack -> job reappears for another worker (at-least-once). Make jobs idempotent.\n" +
+        "// A 'poison' job that always throws would retry forever -> cap retries, then\n" +
+        "//   route to a Dead-Letter Queue for inspection.\n" +
+        "// Set the visibility timeout > max processing time, or two workers run it at once."
     }
   ],
   whenToUse: "<p>Use task queues for any background job &mdash; sending emails, processing uploads, generating " +
@@ -2216,6 +3252,24 @@ C["message-queues"] = {
         "//   'resize-image' -> exactly one of [worker1, worker2, worker3]\n" +
         "// Pub/Sub (topic): each message -> ALL subscribers (a copy each)\n" +
         "//   'OrderPlaced' -> email svc AND inventory svc AND analytics svc"
+    },
+    {
+      title: "Example 3: queue (point-to-point) vs log (pub/sub) semantics",
+      description: "<p>Two broker models differ in whether a message is consumed once or read by many.</p>",
+      code: "// Traditional queue (RabbitMQ, SQS): each message delivered to ONE consumer,\n" +
+        "//   removed after ack -> work distribution.\n" +
+        "// Log (Kafka, Kinesis): messages retained; each consumer GROUP reads at its own\n" +
+        "//   offset -> multiple independent consumers, replay from any point.\n" +
+        "// Choose log when several systems need the same events, or you want replay."
+    },
+    {
+      title: "Example 4 (edge case): delivery guarantees and ordering",
+      description: "<p>Most brokers are at-least-once (duplicates possible) and only order within a partition - 'exactly once' and global ordering are largely myths.</p>",
+      code: "// At-least-once is the norm -> consumers MUST be idempotent (dedupe by message id).\n" +
+        "// Ordering is per-partition/queue only: to keep an entity's events ordered,\n" +
+        "//   partition by entity key (e.g. orderId) so they land in the same partition.\n" +
+        "// 'Exactly once' usually means at-least-once delivery + idempotent processing,\n" +
+        "//   not literal single delivery. Design for duplicates and reordering."
     }
   ],
   whenToUse: "<p>Use message queues to decouple services, process work asynchronously, buffer bursty load, " +
@@ -2260,6 +3314,25 @@ C["idempotent-operations"] = {
         "// Server: if it has already processed 'req-abc-123',\n" +
         "//   return the SAME stored result instead of charging again.\n" +
         "// Retries (network timeout, duplicate delivery) are now safe."
+    },
+    {
+      title: "Example 3: an idempotency key makes retries safe",
+      description: "<p>A client-supplied key lets the server detect and ignore duplicate requests - essential for payments and 'create' operations.</p>",
+      code: "// client sends a unique key with the request:\n" +
+        "POST /charge   Idempotency-Key: 9f1c-...   { amount: 999 }\n" +
+        "// server:\n" +
+        "//   if (seen(key)) return storedResponse(key);   // duplicate -> same result\n" +
+        "//   else { result = charge(); store(key, result); return result; }\n" +
+        "// A retried/duplicated request charges ONCE, returning the original result."
+    },
+    {
+      title: "Example 4 (edge case): which verbs are naturally idempotent",
+      description: "<p>GET/PUT/DELETE are idempotent by definition; POST and counters are not - those need explicit handling.</p>",
+      code: "// idempotent already: GET (no change), PUT x=5 (set), DELETE id (gone after first)\n" +
+        "// NOT idempotent: POST /orders (creates a new one each time),\n" +
+        "//                 balance = balance + 10 (relative update accumulates on retry)\n" +
+        "// Make the non-idempotent ones safe: idempotency keys, or model as 'set to\n" +
+        "//   absolute value' instead of 'increment'. Retries are inevitable in networks."
     }
   ],
   whenToUse: "<p>Make operations idempotent whenever they can be retried or redelivered &mdash; which in " +
@@ -2303,6 +3376,23 @@ C["communication"] = {
         "// gRPC:    internal service-to-service, high performance, typed contracts\n" +
         "// GraphQL: clients need flexible, exact data shapes (mobile, varied UIs)\n" +
         "// Pick based on consumers, performance, and coupling needs."
+    },
+    {
+      title: "Example 3: synchronous vs asynchronous communication",
+      description: "<p>The first big choice: does the caller wait for a reply, or fire-and-forget via a broker?</p>",
+      code: "// Synchronous (request/response): caller blocks for the answer\n" +
+        "//   REST, gRPC, GraphQL - simple, but couples availability (callee down = caller fails)\n" +
+        "// Asynchronous (messaging/events): caller emits, doesn't wait\n" +
+        "//   queues/pub-sub - decoupled, resilient, but eventual + harder to trace\n" +
+        "// Rule of thumb: sync for 'I need an answer now', async for 'go do this eventually'."
+    },
+    {
+      title: "Example 4 (edge case): synchronous call chains create cascading failure",
+      description: "<p>Deep sync dependency chains multiply latency and let one slow service stall everything upstream.</p>",
+      code: "// A -> B -> C -> D, all synchronous: A's latency = sum of all, and if D is slow,\n" +
+        "//   threads back up through C, B, A -> cascading failure / thread exhaustion.\n" +
+        "// Mitigate: timeouts at every hop, circuit breakers, and converting non-critical\n" +
+        "//   steps to async events. Fewer synchronous hops = more resilient."
     }
   ],
   whenToUse: "<p>Choose communication mechanisms per relationship: <strong>HTTP/REST</strong> for public APIs " +
@@ -2348,6 +3438,24 @@ C["http"] = {
         "// Status:  200 OK, 201 Created, 204 No Content, 301/302 redirect,\n" +
         "//   400 Bad Request, 401 Unauthorized, 404 Not Found,\n" +
         "//   429 Too Many Requests, 500 Server Error, 503 Unavailable"
+    },
+    {
+      title: "Example 3: status codes and methods carry meaning",
+      description: "<p>HTTP semantics (verbs, status codes, headers) are the contract - using them correctly makes APIs predictable.</p>",
+      code: "GET    /orders/5     -> 200 (found) / 404 (missing)    safe, idempotent\n" +
+        "POST   /orders       -> 201 Created + Location header   not idempotent\n" +
+        "PUT    /orders/5     -> 200/204                          idempotent\n" +
+        "DELETE /orders/5     -> 204                              idempotent\n" +
+        "// 4xx = client error (don't retry as-is), 5xx = server error (retry w/ backoff)"
+    },
+    {
+      title: "Example 4 (edge case): HTTP/1.1 head-of-line blocking and version differences",
+      description: "<p>Performance depends heavily on the HTTP version; HTTP/1.1 serializes requests per connection, which HTTP/2 and HTTP/3 fix differently.</p>",
+      code: "// HTTP/1.1: one request at a time per connection -> browsers open ~6 connections;\n" +
+        "//   a slow response blocks others on that connection (head-of-line blocking).\n" +
+        "// HTTP/2: multiplexes many streams over ONE connection (fixes app-level HOL),\n" +
+        "//   but a TCP packet loss still stalls all streams (TCP-level HOL).\n" +
+        "// HTTP/3 (QUIC over UDP): independent streams, no TCP HOL. Match version to needs."
     }
   ],
   whenToUse: "<p>HTTP is the default for web and most API communication &mdash; you use it constantly. Use its " +
@@ -2389,6 +3497,24 @@ C["tcp"] = {
         "//   + acknowledgements & retransmissions\n" +
         "//   + head-of-line blocking (one lost packet stalls later in-order data)\n" +
         "// Worth it for correctness-critical data; too slow for real-time media."
+    },
+    {
+      title: "Example 3: what TCP guarantees (and its cost)",
+      description: "<p>TCP provides a reliable, ordered, connection-oriented byte stream - at the price of setup and retransmission overhead.</p>",
+      code: "// 3-way handshake before any data: SYN -> SYN/ACK -> ACK (1 RTT cost)\n" +
+        "// then: ordered delivery, automatic retransmission of lost packets,\n" +
+        "//       flow control + congestion control (adapts to network capacity)\n" +
+        "// You get a clean byte stream; you pay handshake latency + ack overhead.\n" +
+        "// HTTP, gRPC, database connections all ride on TCP."
+    },
+    {
+      title: "Example 4 (edge case): head-of-line blocking and connection cost",
+      description: "<p>TCP's in-order guarantee means one lost packet stalls everything behind it, and per-connection handshakes hurt many-short-request workloads.</p>",
+      code: "// A single dropped packet blocks delivery of all later bytes until it's resent\n" +
+        "//   (TCP head-of-line blocking) - this is why HTTP/3 moved to QUIC/UDP.\n" +
+        "// Opening a new TCP (+TLS) connection per request = multiple RTTs of overhead.\n" +
+        "//   Reuse connections (keep-alive / pooling). For lots of tiny, loss-tolerant\n" +
+        "//   messages where latency rules, UDP may fit better."
     }
   ],
   whenToUse: "<p>Use TCP (directly or via HTTP, which runs on it) whenever <strong>correctness and completeness " +
@@ -2426,6 +3552,25 @@ C["udp"] = {
         "//   a lost frame/position is irrelevant - you want the NEXT one,\n" +
         "//   not a retransmitted old one (TCP would stall to redeliver it).\n" +
         "// Also: DNS (small request/response), real-time telemetry, QUIC/HTTP3."
+    },
+    {
+      title: "Example 3: connectionless, fire-and-forget datagrams",
+      description: "<p>UDP sends packets with no handshake, ordering, or retransmission - minimal overhead for latency-critical, loss-tolerant data.</p>",
+      code: "// No handshake, no ordering, no delivery guarantee - just send:\n" +
+        "//   live video/VoIP: a dropped frame is skipped, not resent (late = useless)\n" +
+        "//   online games: send the latest position; an old one doesn't matter\n" +
+        "//   DNS queries: one small request/response, cheaper than a TCP handshake\n" +
+        "// QUIC (HTTP/3) builds reliability ON TOP of UDP to get the best of both."
+    },
+    {
+      title: "Example 4 (edge case): the app must handle everything TCP would",
+      description: "<p>Choosing UDP means you accept (or re-implement) loss, reordering, and congestion control yourself.</p>",
+      code: "// With UDP you may get: lost packets, duplicates, out-of-order arrival, and no\n" +
+        "//   built-in congestion control (you can flood the network).\n" +
+        "// If you need reliability over UDP, you end up reinventing parts of TCP (acks,\n" +
+        "//   sequencing) - which is exactly what QUIC does, carefully.\n" +
+        "// Use UDP only when the data is genuinely loss-tolerant or you'll add your own\n" +
+        "//   protocol on top with eyes open."
     }
   ],
   whenToUse: "<p>Use UDP when <strong>low latency and speed matter more than guaranteed delivery</strong>, and " +
@@ -2465,6 +3610,24 @@ C["rpc"] = {
         "// REST: POST /orders/42/charges  body: { amount }\n" +
         "//       (a resource you create under an order)\n" +
         "// RPC suits internal service calls; REST suits resource-style web APIs."
+    },
+    {
+      title: "Example 3: calling a remote method like a local one",
+      description: "<p>RPC makes a network call look like a function call - the framework handles serialization and transport.</p>",
+      code: "// Looks local, runs remote:\n" +
+        "user = userService.getUser(42)   // -> serialize args -> network -> deserialize\n" +
+        "                                 //    -> remote executes -> result back\n" +
+        "// Defined by an interface/contract (e.g. a .proto for gRPC, Thrift IDL).\n" +
+        "// Action-oriented (getUser, chargeCard) vs REST's resource-oriented model."
+    },
+    {
+      title: "Example 4 (edge case): the leaky 'looks local' abstraction",
+      description: "<p>Hiding the network is RPC's danger - remote calls fail, are slow, and partial, in ways local calls never are.</p>",
+      code: "// user = userService.getUser(42) can: time out, fail partially, be retried\n" +
+        "//   (duplicate side effects), or take 1000x longer than a local call.\n" +
+        "// Treating it like a local call -> no timeout, no retry/idempotency, chatty\n" +
+        "//   per-item calls in a loop (N+1 over the network).\n" +
+        "// Always set timeouts, handle failure, batch calls, and remember it's a network hop."
     }
   ],
   whenToUse: "<p>Use RPC for <strong>internal service-to-service communication</strong> where you want " +
@@ -2506,6 +3669,24 @@ C["rest"] = {
         "// Under-fetching: to show a user + their last order + the product,\n" +
         "//   the client makes 3 requests (/users/7, /orders?.., /products/..).\n" +
         "// REST's fixed shapes cause this; GraphQL targets exactly this problem."
+    },
+    {
+      title: "Example 3: resource-oriented design with HTTP semantics",
+      description: "<p>REST models nouns (resources) and uses HTTP verbs/status codes uniformly - predictable and cacheable.</p>",
+      code: "GET    /users/42/orders        # list a user's orders\n" +
+        "POST   /users/42/orders        # create -> 201 + Location\n" +
+        "GET    /orders/100             # one order\n" +
+        "PATCH  /orders/100             # partial update\n" +
+        "// Stateless: each request carries its own auth/context; GETs are cacheable."
+    },
+    {
+      title: "Example 4 (edge case): over-fetching, under-fetching, and N+1",
+      description: "<p>Fixed resource shapes cause clients to fetch too much or make many round-trips - the pains that motivated GraphQL/BFF.</p>",
+      code: "// Over-fetch: GET /users/42 returns 30 fields when the UI needs 2.\n" +
+        "// Under-fetch / N+1: render a list, then GET /users/{id} per row -> many calls.\n" +
+        "//   Mitigations: ?fields= sparse fieldsets, ?include= for related data,\n" +
+        "//   pagination, or a Backend-for-Frontend that aggregates.\n" +
+        "// Versioning churn is also real - design URLs/payloads to evolve (additive)."
     }
   ],
   whenToUse: "<p>Use REST for public web APIs, CRUD-style services, and anywhere broad compatibility, " +
@@ -2549,6 +3730,25 @@ C["grpc"] = {
         "// e.g. rpc Watch (Query) returns (stream Event);  // server pushes events\n" +
         "// Protobuf binary is much smaller/faster to parse than JSON\n" +
         "//   -> ideal for high-throughput internal service-to-service traffic."
+    },
+    {
+      title: "Example 3: contract-first with Protobuf and streaming",
+      description: "<p>gRPC generates typed clients/servers from a <code>.proto</code> and supports streaming over HTTP/2.</p>",
+      code: "// user.proto\n" +
+        "service UserService {\n" +
+        "  rpc GetUser(GetUserRequest) returns (User);            // unary\n" +
+        "  rpc ListUsers(Empty) returns (stream User);            // server streaming\n" +
+        "}\n" +
+        "// Binary Protobuf is compact + fast; codegen gives type-safe stubs in many langs.\n" +
+        "// Great for high-throughput internal microservice calls."
+    },
+    {
+      title: "Example 4 (edge case): not browser-friendly, harder to debug",
+      description: "<p>gRPC's binary HTTP/2 protocol isn't directly callable from browsers and isn't human-readable like JSON/REST.</p>",
+      code: "// Browsers can't speak raw gRPC -> need gRPC-Web + a proxy (Envoy) to translate.\n" +
+        "// Payloads are binary -> you can't just curl/inspect them; need grpcurl/tooling.\n" +
+        "// Schema changes require regenerating clients. So: gRPC for internal east-west\n" +
+        "//   traffic; REST/GraphQL for public/browser-facing APIs."
     }
   ],
   whenToUse: "<p>Use gRPC for <strong>internal service-to-service communication</strong> where performance, " +
@@ -2594,6 +3794,26 @@ C["graphql"] = {
         "//   naive: 1 query for users + 100 queries for companies (N+1!)\n" +
         "// Fix: batch with a DataLoader -> 1 users query + 1 batched\n" +
         "//   companies query. GraphQL needs deliberate batching/caching."
+    },
+    {
+      title: "Example 3: the client asks for exactly what it needs",
+      description: "<p>One endpoint; the query specifies fields and related data, eliminating over/under-fetching.</p>",
+      code: "query {\n" +
+        "  user(id: 42) {\n" +
+        "    name\n" +
+        "    orders(last: 3) { id total }   # nested, only the fields the UI renders\n" +
+        "  }\n" +
+        "}\n" +
+        "// One round-trip returns precisely this shape - no over-fetch, no N+1 of REST calls."
+    },
+    {
+      title: "Example 4 (edge case): server-side N+1, caching, and query-cost attacks",
+      description: "<p>GraphQL moves complexity to the server: naive resolvers cause N+1 DB hits, HTTP caching is harder, and clients can craft expensive queries.</p>",
+      code: "// Resolving orders for 100 users naively = 1 + 100 DB queries (server N+1) ->\n" +
+        "//   fix with DataLoader (batch + cache per request).\n" +
+        "// Everything is POST to /graphql -> simple HTTP/CDN caching by URL no longer works.\n" +
+        "// A malicious deeply-nested query can DoS you -> enforce query depth/cost limits\n" +
+        "//   and persisted queries. Powerful, but you own this complexity."
     }
   ],
   whenToUse: "<p>Use GraphQL when clients have <strong>diverse, evolving data needs</strong> and you want to " +
@@ -2640,6 +3860,26 @@ C["performance-antipatterns"] = {
         "//   - Recomputing the same result every request? (No Caching)\n" +
         "//   - Blocking on I/O and exhausting threads? (Synchronous I/O)\n" +
         "// Matching the symptom to the antipattern points to the fix."
+    },
+    {
+      title: "Example 3: recognizing the common anti-patterns",
+      description: "<p>Most performance problems are one of a handful of recurring shapes - naming them speeds diagnosis.</p>",
+      code: "// Chatty I/O        : many small calls where one would do\n" +
+        "// Extraneous fetching: pulling more data than needed\n" +
+        "// Busy database     : doing app work in the DB\n" +
+        "// No caching        : recomputing/refetching stable data\n" +
+        "// Retry storm       : aggressive retries amplifying an outage\n" +
+        "// Synchronous I/O   : blocking threads on slow calls\n" +
+        "// Spotting the pattern points straight at the fix."
+    },
+    {
+      title: "Example 4 (edge case): measure before you 'fix'",
+      description: "<p>The biggest anti-pattern is optimizing by guesswork - profile to find the real bottleneck instead of assuming.</p>",
+      code: "// 'It must be the database' -> you add caching -> no improvement, because the\n" +
+        "//   real cost was JSON serialization or a slow downstream API.\n" +
+        "// Use profilers, APM traces, and slow-query logs to find where time actually goes\n" +
+        "//   (often a few hotspots dominate - Amdahl's law).\n" +
+        "// Premature optimization adds complexity for no measured gain."
     }
   ],
   whenToUse: "<p>Use this catalog during design reviews, performance investigations, and code review as a " +
@@ -2676,6 +3916,24 @@ C["busy-database"] = {
         "//   formatting, and aggregation (it scales horizontally and cheaply).\n" +
         "// Keep in the DB only what it's best at: filtering, indexed lookups,\n" +
         "//   set-based operations that genuinely belong close to the data."
+    },
+    {
+      title: "Example 3: pushing app work onto the database",
+      description: "<p>The DB is the hardest tier to scale, so doing CPU-heavy work there starves every query.</p>",
+      code: "// Anti-pattern: heavy formatting/business logic in SQL/stored procs\n" +
+        "//   SELECT complex_transform(huge_blob), parse_and_score(...) FROM ...\n" +
+        "// The single DB does work that a horizontally-scalable app tier should do.\n" +
+        "// Move computation to (cheap, scalable) app servers; keep the DB for set-based\n" +
+        "//   data operations it's good at."
+    },
+    {
+      title: "Example 4 (edge case): but don't swing to 'Busy Front End' either",
+      description: "<p>Naively moving ALL logic to the app can be worse - some work (filtering, aggregation) belongs in the DB to avoid shipping huge datasets.</p>",
+      code: "// Wrong overcorrection: pull 1M rows to the app to filter in code, instead of\n" +
+        "//   WHERE/GROUP BY in SQL -> massive data transfer + memory blowup (Extraneous\n" +
+        "//   Fetching / Busy Front End).\n" +
+        "// Right balance: set-based filtering/aggregation in the DB; business logic and\n" +
+        "//   CPU-heavy transforms in the scalable app tier. Match work to the right tier."
     }
   ],
   whenToUse: "<p>Watch for Busy Database when the DB server's CPU is the bottleneck and it's doing work beyond " +
@@ -2713,6 +3971,24 @@ C["busy-frontend"] = {
         "//   request -> enqueue 'generate-pdf' -> respond 202 (fast)\n" +
         "//   separate worker pool does the heavy lifting off the request path\n" +
         "// The web tier stays responsive; heavy work scales independently."
+    },
+    {
+      title: "Example 3: offload heavy in-request work to a background worker",
+      description: "<p>Doing slow/CPU-heavy work inside the request thread starves the server's capacity to handle other requests.</p>",
+      code: "// Anti-pattern: synchronous heavy work in the request\n" +
+        "POST /report -> generate 50-page PDF (8s) -> response   // ties up a worker thread\n" +
+        "\n" +
+        "// Fix: enqueue and return immediately\n" +
+        "POST /report -> enqueue(job) -> 202 + jobId; worker builds PDF; client polls/notified\n" +
+        "// Frees request threads to serve far more concurrent users."
+    },
+    {
+      title: "Example 4 (edge case): thread-pool exhaustion from blocking work",
+      description: "<p>A fixed pool of request threads all stuck on heavy/blocking work means new requests queue or get rejected, even though CPU may be idle.</p>",
+      code: "// 200 threads, each doing 5s of work -> ~40 req/s ceiling, then 503s/timeouts,\n" +
+        "//   while CPU might be only 30% (threads are blocked, not computing).\n" +
+        "// Move work to background queues, use async/non-blocking I/O, and keep request\n" +
+        "//   handlers fast. Adding threads only delays the wall - fix the workload shape."
     }
   ],
   whenToUse: "<p>Recognize Busy Front End when your web/app servers are saturated by heavy in-request work and " +
@@ -2751,6 +4027,25 @@ C["chatty-io"] = {
         "// Or batch the ids:\n" +
         "//   SELECT * FROM customers WHERE id IN (1,2,3,...)\n" +
         "// 1-2 round-trips total. (GraphQL: DataLoader batches these.)"
+    },
+    {
+      title: "Example 3: batch many small calls into one",
+      description: "<p>Each round-trip has fixed overhead (latency, connection); batching amortizes it.</p>",
+      code: "// Chatty: N round-trips\n" +
+        "for (id of ids) user = api.get('/users/' + id);   // 100 ids = 100 calls\n" +
+        "\n" +
+        "// Batched: one round-trip\n" +
+        "users = api.post('/users/batch', { ids });        // 1 call\n" +
+        "// Same for DB: SELECT ... WHERE id IN (...) instead of a query per id."
+    },
+    {
+      title: "Example 4 (edge case): the database N+1 query problem",
+      description: "<p>The most common chatty-I/O instance: loading a list, then a related query per row.</p>",
+      code: "// N+1: 1 query for orders + 1 per order for its customer\n" +
+        "orders = db.query('SELECT * FROM orders');\n" +
+        "for (o of orders) o.customer = db.query('SELECT * FROM customers WHERE id=?', o.cid);\n" +
+        "// Fix: a JOIN, or a single IN(...) prefetch, or an ORM eager/fetch-join.\n" +
+        "// Don't over-batch though - one giant query/payload can be worse than a few."
     }
   ],
   whenToUse: "<p>Fix Chatty I/O whenever you see many small, repetitive calls in a loop or per-item &mdash; " +
@@ -2789,6 +4084,25 @@ C["extraneous-fetching"] = {
         "// Fix: SELECT SUM(total) FROM orders WHERE ...   (DB returns one number)\n" +
         "// And always paginate large result sets (LIMIT/keyset) instead of\n" +
         "//   fetching everything 'just in case'."
+    },
+    {
+      title: "Example 3: fetch only the columns and rows you need",
+      description: "<p>Pulling everything and filtering in the app wastes bandwidth, memory, and DB work.</p>",
+      code: "// Wasteful: SELECT * then use 2 fields, filter in code\n" +
+        "rows = db.query('SELECT * FROM orders');           // 40 columns, 1M rows\n" +
+        "recent = rows.filter(r => r.date > cutoff).map(r => r.id);\n" +
+        "\n" +
+        "// Lean: let the DB filter + project\n" +
+        "ids = db.query('SELECT id FROM orders WHERE date > ?', cutoff);"
+    },
+    {
+      title: "Example 4 (edge case): pagination and projection at the API too",
+      description: "<p>The same waste happens at API boundaries - returning full objects and unbounded lists.</p>",
+      code: "// Returning all 100k records in one response -> huge payload, client OOM, slow.\n" +
+        "//   Use pagination: ?page=2&limit=50  (or cursor-based for stable paging).\n" +
+        "// Returning 30-field objects when the list view needs 3 -> support sparse\n" +
+        "//   fieldsets (?fields=id,name) or a dedicated list DTO.\n" +
+        "// Caveat: don't paginate so finely you recreate Chatty I/O - balance page size."
     }
   ],
   whenToUse: "<p>Address Extraneous Fetching whenever you retrieve and then ignore most of the data &mdash; " +
@@ -2832,6 +4146,26 @@ C["improper-instantiation"] = {
         "\n" +
         "// Databases: use a CONNECTION POOL (reuse a fixed set of connections)\n" +
         "//   rather than opening/closing a connection per query."
+    },
+    {
+      title: "Example 3: reuse expensive clients instead of recreating them",
+      description: "<p>Objects like HTTP clients and DB connections are designed to be created once and shared - making new ones per request is costly.</p>",
+      code: "// Anti-pattern: new client per request\n" +
+        "handler() { var client = new HttpClient(); client.get(...); } // new pool each time!\n" +
+        "\n" +
+        "// Correct: one shared, long-lived instance\n" +
+        "static final HttpClient CLIENT = new HttpClient(); // reuse across requests\n" +
+        "handler() { CLIENT.get(...); }\n" +
+        "// Same for DB connection pools, SDK clients, ObjectMapper, regex Pattern."
+    },
+    {
+      title: "Example 4 (edge case): socket/connection exhaustion",
+      description: "<p>Creating a new HTTP client per call leaks sockets stuck in TIME_WAIT, eventually exhausting ports under load.</p>",
+      code: "// new HttpClient() per request -> each opens its own connection pool ->\n" +
+        "//   thousands of sockets in TIME_WAIT -> 'address already in use' / port exhaustion.\n" +
+        "// Reuse one client so connection pooling + keep-alive actually work.\n" +
+        "// Caveat: shared instances must be THREAD-SAFE (most SDK clients are; some\n" +
+        "//   objects like SimpleDateFormat are NOT - don't share those)."
     }
   ],
   whenToUse: "<p>Avoid Improper Instantiation by reusing objects meant to be shared &mdash; HTTP clients, " +
@@ -2873,6 +4207,25 @@ C["monolithic-persistence"] = {
         "// Hot reads/sessions-> Redis (cache/KV)\n" +
         "// Analytics         -> data warehouse / column store (read replica or OLAP)\n" +
         "// Files/media        -> object storage (S3) + CDN"
+    },
+    {
+      title: "Example 3: matching data to the right store",
+      description: "<p>Forcing every data type into one database stretches it past what it's good at.</p>",
+      code: "// One relational DB doing everything:\n" +
+        "//   transactional orders  (good fit for SQL)\n" +
+        "//   + full-text search    (SQL LIKE is slow -> Elasticsearch)\n" +
+        "//   + session/cache        (-> Redis)\n" +
+        "//   + huge time-series logs (-> a TSDB / wide-column store)\n" +
+        "// Splitting the mismatched workloads off relieves the primary DB."
+    },
+    {
+      title: "Example 4 (edge case): polyglot persistence isn't free",
+      description: "<p>Splitting stores solves the bottleneck but adds operational cost and cross-store consistency problems - don't over-split.</p>",
+      code: "// Each new store = more to run, back up, secure, monitor, and keep in sync\n" +
+        "//   (dual-write/CDC challenges, no cross-store transactions).\n" +
+        "// Split when a workload genuinely mismatches the primary store (search,\n" +
+        "//   analytics, caching) - not reflexively. A single tuned Postgres handles\n" +
+        "//   JSON, full-text, and a lot of scale before you NEED to split."
     }
   ],
   whenToUse: "<p>Move away from monolithic persistence when one data store is being stretched across mismatched " +
@@ -2911,6 +4264,25 @@ C["no-caching"] = {
         "//   MISS -> compute/query -> store with a TTL -> serve\n" +
         "// Now thousands of identical requests are served from memory;\n" +
         "//   the backend sees a tiny fraction of the load."
+    },
+    {
+      title: "Example 3: recomputing stable data on every request",
+      description: "<p>The No Caching anti-pattern is repeatedly producing the same expensive result that rarely changes.</p>",
+      code: "// Every request recomputes the same homepage feed (200ms DB + aggregation):\n" +
+        "GET /home -> heavy query every time -> DB saturates under traffic\n" +
+        "\n" +
+        "// Cache it - the data changes every few minutes, not every request:\n" +
+        "feed = cache.get('home') ?? cache.set('home', buildFeed(), ttl=60)\n" +
+        "// 60s TTL turns thousands of heavy queries into one per minute."
+    },
+    {
+      title: "Example 4 (edge case): don't over-correct into stale or uncacheable caching",
+      description: "<p>The opposite failure is caching data that's too dynamic or per-user, serving stale/wrong results.</p>",
+      code: "// Caching a per-user balance with a 5-min TTL -> users see stale/wrong money.\n" +
+        "// Caching truly real-time data -> staleness bugs.\n" +
+        "// Cache things that are read-heavy AND tolerate brief staleness. For volatile\n" +
+        "//   or per-user-correctness data, don't cache (or use very short TTL + correct\n" +
+        "//   invalidation). 'No caching' and 'cache everything' are both anti-patterns."
     }
   ],
   whenToUse: "<p>Fix No Caching whenever the same data is read far more often than it changes and producing it " +
@@ -2951,6 +4323,23 @@ C["noisy-neighbor"] = {
         "//  - resource limits (CPU/mem caps per container/tenant)\n" +
         "//  - dedicated resources for premium tenants\n" +
         "// One tenant's spike no longer drains everyone's capacity."
+    },
+    {
+      title: "Example 3: one tenant starving the rest",
+      description: "<p>In shared infrastructure, a single heavy user can consume disproportionate resources and degrade everyone.</p>",
+      code: "// Shared DB / app pool: tenant A runs a monster query / floods requests ->\n" +
+        "//   CPU, connections, and IO are exhausted -> tenants B..Z slow to a crawl.\n" +
+        "// Mitigations: per-tenant quotas + rate limits, resource isolation (separate\n" +
+        "//   pools/queues per tier), and the Bulkhead pattern to cap each tenant's share."
+    },
+    {
+      title: "Example 4 (edge case): isolation costs vs full multi-tenancy",
+      description: "<p>Stronger isolation (dedicated resources per tenant) fixes noisy neighbors but raises cost and complexity - it's a spectrum.</p>",
+      code: "// Shared everything: cheapest, worst isolation (noisy neighbor risk).\n" +
+        "// Shared app, per-tenant DB schema: better isolation, more overhead.\n" +
+        "// Dedicated stack per tenant (Deployment Stamps): best isolation, highest cost.\n" +
+        "// Match isolation to the tenant tier - e.g. enterprise tenants get dedicated\n" +
+        "//   capacity, free-tier shares a pool with strict quotas."
     }
   ],
   whenToUse: "<p>Guard against Noisy Neighbor in any multi-tenant SaaS, shared cluster, or system where " +
@@ -2990,6 +4379,24 @@ C["retry-storm"] = {
         "// Circuit breaker: after N consecutive failures, OPEN the circuit ->\n" +
         "//   fail fast (no calls) for a cooldown, then probe -> lets the\n" +
         "//   downstream service recover instead of being hammered."
+    },
+    {
+      title: "Example 3: exponential backoff with jitter",
+      description: "<p>Naive immediate/fixed retries synchronize clients and hammer a recovering service; backoff + jitter spreads them out.</p>",
+      code: "// Bad: retry immediately, 5 times -> 5x load on an already-struggling service\n" +
+        "// Good:\n" +
+        "delay = min(cap, base * 2^attempt)        // exponential\n" +
+        "sleep(random(0, delay))                    // FULL JITTER - desynchronize clients\n" +
+        "// Without jitter, all clients retry at the same instants -> synchronized waves."
+    },
+    {
+      title: "Example 4 (edge case): retries amplify outages without a circuit breaker",
+      description: "<p>Retrying through a sustained failure multiplies load exactly when the service can least handle it - pair retries with a breaker and a retry budget.</p>",
+      code: "// Service is down -> every client retries 3x -> 3x traffic onto the dead service\n" +
+        "//   -> it can't recover (retry storm / metastable failure).\n" +
+        "// Fixes: circuit breaker (stop calling a failing service), a retry BUDGET (cap\n" +
+        "//   retries as a % of traffic), and only retry IDEMPOTENT operations.\n" +
+        "// Also don't retry 4xx (client errors) - they'll just fail again."
     }
   ],
   whenToUse: "<p>Design against retry storms anywhere clients retry calls to a service &mdash; essentially all " +
@@ -3030,6 +4437,26 @@ C["synchronous-io"] = {
         "//   while waiting -> handles other requests -> resumes on completion.\n" +
         "// A handful of threads can serve thousands of concurrent I/O-bound\n" +
         "//   requests (Node's event loop, async/await, reactive frameworks)."
+    },
+    {
+      title: "Example 3: blocking vs non-blocking I/O under concurrency",
+      description: "<p>Blocking a thread per in-flight I/O caps concurrency at the thread count; non-blocking I/O frees the thread while waiting.</p>",
+      code: "// Blocking: thread parks for the whole 200ms DB call -> 200 threads = 200 in-flight\n" +
+        "result = db.query(...)   // thread idle but occupied\n" +
+        "\n" +
+        "// Non-blocking/async: thread is released to do other work while waiting\n" +
+        "db.queryAsync(...).thenApply(...)   // a few threads handle thousands of I/Os\n" +
+        "// (Java virtual threads give async-like scaling while keeping blocking-style code.)"
+    },
+    {
+      title: "Example 4 (edge case): async is for I/O-bound, not CPU-bound work",
+      description: "<p>Non-blocking shines when threads spend time waiting; for CPU-bound work it doesn't help and adds complexity, and blocking inside an event loop is fatal.</p>",
+      code: "// CPU-bound (image processing, crypto): async doesn't add capacity - you still\n" +
+        "//   need cores; use a worker pool sized to CPUs.\n" +
+        "// Worst trap: a blocking call inside a reactive event loop (Netty/Node) stalls\n" +
+        "//   ALL requests on that loop -> throughput collapses.\n" +
+        "// Reactive code is also harder to read/debug - adopt it where I/O concurrency\n" +
+        "//   is the actual bottleneck, not by default."
     }
   ],
   whenToUse: "<p>Prefer asynchronous/non-blocking I/O for I/O-bound workloads with high concurrency &mdash; web " +
@@ -3074,6 +4501,24 @@ C["monitoring"] = {
         "// 2. Collect (Prometheus, ELK, OpenTelemetry) + Visualize (Grafana)\n" +
         "// 3. Alert on SLO breaches (p99 > 500ms, error rate > 1%)\n" +
         "// 4. On-call responds, uses dashboards/traces to diagnose"
+    },
+    {
+      title: "Example 3: the three pillars of observability",
+      description: "<p>Metrics, logs, and traces answer different questions; together they let you understand a live system.</p>",
+      code: "// Metrics: aggregate numbers over time -> 'IS something wrong?' (alerting)\n" +
+        "//   e.g. req/s, error rate, p99 latency, CPU\n" +
+        "// Logs: discrete events with context -> 'WHAT happened?' (debugging)\n" +
+        "// Traces: a request's path across services -> 'WHERE is the time/failure?'\n" +
+        "// Pair with the RED method: Rate, Errors, Duration per service."
+    },
+    {
+      title: "Example 4 (edge case): alert on symptoms, not noise",
+      description: "<p>Too many alerts cause fatigue and ignored pages; alert on user-facing symptoms (SLOs), not every metric.</p>",
+      code: "// Bad: page on 'CPU > 80%' -> fires constantly, often harmless -> alert fatigue\n" +
+        "//   -> the one real alert gets ignored.\n" +
+        "// Good: page on SYMPTOMS that violate an SLO:\n" +
+        "//   error rate > 1% for 5m, or p99 latency > 500ms -> users are actually affected.\n" +
+        "// Use CPU/memory as DASHBOARD signals for diagnosis, not as pagers."
     }
   ],
   whenToUse: "<p>Monitor every production system &mdash; it's not optional. You need it to detect outages, " +
@@ -3113,6 +4558,25 @@ C["health-monitoring"] = {
         "//   checks: { database: 'UP', cache: 'UP', paymentGateway: 'DOWN' }\n" +
         "// }  -> overall DOWN if a critical dependency is unreachable\n" +
         "// A shallow check that only returns 200 'OK' can hide real breakage."
+    },
+    {
+      title: "Example 3: liveness vs readiness checks",
+      description: "<p>Orchestrators need two distinct signals: 'is the process alive?' vs 'can it serve traffic right now?'</p>",
+      code: "// Liveness: is the process healthy? (restart if not)\n" +
+        "GET /health/live   -> 200 if the app loop is responsive\n" +
+        "// Readiness: are dependencies ready? (route traffic only if yes)\n" +
+        "GET /health/ready  -> checks DB, cache, downstreams -> 503 while warming up\n" +
+        "// Kubernetes restarts on failed liveness; removes from the LB on failed readiness."
+    },
+    {
+      title: "Example 4 (edge case): health checks that lie in both directions",
+      description: "<p>A too-shallow check reports healthy while broken; a too-deep one cascades a dependency outage into restarts.</p>",
+      code: "// Too shallow: 'return 200' always -> the LB keeps sending traffic to a node\n" +
+        "//   whose DB connection is dead.\n" +
+        "// Too deep: readiness pings 5 downstreams; one of them blips -> every instance\n" +
+        "//   reports unready -> the LB drops ALL of them -> self-inflicted outage.\n" +
+        "// Check critical local deps, fast, with timeouts; don't fail readiness on\n" +
+        "//   non-essential dependencies."
     }
   ],
   whenToUse: "<p>Implement health checks on every service &mdash; load balancers and orchestrators (Kubernetes) " +
@@ -3152,6 +4616,23 @@ C["availability-monitoring"] = {
         "// Measure: successful_requests / total_requests over the window\n" +
         "// Burn through the error budget too fast -> alert + slow down risky\n" +
         "//   changes (the basis of SRE error-budget policy)."
+    },
+    {
+      title: "Example 3: synthetic checks and SLO error budgets",
+      description: "<p>External probes catch outages users would see; error budgets turn the SLA into an actionable number.</p>",
+      code: "// Synthetic monitor: probe /health from multiple regions every 30s -> alert on\n" +
+        "//   N consecutive failures (catches a total outage your internal metrics might miss).\n" +
+        "// SLO 99.9% over 30 days -> error budget = 0.1% = ~43 min of allowed downtime.\n" +
+        "//   Track budget burn; if you're spending it fast, freeze risky changes."
+    },
+    {
+      title: "Example 4 (edge case): internal metrics can show 'green' during an outage",
+      description: "<p>If your monitoring shares infrastructure with the system, an outage can take down the monitoring too - or hide user-facing failures.</p>",
+      code: "// Your dashboard says 200 OK, but users get errors because the failure is in the\n" +
+        "//   CDN/DNS/load balancer BEFORE your app -> internal metrics never see it.\n" +
+        "// Run synthetic checks from OUTSIDE your stack (third-party), and monitor the\n" +
+        "//   whole path (DNS -> LB -> app). Also: who watches the monitoring? Use an\n" +
+        "//   independent system so an outage doesn't blind you."
     }
   ],
   whenToUse: "<p>Use availability monitoring for any user-facing service with uptime expectations &mdash; it's " +
@@ -3190,6 +4671,24 @@ C["performance-monitoring"] = {
         "//   total 1200ms = gateway 20ms + auth 30ms + DB query 1100ms (!) + ...\n" +
         "// -> the DB query is the bottleneck; add an index / cache it.\n" +
         "// Without tracing you only know it's 'slow', not WHERE."
+    },
+    {
+      title: "Example 3: track percentiles and trace the slow path",
+      description: "<p>Performance monitoring needs latency distributions plus distributed tracing to localize where time goes.</p>",
+      code: "// Record p50/p95/p99 per endpoint (not just average).\n" +
+        "// A distributed trace breaks one slow request into spans:\n" +
+        "//   request 800ms = gateway 20 + auth 50 + db 600 + render 130\n" +
+        "//   -> the DB call is the culprit, not 'the service'.\n" +
+        "// APM tools (Jaeger, Datadog) stitch spans across services via a trace id."
+    },
+    {
+      title: "Example 4 (edge case): averages hide tail latency; sampling hides rare bugs",
+      description: "<p>Mean latency looks fine while p99 is terrible; and high-volume tracing must be sampled, which can miss the rare slow request.</p>",
+      code: "// avg=50ms but p99=2s -> 1% of users suffer; the average lied.\n" +
+        "// Tracing every request is too expensive -> you sample (e.g. 1%). But the\n" +
+        "//   pathological request might be the one you DIDN'T sample.\n" +
+        "// Use tail-based sampling (keep slow/error traces) so anomalies aren't dropped,\n" +
+        "//   and always alert on percentiles, never the mean."
     }
   ],
   whenToUse: "<p>Use performance monitoring continuously to detect slowdowns, find bottlenecks, validate " +
@@ -3230,6 +4729,25 @@ C["security-monitoring"] = {
         "//   audit: { user, action: 'export_customer_data', ip, timestamp }\n" +
         "// Ship to a tamper-resistant store / SIEM.\n" +
         "// Needed to investigate incidents AND for compliance (GDPR, SOC2, etc.)."
+    },
+    {
+      title: "Example 3: detecting attacks from logs and metrics",
+      description: "<p>Security monitoring watches for the signatures of abuse - failed logins, anomalies, and audit trails.</p>",
+      code: "// Alert rules:\n" +
+        "//   > 10 failed logins / IP / minute      -> credential stuffing / brute force\n" +
+        "//   login from a new country + device     -> account takeover signal\n" +
+        "//   spike in 403/401 or 5xx on /admin     -> probing\n" +
+        "//   sudden data-export volume by one user -> exfiltration\n" +
+        "// Centralize logs (SIEM) and keep an immutable audit trail of sensitive actions."
+    },
+    {
+      title: "Example 4 (edge case): logging secrets and PII into your logs",
+      description: "<p>Security monitoring can itself become the breach - logging tokens, passwords, or PII spreads sensitive data across systems.</p>",
+      code: "// NEVER log: passwords, full card numbers, tokens, session ids, raw PII.\n" +
+        "//   log.info(\"login\", { password })   // now your secret is in 5 log systems\n" +
+        "// Redact/mask at the logging layer; hash identifiers if you need correlation.\n" +
+        "// Logs are often less protected than the DB - treat them as a sensitive store\n" +
+        "//   (access controls, retention limits, encryption)."
     }
   ],
   whenToUse: "<p>Implement security monitoring for any system handling user data, authentication, payments, or " +
@@ -3268,6 +4786,23 @@ C["usage-monitoring"] = {
         "//   -> capacity planning (scale the busy paths)\n" +
         "//   -> product: invest in popular features, sunset unused ones\n" +
         "//   -> spot adoption changes after a release"
+    },
+    {
+      title: "Example 3: tracking usage for capacity and billing",
+      description: "<p>Usage metrics drive scaling decisions, metered billing, and product insight.</p>",
+      code: "// capacity planning: requests/day trend -> when will we outgrow current capacity?\n" +
+        "// billing: per-tenant API calls / GB stored -> usage-based invoices\n" +
+        "// product: feature adoption, active users, conversion funnels\n" +
+        "// Aggregate by tenant/endpoint/region so you know WHAT to scale and for WHOM."
+    },
+    {
+      title: "Example 4 (edge case): high-cardinality usage data and privacy",
+      description: "<p>Per-user/per-request usage tracking explodes storage and can capture personal data - aggregate and anonymize.</p>",
+      code: "// Tagging every metric with userId/requestId -> cardinality explosion in your\n" +
+        "//   metrics backend (a separate time series per value) -> cost + slowdown.\n" +
+        "//   Aggregate to bounded dimensions (tenant tier, endpoint), keep raw detail in\n" +
+        "//   a data warehouse, not the metrics system.\n" +
+        "// Usage data often IS personal data -> respect retention limits and consent (GDPR)."
     }
   ],
   whenToUse: "<p>Use usage monitoring for capacity planning (know what to scale and when), usage-based billing/" +
@@ -3312,6 +4847,27 @@ C["instrumentation"] = {
         "//   [gateway span] -> [auth span] -> [order span] -> [db span]\n" +
         "// -> reconstruct the full request timeline; correlate logs by traceId.\n" +
         "// OpenTelemetry standardizes this across languages/vendors."
+    },
+    {
+      title: "Example 3: emit metrics, structured logs, and spans",
+      description: "<p>Instrumentation is the code that produces observability data - counters, timers, structured logs, trace spans.</p>",
+      code: "// counter + timer\n" +
+        "metrics.increment('orders.placed', tags={region});\n" +
+        "metrics.timing('db.query.ms', elapsed);\n" +
+        "// structured log (queryable JSON, not free text)\n" +
+        "log.info({ event: 'order_placed', orderId, userId, amount });\n" +
+        "// trace span propagating a trace id across services\n" +
+        "span = tracer.start('charge'); ...; span.end();"
+    },
+    {
+      title: "Example 4 (edge case): instrumentation overhead and cardinality",
+      description: "<p>Over-instrumenting (logging in hot loops, unbounded label values) hurts the very performance you're measuring.</p>",
+      code: "// log.debug inside a million-iteration loop -> the logging dominates the runtime.\n" +
+        "// metrics.increment('x', tags={ userId }) -> a new time series per user ->\n" +
+        "//   cardinality explosion crushes the metrics backend.\n" +
+        "// Sample high-volume traces, use bounded tag values, and prefer async/buffered\n" +
+        "//   emitters so instrumentation doesn't block request threads.\n" +
+        "// Standardize on OpenTelemetry so you're not vendor-locked."
     }
   ],
   whenToUse: "<p>Instrument code from the beginning of any production service &mdash; it's the prerequisite for " +
@@ -3353,6 +4909,23 @@ C["visualization-alerts"] = {
         "//   p99_latency > 500ms for 10m  -> page\n" +
         "//   disk_free < 10%              -> page (leading indicator)\n" +
         "// Avoid: alerting on every CPU blip -> noise -> alert fatigue."
+    },
+    {
+      title: "Example 3: a dashboard built on the RED/USE methods",
+      description: "<p>Good dashboards show a consistent, scannable set of signals so health is visible at a glance.</p>",
+      code: "// RED (per service):  Rate (req/s), Errors (%), Duration (p50/p95/p99)\n" +
+        "// USE (per resource): Utilization, Saturation, Errors (CPU, mem, disk, queue depth)\n" +
+        "// Layout: top-line SLO status, then RED panels, then resource USE panels.\n" +
+        "// Alerts derive from the SAME metrics: page when an SLO (error rate/latency) breaks."
+    },
+    {
+      title: "Example 4 (edge case): alert fatigue and missing runbooks",
+      description: "<p>Noisy, non-actionable, or context-free alerts get ignored - the alert that matters is then missed.</p>",
+      code: "// Too many alerts / flapping thresholds -> on-call mutes the channel -> the real\n" +
+        "//   incident is missed. Alert only on actionable, user-impacting conditions.\n" +
+        "// Every alert should: be symptom-based, link a runbook ('what do I do?'), and\n" +
+        "//   have an owner. A page with no clear action is just noise.\n" +
+        "// Review and prune alerts regularly; track alert-to-incident ratio."
     }
   ],
   whenToUse: "<p>Build dashboards and alerts for every production service so you can see health at a glance and " +
@@ -3401,6 +4974,24 @@ C["cloud-design-patterns"] = {
         "// 'Migrate a legacy system gradually'   -> Strangler Fig\n" +
         "// 'Reads and writes need different models' -> CQRS\n" +
         "// 'Add cross-cutting features at the edge' -> Gateway Offloading"
+    },
+    {
+      title: "Example 3: patterns are grouped by the problem they solve",
+      description: "<p>The catalog is organized by concern - reach for the category that matches your pain.</p>",
+      code: "// messaging:        decouple + buffer (queue leveling, pub/sub, competing consumers)\n" +
+        "// data management:  scale/shape data (CQRS, materialized view, event sourcing)\n" +
+        "// design/impl:      structure services (sidecar, ambassador, gateway, BFF)\n" +
+        "// reliability:      survive failure (circuit breaker, retry, bulkhead, throttling)\n" +
+        "// security:         protect access (gatekeeper, valet key, federated identity)"
+    },
+    {
+      title: "Example 4 (edge case): patterns add complexity - apply only when warranted",
+      description: "<p>Each pattern earns its keep against a real problem; applying them speculatively just adds moving parts.</p>",
+      code: "// Adding CQRS + event sourcing + a saga to a simple CRUD app -> huge accidental\n" +
+        "//   complexity for no benefit.\n" +
+        "// Recognize the PROBLEM first ('reads and writes scale differently', 'I need an\n" +
+        "//   audit trail') THEN pick the pattern. A pattern is a tool, not a goal.\n" +
+        "// The simplest design that meets requirements still wins."
     }
   ],
   whenToUse: "<p>Reach for a cloud design pattern when you recognize the <em>problem</em> it solves &mdash; not " +
@@ -3443,6 +5034,25 @@ C["messaging"] = {
         "//   + Competing Consumers (worker pool processes the work)\n" +
         "//   + Queue-Based Load Leveling (buffer Black Friday spikes)\n" +
         "//   + Async Request-Reply (tell the user when it's done)"
+    },
+    {
+      title: "Example 3: the messaging pattern family",
+      description: "<p>Each messaging pattern addresses a specific async-communication need.</p>",
+      code: "// Queue-Based Load Leveling: buffer bursts so a slow consumer isn't overwhelmed\n" +
+        "// Competing Consumers:      many workers share one queue -> parallel throughput\n" +
+        "// Publisher/Subscriber:     one event -> many independent subscribers\n" +
+        "// Priority Queue:           urgent messages jump ahead\n" +
+        "// Claim Check:              keep big payloads out of the message\n" +
+        "// Async Request-Reply:      slow operation with a correlated response"
+    },
+    {
+      title: "Example 4 (edge case): messaging shifts you to eventual consistency",
+      description: "<p>Async messaging brings duplicate delivery, ordering issues, and no immediate result - the application must absorb these.</p>",
+      code: "// Adopting a broker means: at-least-once delivery (dedupe), per-partition\n" +
+        "//   ordering only, and results that arrive later (no synchronous answer).\n" +
+        "// You also add infra to operate (the broker itself) and must handle poison\n" +
+        "//   messages + DLQs. Use messaging where decoupling/buffering pays for that\n" +
+        "//   complexity - not for simple request/response that needs an immediate reply."
     }
   ],
   whenToUse: "<p>Use messaging patterns when components must communicate asynchronously, scale independently, " +
@@ -3482,6 +5092,24 @@ C["sequential-convoy"] = {
         "//   BEFORE A's 'deposit' (picked by worker 1) finishes -> wrong order!\n" +
         "// Sequential Convoy fixes this by keeping a key's messages on ONE\n" +
         "//   ordered stream while different keys scale out."
+    },
+    {
+      title: "Example 3: preserve order within a group, parallelize across groups",
+      description: "<p>Partition by a group key so each group's messages stay ordered while different groups process concurrently.</p>",
+      code: "// Orders for one customer must process in sequence; different customers don't.\n" +
+        "// Partition by customerId:\n" +
+        "//   customer A's events -> partition 1 (strict order, one consumer)\n" +
+        "//   customer B's events -> partition 2 (parallel with A)\n" +
+        "// Kafka does this naturally: same key -> same partition -> ordered."
+    },
+    {
+      title: "Example 4 (edge case): ordering limits parallelism and risks head-of-line blocking",
+      description: "<p>A single hot group can't be parallelized, and one stuck message blocks everything behind it in that group.</p>",
+      code: "// A 'celebrity' customer producing 90% of events -> their partition is a bottleneck\n" +
+        "//   while others idle (skew).\n" +
+        "// A poison message in a group halts all later messages for that group until it's\n" +
+        "//   handled -> head-of-line blocking. Add a DLQ + skip policy.\n" +
+        "// Only enforce ordering where it's truly required - it costs throughput."
     }
   ],
   whenToUse: "<p>Use Sequential Convoy when message order matters <em>within</em> a logical group but groups are " +
@@ -3521,6 +5149,24 @@ C["scheduling-agent-supervisor"] = {
         "// Supervisor detects the failure and triggers compensation:\n" +
         "//   cancel hotel, cancel flight -> system returns to a consistent state.\n" +
         "// State is persisted so recovery works even if the scheduler restarts."
+    },
+    {
+      title: "Example 3: coordinating a distributed multi-step workflow",
+      description: "<p>A scheduler drives steps, agents do remote work, and a supervisor detects and remediates failures - the backbone of sagas.</p>",
+      code: "// Book trip: reserve flight -> reserve hotel -> charge card\n" +
+        "// Scheduler: records state, invokes each step\n" +
+        "// Agents:    perform each remote action (idempotently)\n" +
+        "// Supervisor: watches for timeouts/failures -> retry, or trigger compensation\n" +
+        "//   (cancel hotel + flight) if a later step fails. State is persisted to recover."
+    },
+    {
+      title: "Example 4 (edge case): compensation and partial failure are the hard parts",
+      description: "<p>Because there's no distributed transaction, every step needs an idempotent action and a compensating undo - and undo can itself fail.</p>",
+      code: "// Charge fails after hotel+flight booked -> must compensate: cancel hotel,\n" +
+        "//   cancel flight. But 'cancel hotel' might ALSO fail -> retries + manual fallback.\n" +
+        "// Each step + each compensation must be idempotent (they'll be retried).\n" +
+        "// This is real complexity - prefer a single ACID transaction when the steps can\n" +
+        "//   live in one service/DB; use sagas only across true service boundaries."
     }
   ],
   whenToUse: "<p>Use Scheduler Agent Supervisor (and the related saga pattern) for long-running, multi-step " +
@@ -3562,6 +5208,23 @@ C["queue-based-load-leveling"] = {
         "// Queued: provision for AVERAGE throughput; the queue holds the\n" +
         "//   overflow during peaks and drains during lulls.\n" +
         "// (The queue depth itself is a great autoscaling signal.)"
+    },
+    {
+      title: "Example 3: a queue absorbs spikes the backend can't",
+      description: "<p>Insert a queue between a bursty producer and a rate-limited consumer so the consumer works at its own steady pace.</p>",
+      code: "// Flash sale: 50,000 orders/s arrive, but the DB sustains 2,000 writes/s.\n" +
+        "//   producer -> QUEUE (absorbs the burst) -> workers drain at ~2,000/s\n" +
+        "// The spike becomes a temporary backlog instead of a crash. Users get a fast\n" +
+        "//   'accepted' response; processing catches up shortly after."
+    },
+    {
+      title: "Example 4 (edge case): the backlog grows latency and can overflow",
+      description: "<p>Leveling adds delay (work is deferred) and, if the consumer is permanently too slow, the queue grows without bound.</p>",
+      code: "// If arrival rate > processing rate for a sustained period, the queue depth and\n" +
+        "//   end-to-end latency climb forever -> bound the queue + shed load (429) when full.\n" +
+        "// Leveling smooths SPIKES; it can't fix a consumer that's permanently undersized\n" +
+        "//   -> you still need to scale consumers (Competing Consumers) to the avg rate.\n" +
+        "// Monitor queue depth + age as the key health signals."
     }
   ],
   whenToUse: "<p>Use Queue-Based Load Leveling when load is bursty/spiky and the downstream service or resource " +
@@ -3602,6 +5265,25 @@ C["publisher-subscriber"] = {
       code: "// Pub/Sub (topic): every subscriber gets a COPY (fan-out)\n" +
         "// Point-to-point (queue): each message goes to exactly ONE consumer\n" +
         "//   (Competing Consumers - for distributing work, not broadcasting)"
+    },
+    {
+      title: "Example 3: one event, many independent subscribers",
+      description: "<p>The publisher emits an event without knowing who consumes it; subscribers are added/removed freely.</p>",
+      code: "// order.placed published ONCE ->\n" +
+        "//   email-service     (send confirmation)\n" +
+        "//   inventory-service (decrement stock)\n" +
+        "//   analytics-service (record sale)\n" +
+        "// The publisher doesn't know or care about subscribers -> add a 'loyalty-service'\n" +
+        "//   later with zero changes to the publisher."
+    },
+    {
+      title: "Example 4 (edge case): no built-in delivery guarantee or feedback",
+      description: "<p>The publisher gets no confirmation that subscribers succeeded, and a down subscriber may miss events unless the broker offers durable subscriptions.</p>",
+      code: "// Fire-and-forget: if email-service is down when the event fires, it may MISS it\n" +
+        "//   -> use durable/persistent subscriptions + consumer offsets (Kafka) so it can\n" +
+        "//   catch up, or a DLQ for failures.\n" +
+        "// The publisher can't know a subscriber failed -> don't use pub/sub where you\n" +
+        "//   need a synchronous success/failure answer. Subscribers must be idempotent."
     }
   ],
   whenToUse: "<p>Use Pub/Sub when an event has multiple interested consumers, when you want to add/remove " +
@@ -3641,6 +5323,23 @@ C["priority-queue"] = {
         "// - Critical alerts processed before routine notifications\n" +
         "// - Time-sensitive operations (e.g. expiring) ahead of background work\n" +
         "// - Express vs standard processing tiers"
+    },
+    {
+      title: "Example 3: separate queues per priority",
+      description: "<p>A common implementation uses distinct queues and weighted consumers, rather than a single sorted queue.</p>",
+      code: "// high-priority queue: paid/express jobs\n" +
+        "// normal queue:        everything else\n" +
+        "// consumers poll high FIRST, falling back to normal when high is empty\n" +
+        "//   (or weight: 3 high : 1 normal to avoid starvation).\n" +
+        "// Simpler and more scalable than one queue re-sorted on every insert."
+    },
+    {
+      title: "Example 4 (edge case): starvation of low-priority work",
+      description: "<p>Strict priority means a steady stream of high-priority items can starve low-priority ones forever.</p>",
+      code: "// Always-drain-high-first + constant high-priority traffic -> normal jobs NEVER run.\n" +
+        "// Fixes: weighted fair scheduling (guarantee some capacity to low priority),\n" +
+        "//   or aging (raise a job's priority the longer it waits).\n" +
+        "// Also keep the number of priority levels small - too many is hard to reason about."
     }
   ],
   whenToUse: "<p>Use a Priority Queue when some messages genuinely need faster handling than others and " +
@@ -3679,6 +5378,23 @@ C["pipes-and-filters"] = {
         "//   (run more instances of it) without touching the others.\n" +
         "// Reuse 'validate' and 'enrich' filters in a different pipeline.\n" +
         "// Filters often communicate via queues between stages (async)."
+    },
+    {
+      title: "Example 3: a processing pipeline of independent stages",
+      description: "<p>Break a complex task into discrete filters connected by pipes; each stage scales and is testable on its own.</p>",
+      code: "// video upload pipeline:\n" +
+        "//   ingest -> virus-scan -> transcode -> thumbnail -> publish\n" +
+        "// each filter reads from its input queue, does ONE job, writes to the next.\n" +
+        "// transcode is slow -> scale just that stage with more workers, independently."
+    },
+    {
+      title: "Example 4 (edge case): stages couple via the data contract; failures mid-pipeline",
+      description: "<p>Filters must agree on the message format, and a crash partway through needs idempotent stages + retry so the item isn't lost or double-processed.</p>",
+      code: "// Change transcode's output shape -> the thumbnail stage breaks. Version the\n" +
+        "//   message contract between stages.\n" +
+        "// Worker dies after transcoding but before acking -> the item is reprocessed ->\n" +
+        "//   each filter must be idempotent. Track per-item progress so you don't redo\n" +
+        "//   completed stages. The slowest filter sets the pipeline's throughput."
     }
   ],
   whenToUse: "<p>Use Pipes and Filters for tasks naturally decomposable into a series of independent " +
@@ -3717,6 +5433,24 @@ C["competing-consumers"] = {
         "// Autoscale workers based on queue depth / age of oldest message.\n" +
         "// Distinct from Pub/Sub: here each message is processed ONCE (work\n" +
         "//   distribution), not broadcast to all (fan-out)."
+    },
+    {
+      title: "Example 3: multiple workers pull from one queue",
+      description: "<p>Several consumers read from the same queue; each message goes to exactly one of them, and throughput scales with worker count.</p>",
+      code: "//                 -> worker 1\n" +
+        "//   QUEUE  ---->  -> worker 2   (each msg handled by ONE worker)\n" +
+        "//                 -> worker 3\n" +
+        "// Double the workers ~ double the throughput. Autoscale workers on queue depth.\n" +
+        "// The broker handles distribution + redelivery if a worker dies."
+    },
+    {
+      title: "Example 4 (edge case): ordering is lost and duplicates happen",
+      description: "<p>Parallel consumers process messages out of order, and at-least-once delivery means a message can be handled twice.</p>",
+      code: "// msgs 1,2,3 enqueued -> may complete as 2,1,3 (workers run concurrently).\n" +
+        "//   If order matters, use Sequential Convoy (partition by key).\n" +
+        "// Worker crashes after processing, before ack -> message redelivered to another\n" +
+        "//   worker -> consumers MUST be idempotent.\n" +
+        "// Set visibility timeout > processing time, or two workers grab the same message."
     }
   ],
   whenToUse: "<p>Use Competing Consumers to process a queue of work in parallel and scale throughput elastically " +
@@ -3758,6 +5492,25 @@ C["choreography"] = {
         "//   but a coupling point / potential bottleneck).\n" +
         "// Choreography: services react to events autonomously (decoupled,\n" +
         "//   resilient, but the flow is implicit and harder to trace)."
+    },
+    {
+      title: "Example 3: choreography vs orchestration",
+      description: "<p>In choreography each service reacts to events autonomously; in orchestration a central coordinator directs the steps.</p>",
+      code: "// Choreography (event-driven, decentralized):\n" +
+        "//   order.placed -> payment reacts -> payment.done -> shipping reacts -> ...\n" +
+        "//   no central brain; services know only their own triggers/outputs.\n" +
+        "// Orchestration (central):\n" +
+        "//   an orchestrator calls payment, then shipping, then notify - it owns the flow.\n" +
+        "// Choreography = looser coupling; orchestration = clearer end-to-end visibility."
+    },
+    {
+      title: "Example 4 (edge case): emergent flows are hard to follow and debug",
+      description: "<p>With no central definition, the business process is implicit in event subscriptions - hard to see, easy to create cycles, tricky to trace.</p>",
+      code: "// 'What happens after an order?' has no single answer - it's scattered across\n" +
+        "//   N services' event handlers. Risk of accidental event loops (A->B->A).\n" +
+        "// Mitigate with distributed tracing (correlate by a trace id) and good event\n" +
+        "//   documentation. For complex, long workflows that need visibility/compensation,\n" +
+        "//   orchestration (a saga orchestrator) is often easier to operate."
     }
   ],
   whenToUse: "<p>Use choreography when you want loosely-coupled, autonomous services that react to events, avoid " +
@@ -3799,6 +5552,24 @@ C["claim-check"] = {
         "// Big payloads in messages -> slow throughput, memory pressure,\n" +
         "//   broker storage bloat, failures on oversized messages.\n" +
         "// Claim Check sidesteps all of that by keeping payloads out of the broker."
+    },
+    {
+      title: "Example 3: store the payload, pass a reference",
+      description: "<p>Put the large data in a store and send only a pointer (the 'claim check') through the message system.</p>",
+      code: "// instead of putting a 50MB video in the message:\n" +
+        "//   1. upload video to blob storage -> get key 's3://bucket/abc'\n" +
+        "//   2. publish a small message: { claimCheck: 's3://bucket/abc', type: 'video' }\n" +
+        "//   3. consumer reads the key, fetches the blob when it needs it\n" +
+        "// Keeps the broker fast and under message-size limits."
+    },
+    {
+      title: "Example 4 (edge case): lifecycle and access of the external blob",
+      description: "<p>The reference can dangle if the blob is deleted/expired before the message is processed, and the consumer needs permission to fetch it.</p>",
+      code: "// Blob TTL expires before a delayed/retried message is consumed -> dead reference.\n" +
+        "//   Align blob retention with max message age + retry window.\n" +
+        "// Consumer must have read access to the store (and the producer write access) ->\n" +
+        "//   often combined with the Valet Key pattern for scoped, time-limited access.\n" +
+        "// Clean up orphaned blobs whose messages were never processed."
     }
   ],
   whenToUse: "<p>Use Claim Check when messages would otherwise carry large payloads &mdash; file/image/video " +
@@ -3839,6 +5610,25 @@ C["async-request-reply"] = {
         "//   -> timeouts (gateways/LBs cut long requests), wasted resources,\n" +
         "//      poor UX, and no resilience if the connection drops.\n" +
         "// Async request-reply: fast ack + poll -> robust and scalable."
+    },
+    {
+      title: "Example 3: 202 Accepted + a status endpoint to poll",
+      description: "<p>For slow operations, accept the request, return a handle, and let the client poll (or get notified) for the result.</p>",
+      code: "POST /reports        -> 202 Accepted\n" +
+        "                        Location: /reports/abc/status\n" +
+        "GET  /reports/abc/status -> 200 { state: 'processing' }\n" +
+        "                          ... later ...\n" +
+        "                        -> 303 See Other, Location: /reports/abc (done)\n" +
+        "// The HTTP request returns instantly; work happens in the background."
+    },
+    {
+      title: "Example 4 (edge case): polling cost vs callback complexity",
+      description: "<p>Polling wastes calls and adds latency; webhooks/push are efficient but require the client to receive callbacks reliably.</p>",
+      code: "// Tight polling = load + cost -> use backoff, or a Retry-After hint.\n" +
+        "// Webhook callback when done = efficient, but the receiver must be reachable,\n" +
+        "//   handle retries, dedupe, and verify the signature.\n" +
+        "// WebSocket/SSE = real-time but needs persistent connections.\n" +
+        "// Also handle the job NEVER finishing - expose failure/timeout states, not just 'processing'."
     }
   ],
   whenToUse: "<p>Use Asynchronous Request-Reply for operations too slow for a synchronous response &mdash; " +
@@ -3886,6 +5676,25 @@ C["data-management"] = {
         "//   build read-optimized views (often as Materialized Views).\n" +
         "// Cache-Aside + Materialized View: precompute + cache hot read models.\n" +
         "// Sharding + Index Table: partition data, plus secondary lookup tables."
+    },
+    {
+      title: "Example 3: the data-management pattern family",
+      description: "<p>These patterns reshape how data is stored and read to overcome scale, query, or access limits.</p>",
+      code: "// Materialized View: precompute a read-optimized projection of slow queries\n" +
+        "// Index Table:       secondary lookup table for non-key queries\n" +
+        "// CQRS:              separate read and write models/paths\n" +
+        "// Event Sourcing:    store the sequence of events, derive state\n" +
+        "// Valet Key:         scoped, time-limited direct client access to storage\n" +
+        "// Static Content Hosting: serve files straight from object storage/CDN"
+    },
+    {
+      title: "Example 4 (edge case): most add read speed at the cost of consistency/duplication",
+      description: "<p>Precomputed/derived data is eventually consistent and must be rebuilt or kept in sync - extra write complexity for read gains.</p>",
+      code: "// Materialized views / index tables / CQRS read models all lag the source data\n" +
+        "//   (updated async) -> reads can be briefly stale, and you own the rebuild logic.\n" +
+        "// Event sourcing trades simple CRUD for an append-only log + projections you must\n" +
+        "//   maintain and version. Apply only when the read/scale problem justifies the\n" +
+        "//   added consistency burden."
     }
   ],
   whenToUse: "<p>Apply data management patterns when your data layer hits limits in performance, scale, query " +
@@ -3925,6 +5734,24 @@ C["valet-key"] = {
         "//   memory, scaling pain for large files).\n" +
         "// With Valet Key: client -> storage directly. Your app only issues\n" +
         "//   tokens. Far more scalable for large-file transfer."
+    },
+    {
+      title: "Example 3: a pre-signed URL for direct upload/download",
+      description: "<p>The server issues a short-lived, scoped token so the client talks directly to storage, bypassing the app for the heavy transfer.</p>",
+      code: "// client wants to upload a 2GB file:\n" +
+        "//   1. client asks the app for permission\n" +
+        "//   2. app returns a PRE-SIGNED URL (write-only, this key, expires in 5 min)\n" +
+        "//   3. client PUTs the file straight to S3 - never through the app server\n" +
+        "// Saves the app from proxying gigabytes of traffic."
+    },
+    {
+      title: "Example 4 (edge case): scope and expiry are the whole security model",
+      description: "<p>An over-broad or long-lived token is a serious risk, and once issued it can't easily be revoked.</p>",
+      code: "// DON'T issue a key that allows listing/writing the whole bucket for 24h.\n" +
+        "//   Scope to: one object key, one operation (PUT), shortest viable TTL.\n" +
+        "// A leaked valet key is valid until it expires (revocation is hard) -> keep\n" +
+        "//   lifetimes minutes, not days.\n" +
+        "// Validate uploads after the fact (size/content type) since the client wrote directly."
     }
   ],
   whenToUse: "<p>Use Valet Key for direct client access to storage &mdash; uploading/downloading files, images, " +
@@ -3964,6 +5791,24 @@ C["static-content-hosting"] = {
         "//   call a separate API for data. No app server needed for the UI itself.\n" +
         "// Use versioned/hashed filenames + long cache headers for the assets\n" +
         "//   (and short cache on index.html) for instant, safe updates."
+    },
+    {
+      title: "Example 3: serve files straight from object storage + CDN",
+      description: "<p>Static assets are served directly from a store/CDN, freeing app servers entirely.</p>",
+      code: "// SPA + assets in S3, fronted by a CDN:\n" +
+        "//   browser -> CDN edge -> (miss) S3 -> cache -> serve\n" +
+        "// the app servers handle ONLY dynamic API calls; all HTML/JS/CSS/images come\n" +
+        "//   from storage. Cheap, infinitely scalable, low latency, near-zero ops."
+    },
+    {
+      title: "Example 4 (edge case): cache-busting and SPA routing/security",
+      description: "<p>Long cache lifetimes need versioned filenames; client-side routes need a fallback; and a misconfigured bucket can expose private files.</p>",
+      code: "// Long-cache app.js but ship a fix -> stale until TTL. Fix: content-hashed names\n" +
+        "//   (app.<hash>.js) so a change = a new URL.\n" +
+        "// SPA deep link /dashboard 404s on storage -> configure index.html as the 404\n" +
+        "//   fallback so the client router takes over.\n" +
+        "// Misconfigured public bucket = data leak -> only expose intended-public files;\n" +
+        "//   use Valet Key for private content."
     }
   ],
   whenToUse: "<p>Use Static Content Hosting for any content that doesn't require server-side processing &mdash; " +
@@ -4006,6 +5851,26 @@ C["materialized-view"] = {
         "//     more complex)\n" +
         "// In CQRS/Event Sourcing, read models ARE materialized views built\n" +
         "//   by projecting events."
+    },
+    {
+      title: "Example 3: precompute an expensive aggregation",
+      description: "<p>A materialized view stores the result of a costly query so reads are instant lookups.</p>",
+      code: "// Expensive on every dashboard load:\n" +
+        "//   SELECT region, SUM(total) FROM orders GROUP BY region   -- scans millions\n" +
+        "// Materialize it:\n" +
+        "CREATE MATERIALIZED VIEW sales_by_region AS SELECT region, SUM(total) ...;\n" +
+        "// reads become: SELECT * FROM sales_by_region   -- tiny, instant\n" +
+        "// Refresh on a schedule or on data change."
+    },
+    {
+      title: "Example 4 (edge case): staleness and refresh cost",
+      description: "<p>A materialized view lags the source until refreshed, and refreshing can be expensive or lock the view.</p>",
+      code: "// Between refreshes the view is STALE -> fine for dashboards, wrong for 'current\n" +
+        "//   balance'. Match refresh cadence to acceptable staleness.\n" +
+        "// Full REFRESH MATERIALIZED VIEW can be heavy / blocking -> use incremental or\n" +
+        "//   CONCURRENT refresh where supported.\n" +
+        "// It's derived data: you must keep it in sync on writes or rebuild it - extra\n" +
+        "//   moving part to operate."
     }
   ],
   whenToUse: "<p>Use Materialized Views for read-heavy queries that are expensive to compute repeatedly and " +
@@ -4047,6 +5912,24 @@ C["index-table"] = {
         "//   change email -> delete old index entry, add new one\n" +
         "// The index is a denormalized copy you must maintain (often via\n" +
         "//   the same transaction, events, or a background process)."
+    },
+    {
+      title: "Example 3: a secondary lookup table for non-key queries",
+      description: "<p>In stores without rich secondary indexes, you maintain your own table keyed by the alternate query field.</p>",
+      code: "// Primary table keyed by userId. Need to query by email too:\n" +
+        "//   users           : userId -> {email, name, ...}\n" +
+        "//   users_by_email  : email  -> userId        (the index table)\n" +
+        "// Lookup by email: read users_by_email -> get userId -> read users.\n" +
+        "// Common in DynamoDB/Cassandra (or DynamoDB Global Secondary Indexes do this for you)."
+    },
+    {
+      title: "Example 4 (edge case): keeping the index in sync (dual-write)",
+      description: "<p>You must update the index table on every write to the base table; a missed update leaves the index stale or orphaned.</p>",
+      code: "// Update email: must write users AND users_by_email (delete old, add new).\n" +
+        "//   If one write fails -> index points to the wrong/old userId.\n" +
+        "// Make the dual-write atomic (transaction if supported) or eventually consistent\n" +
+        "//   via change-data-capture / a stream. Periodically reconcile to catch drift.\n" +
+        "// Each index also adds write cost + storage -> only index the queries you need."
     }
   ],
   whenToUse: "<p>Use Index Tables when you must query by non-primary-key fields in a store lacking efficient " +
@@ -4088,6 +5971,26 @@ C["event-sourcing"] = {
         "//   re-projecting events, debug by inspecting the event stream.\n" +
         "// Performance: periodically SNAPSHOT state so you don't replay from\n" +
         "//   the beginning every time."
+    },
+    {
+      title: "Example 3: store events, derive current state",
+      description: "<p>Instead of storing the latest state, append immutable events; the current state is a fold over them.</p>",
+      code: "// account events (append-only log):\n" +
+        "//   AccountOpened, Deposited(100), Withdrew(30), Deposited(50)\n" +
+        "// current balance = reduce(events) = 120  (replay to get state)\n" +
+        "// You gain a full audit trail, time-travel ('balance as of last Tuesday'), and\n" +
+        "//   the ability to build new read projections from history. Pairs with CQRS."
+    },
+    {
+      title: "Example 4 (edge case): schema evolution, replay cost, and snapshots",
+      description: "<p>Old events are immutable, so changing event shape and replaying long histories are real challenges.</p>",
+      code: "// You can't 'fix' a past event -> you must version event schemas and upcast old\n" +
+        "//   ones on read. Deleting data (GDPR) conflicts with an immutable log -> use\n" +
+        "//   crypto-shredding or tombstones.\n" +
+        "// Replaying millions of events to rebuild state is slow -> periodic SNAPSHOTS\n" +
+        "//   (state at event N) + replay only the tail.\n" +
+        "// It's a big complexity jump - use it where the audit log/history is the point,\n" +
+        "//   not for ordinary CRUD."
     }
   ],
   whenToUse: "<p>Use Event Sourcing when history itself is a requirement &mdash; domains needing a complete " +
@@ -4127,6 +6030,25 @@ C["cqrs"] = {
       code: "// Write: normalized relational DB (correctness, transactions)\n" +
         "// Read:  denormalized store / search index / cache (fast queries)\n" +
         "// Kept in sync by events -> EVENTUAL consistency (read lags write briefly)."
+    },
+    {
+      title: "Example 3: separate read and write models",
+      description: "<p>CQRS splits the command (write) side from the query (read) side, so each is optimized independently.</p>",
+      code: "// Write side: normalized model, validation, transactions\n" +
+        "//   command: PlaceOrder -> writes to orders DB\n" +
+        "// Read side: denormalized, query-optimized views (often a separate store)\n" +
+        "//   query: GetOrderHistory -> reads a pre-joined projection\n" +
+        "// Scale reads (replicas/cache) and writes independently; tailor each schema."
+    },
+    {
+      title: "Example 4 (edge case): full CQRS with separate stores adds big complexity",
+      description: "<p>Lightweight CQRS (just separate code paths) is cheap; separate read/write databases introduce sync lag and consistency challenges.</p>",
+      code: "// Separate write DB + read DB synced via events -> the read side is EVENTUALLY\n" +
+        "//   consistent (a just-written order may not appear in the read view yet) ->\n" +
+        "//   design the UX for it (optimistic UI, 'processing' states).\n" +
+        "// You now operate two stores + the sync pipeline. For a simple CRUD app this is\n" +
+        "//   overkill - start with separate read/write CODE paths, add separate STORES\n" +
+        "//   only when read and write scaling truly diverge."
     }
   ],
   whenToUse: "<p>Use lightweight CQRS (separate read/write code paths) freely &mdash; it clarifies intent and " +
@@ -4173,6 +6095,26 @@ C["design-implementation"] = {
         "//   plus Backends-for-Frontends per client (web/mobile).\n" +
         "// Legacy migration: Strangler Fig (route new features to new services)\n" +
         "//   + Anti-Corruption Layer (translate the old model)."
+    },
+    {
+      title: "Example 3: the design-and-implementation pattern family",
+      description: "<p>These patterns structure how services are built, composed, and integrated.</p>",
+      code: "// Sidecar / Ambassador: attach cross-cutting concerns alongside a service\n" +
+        "// Gateway (routing/offloading/aggregation): a single managed entry point\n" +
+        "// BFF: a tailored backend per frontend\n" +
+        "// Strangler Fig: incrementally replace a legacy system\n" +
+        "// Anti-Corruption Layer: isolate your model from a legacy/external one\n" +
+        "// External Config Store / Leader Election: shared config + single-owner tasks"
+    },
+    {
+      title: "Example 4 (edge case): structure follows real boundaries, not fashion",
+      description: "<p>These patterns help only when they map to genuine seams; imposed prematurely they create accidental complexity.</p>",
+      code: "// Adding a gateway, sidecars, and a BFF to a single-team monolith = ops overhead\n" +
+        "//   with no payoff.\n" +
+        "// Introduce each when the matching problem is real: many services -> gateway;\n" +
+        "//   polyglot cross-cutting concerns -> sidecar; divergent clients -> BFF;\n" +
+        "//   legacy migration -> strangler fig + ACL.\n" +
+        "// Let the boundaries in your domain drive the structure."
     }
   ],
   whenToUse: "<p>Apply these patterns when structuring microservices and cloud-native systems, integrating with " +
@@ -4211,6 +6153,25 @@ C["strangler-fig"] = {
         "// Phase 3: extract feature B ... repeat\n" +
         "// Phase N: nothing left routing to legacy -> decommission it.\n" +
         "// Low risk: each step is small, verifiable, and reversible."
+    },
+    {
+      title: "Example 3: incrementally route features off the legacy system",
+      description: "<p>A facade sits in front; you migrate one capability at a time, redirecting its traffic to the new system until the old one is gone.</p>",
+      code: "// facade/proxy in front of the monolith:\n" +
+        "//   /orders/*   -> NEW order-service   (migrated)\n" +
+        "//   /payments/* -> NEW payment-service (migrated)\n" +
+        "//   /*          -> legacy monolith     (not yet migrated)\n" +
+        "// Migrate route by route; when the monolith handles nothing, retire it.\n" +
+        "// Safe, reversible, no risky big-bang rewrite."
+    },
+    {
+      title: "Example 4 (edge case): the facade and dual-running data",
+      description: "<p>The proxy becomes critical infrastructure, and during migration both systems may touch shared data - needing sync or a clear source of truth.</p>",
+      code: "// The routing facade is now on every request -> must be HA, or it's a new SPOF.\n" +
+        "// While 'orders' is half-migrated, old + new may both read/write order data ->\n" +
+        "//   keep ONE source of truth, or sync via events, to avoid divergence.\n" +
+        "// Migrations can stall ('we'll finish later') leaving a permanent hybrid ->\n" +
+        "//   commit to finishing and decommissioning the legacy path."
     }
   ],
   whenToUse: "<p>Use Strangler Fig to modernize or migrate a legacy system (monolith-to-microservices, old " +
@@ -4251,6 +6212,24 @@ C["sidecar"] = {
         "// The mesh gives you, without app code changes:\n" +
         "//   mutual TLS, load balancing, retries, circuit breaking,\n" +
         "//   tracing, and traffic policies - all in the sidecars."
+    },
+    {
+      title: "Example 3: a helper container alongside the main app",
+      description: "<p>The sidecar runs in the same pod/host as the service, adding capabilities without changing the app code.</p>",
+      code: "// pod = [ app container ] + [ sidecar container ]\n" +
+        "// app: just business logic (any language)\n" +
+        "// sidecar (e.g. Envoy in a service mesh): handles mTLS, retries, metrics,\n" +
+        "//   tracing, traffic routing for the app's network calls.\n" +
+        "// Same lifecycle/host as the app, but a separate, reusable process."
+    },
+    {
+      title: "Example 4 (edge case): resource overhead and added latency",
+      description: "<p>One sidecar per instance multiplies resource use, and proxying every call through it adds a network hop.</p>",
+      code: "// 500 service instances = 500 sidecars consuming CPU/memory -> non-trivial cost\n" +
+        "//   at scale (a known service-mesh tax).\n" +
+        "// All traffic hops app -> sidecar -> network -> sidecar -> app, adding latency.\n" +
+        "// Worth it for polyglot fleets needing uniform cross-cutting behavior; overkill\n" +
+        "//   for a couple of services where a shared library would do."
     }
   ],
   whenToUse: "<p>Use the Sidecar pattern to add cross-cutting capabilities (observability, security, " +
@@ -4292,6 +6271,24 @@ C["leader-election"] = {
         "//   - Raft/Paxos consensus (used inside those systems)\n" +
         "// The leader renews its lease via heartbeats; if it stops, the lease\n" +
         "//   expires and another instance acquires it."
+    },
+    {
+      title: "Example 3: elect one instance to own a singleton task",
+      description: "<p>Among many identical instances, a coordination service elects a leader that performs the work others must not duplicate.</p>",
+      code: "// 5 instances all run a 'send nightly report' scheduler -> would send 5 reports.\n" +
+        "// Leader election (via ZooKeeper/etcd/Consul or a DB lock):\n" +
+        "//   one instance wins a LEASE -> only the leader runs the task\n" +
+        "//   leader renews the lease; if it dies, another instance takes over.\n" +
+        "// Also used to coordinate writes to a shared resource."
+    },
+    {
+      title: "Example 4 (edge case): split-brain and fencing",
+      description: "<p>A network partition can produce two 'leaders'; leases plus fencing tokens prevent both from acting.</p>",
+      code: "// Old leader is slow/partitioned (not dead) -> a new leader is elected -> TWO\n" +
+        "//   leaders act = split-brain (e.g. double-processing).\n" +
+        "// Mitigations: short leases the leader must keep renewing, and FENCING TOKENS\n" +
+        "//   (monotonic number) so the resource rejects writes from a stale leader.\n" +
+        "// Don't hand-roll this - use a proven coordinator (etcd/ZooKeeper); consensus is hard."
     }
   ],
   whenToUse: "<p>Use Leader Election when a task must be performed by exactly one instance among many for " +
@@ -4332,6 +6329,23 @@ C["ambassador"] = {
         "// Ambassador: a sidecar focused on OUTBOUND network communication\n" +
         "//   (the client-side proxy). Service-mesh sidecars play both roles.\n" +
         "// Great for adding resilience to legacy apps you can't easily modify."
+    },
+    {
+      title: "Example 3: a proxy for the service's OUTBOUND calls",
+      description: "<p>The ambassador is a sidecar that handles a client's outgoing-call concerns - retries, timeouts, circuit breaking, TLS.</p>",
+      code: "// app makes a 'plain' call to localhost; the ambassador adds resilience:\n" +
+        "//   app -> ambassador -> (retry, timeout, circuit-break, mTLS) -> remote service\n" +
+        "// The app stays simple/legacy-friendly; the ambassador owns the network policy.\n" +
+        "// Sidecar = general cross-cutting; ambassador = specifically the OUTBOUND client side."
+    },
+    {
+      title: "Example 4 (edge case): it's the egress hop - and another moving part",
+      description: "<p>All outbound traffic now depends on the ambassador, adding a hop and a failure point per instance.</p>",
+      code: "// If the ambassador misbehaves, the app's outbound calls all break -> it must be\n" +
+        "//   as reliable as the app, and adds latency on every external call.\n" +
+        "// Per-instance ambassadors multiply resource cost (like sidecars).\n" +
+        "// Best when you must add resilience to a service you can't/won't modify; for new\n" +
+        "//   code a resilience library in-process may be simpler."
     }
   ],
   whenToUse: "<p>Use the Ambassador pattern to offload outbound network concerns &mdash; retries, circuit " +
@@ -4371,6 +6385,25 @@ C["gateway-routing"] = {
       code: "// Split the monolithic 'catalog' into 'products' + 'inventory' services?\n" +
         "//   -> just update gateway routes; the client-facing URLs stay the same.\n" +
         "// Blue/green or canary: route a % of traffic to a new version at the gateway."
+    },
+    {
+      title: "Example 3: one stable entry point routes to many services",
+      description: "<p>Clients call the gateway; it routes by path/host to the right backend, hiding the internal topology.</p>",
+      code: "// client -> api.example.com (gateway) routes:\n" +
+        "//   /users/*    -> user-service\n" +
+        "//   /orders/*   -> order-service\n" +
+        "//   /v2/search  -> search-service-v2\n" +
+        "// Services can move, split, or re-version behind the gateway without breaking\n" +
+        "//   client URLs."
+    },
+    {
+      title: "Example 4 (edge case): the gateway is a SPOF and a deploy chokepoint",
+      description: "<p>All traffic flows through it, so it must be HA and not become a bottleneck or a place where business logic creeps in.</p>",
+      code: "// Single gateway instance down -> everything is unreachable -> run multiple\n" +
+        "//   replicas behind an LB / use a managed gateway.\n" +
+        "// Routing rules become a shared, frequently-changed config -> manage/version it\n" +
+        "//   carefully; a bad rule breaks many services at once.\n" +
+        "// Keep it THIN (routing + cross-cutting); don't let domain logic leak into the gateway."
     }
   ],
   whenToUse: "<p>Use Gateway Routing in microservice/multi-service systems to give clients a single, stable " +
@@ -4413,6 +6446,24 @@ C["gateway-offloading"] = {
         "//   rate limiting, TLS... duplicated, inconsistent, error-prone.\n" +
         "// With offloading: implement once at the gateway -> uniform policy,\n" +
         "//   each service is simpler and easier to maintain."
+    },
+    {
+      title: "Example 3: centralize cross-cutting work at the gateway",
+      description: "<p>The gateway handles concerns common to all services so each service doesn't re-implement them.</p>",
+      code: "// gateway does once, for everyone:\n" +
+        "//   TLS termination, authentication/JWT validation, rate limiting,\n" +
+        "//   request/response logging, gzip, CORS, IP allow-lists\n" +
+        "// backends receive clean, pre-authenticated requests and focus on business logic.\n" +
+        "// One place to update a security policy instead of N services."
+    },
+    {
+      title: "Example 4 (edge case): over-offloading and the trust boundary",
+      description: "<p>Pushing too much into the gateway makes it a fragile monolith, and services must still not blindly trust headers it sets.</p>",
+      code: "// Offloading EVERYTHING (incl. business rules) -> a 'god gateway' that's hard to\n" +
+        "//   change and a deployment bottleneck. Keep it to generic cross-cutting concerns.\n" +
+        "// Backends trust 'X-User-Id' set by the gateway -> if a service is reachable\n" +
+        "//   directly (bypassing the gateway), an attacker can forge it. Lock down network\n" +
+        "//   access so ONLY the gateway can reach services (mTLS / private network)."
     }
   ],
   whenToUse: "<p>Use Gateway Offloading to centralize cross-cutting concerns &mdash; TLS termination, auth, " +
@@ -4453,6 +6504,24 @@ C["gateway-aggregation"] = {
         "//   total latency ~= the SLOWEST single call, not the sum.\n" +
         "// Handle partial failures: if 'recommendations' fails, still return\n" +
         "//   user + orders (graceful degradation) rather than failing everything."
+    },
+    {
+      title: "Example 3: one client call, fan-out to many services",
+      description: "<p>The gateway makes the multiple backend calls and composes one response, cutting client round-trips (great over mobile networks).</p>",
+      code: "// Mobile would otherwise make 3 calls; instead one call to the gateway:\n" +
+        "GET /home-dashboard  ->\n" +
+        "   gateway calls in parallel: user-svc, orders-svc, recommendations-svc\n" +
+        "   -> merges into one JSON -> single response to the client\n" +
+        "// Fewer round-trips = faster, especially on high-latency connections."
+    },
+    {
+      title: "Example 4 (edge case): partial failures and slowest-call latency",
+      description: "<p>Aggregated responses are only as fast as the slowest backend, and you must decide what to do when one call fails.</p>",
+      code: "// One of three services is slow/down -> the whole aggregate stalls or errors\n" +
+        "//   unless you set per-call timeouts and return partial data:\n" +
+        "//   { user, orders, recommendations: null }  // degrade gracefully\n" +
+        "// Latency = MAX(call latencies), so a single slow dependency hurts the page.\n" +
+        "// Keep aggregation logic thin; for heavy/varied composition use a BFF instead."
     }
   ],
   whenToUse: "<p>Use Gateway Aggregation when clients need data from multiple services to render a view and " +
@@ -4493,6 +6562,24 @@ C["external-config-store"] = {
         "// Use a dedicated secrets manager (Vault, AWS Secrets Manager,\n" +
         "//   Azure Key Vault) with encryption, access control, rotation.\n" +
         "// Non-secret config -> config store; secrets -> secrets manager."
+    },
+    {
+      title: "Example 3: config lives outside the deployment artifact",
+      description: "<p>Instances read settings from a central store at startup/runtime, so config changes don't require a rebuild/redeploy.</p>",
+      code: "// app reads from a central store (Consul, AWS Parameter Store, Spring Cloud Config):\n" +
+        "//   db.poolSize, featureFlags.newCheckout, rateLimit.rpm\n" +
+        "// change a value centrally -> instances pick it up (on refresh) -> no redeploy.\n" +
+        "// One source of truth across all instances/environments."
+    },
+    {
+      title: "Example 4 (edge case): it's a startup dependency, and secrets need care",
+      description: "<p>If the config store is down at boot instances can't start; and secrets shouldn't sit in plaintext config.</p>",
+      code: "// Config store unreachable at startup -> instances fail to boot -> make it HA,\n" +
+        "//   and consider local cached fallbacks for non-critical values.\n" +
+        "// Changing config at runtime needs a refresh mechanism (poll/webhook) or it only\n" +
+        "//   applies on restart.\n" +
+        "// Don't store secrets here in plaintext -> use a secrets manager/Vault with\n" +
+        "//   encryption + access control + audit."
     }
   ],
   whenToUse: "<p>Use an External Configuration Store when you run many instances/services and want centralized, " +
@@ -4533,6 +6620,23 @@ C["compute-resource-consolidation"] = {
         "//   (Noisy Neighbor: one workload's spike hurts co-located ones).\n" +
         "// Mitigate with per-workload resource requests/limits + bulkheads.\n" +
         "// Keep incompatible workloads (e.g. latency-critical vs batch) apart."
+    },
+    {
+      title: "Example 3: pack multiple light workloads onto shared compute",
+      description: "<p>Co-locating several small, underutilized services on shared infrastructure raises utilization and cuts cost.</p>",
+      code: "// Before: 10 microservices, each on its own VM at 8% CPU -> mostly paying for idle.\n" +
+        "// After: pack them onto a shared cluster (e.g. Kubernetes nodes) -> bin-packing\n" +
+        "//   raises utilization to ~60% -> fewer machines, lower bill.\n" +
+        "// Works best for services with complementary load profiles."
+    },
+    {
+      title: "Example 4 (edge case): consolidation reintroduces noisy-neighbor and coupling",
+      description: "<p>Sharing compute means one workload's spike can starve others, and co-tenants share a failure/deploy domain.</p>",
+      code: "// Service A's CPU spike or memory leak on a shared node degrades B, C, D\n" +
+        "//   (noisy neighbor) -> use resource limits/requests + isolation (cgroups/quotas).\n" +
+        "// Co-located services may share a host failure -> spread critical ones across nodes.\n" +
+        "// Don't over-consolidate latency-sensitive or security-isolated workloads;\n" +
+        "//   isolation vs cost is the trade-off."
     }
   ],
   whenToUse: "<p>Use Compute Resource Consolidation to cut infrastructure cost and waste when you have many " +
@@ -4573,6 +6677,24 @@ C["backends-for-frontend"] = {
         "//   payloads; web makes extra calls; the API bloats with conditional\n" +
         "//   logic for each client. BFF gives each client exactly what it needs.\n" +
         "// (Overlaps with Gateway Aggregation; GraphQL is an alternative.)"
+    },
+    {
+      title: "Example 3: a backend tailored per frontend",
+      description: "<p>Each client type gets its own backend that aggregates/shapes data exactly for that UI, instead of one generic API serving all.</p>",
+      code: "// mobile-bff: small payloads, fewer round-trips, battery/bandwidth-aware\n" +
+        "// web-bff:    richer payloads, more data per screen\n" +
+        "// each BFF calls the same downstream microservices but composes responses for\n" +
+        "//   ITS client -> no over-fetching, no lowest-common-denominator API.\n" +
+        "// Owned by the frontend team, so it can evolve with the UI."
+    },
+    {
+      title: "Example 4 (edge case): duplicated logic across BFFs",
+      description: "<p>Multiple BFFs can re-implement the same aggregation/auth logic, and too many BFFs become a maintenance burden.</p>",
+      code: "// mobile-bff and web-bff both re-implement 'assemble dashboard' -> drift + bugs.\n" +
+        "//   Extract shared logic into a library or a downstream service both call.\n" +
+        "// A BFF per tiny client variant -> proliferation of backends to maintain.\n" +
+        "// Use BFF when clients genuinely DIFFER (mobile vs web vs partner); if they're\n" +
+        "//   similar, one well-designed API (or GraphQL) may suffice."
     }
   ],
   whenToUse: "<p>Use BFF when you have multiple, meaningfully-different frontends (web, mobile, partner, IoT) " +
@@ -4613,6 +6735,25 @@ C["anti-corruption-layer"] = {
         "//   knows the legacy system. When you finally retire the legacy system,\n" +
         "//   you change/remove the ACL - not your whole codebase.\n" +
         "// Without an ACL, legacy quirks spread through every integration point."
+    },
+    {
+      title: "Example 3: translate between your model and a foreign one",
+      description: "<p>An ACL sits between your clean domain and a legacy/external system, translating so the foreign model never leaks into yours.</p>",
+      code: "// legacy SOAP API speaks: { CUST_NM, CUST_STAT_CD: 'A' }\n" +
+        "// your domain wants:      Customer { name, status: ACTIVE }\n" +
+        "// ACL = the translation boundary:\n" +
+        "//   yourService -> ACL.toLegacy() -> legacy   and   legacy -> ACL.toDomain()\n" +
+        "// Your code only ever sees Customer; the legacy quirks stay behind the ACL."
+    },
+    {
+      title: "Example 4 (edge case): the ACL is maintenance you must keep current",
+      description: "<p>The translation layer adds latency and code, and it must track changes in the external system - but skipping it lets foreign concepts corrupt your model.</p>",
+      code: "// Skip the ACL and call the legacy API directly everywhere -> its weird codes,\n" +
+        "//   nulls, and concepts spread through your codebase (corruption) -> painful to\n" +
+        "//   change later.\n" +
+        "// With an ACL: when the legacy system changes, you update ONE place. Cost: an\n" +
+        "//   extra mapping layer + a hop. Worth it at any non-trivial integration boundary\n" +
+        "//   (also the natural seam for a Strangler Fig migration)."
     }
   ],
   whenToUse: "<p>Use an Anti-Corruption Layer when integrating with a legacy system, a third-party/external " +
@@ -4658,6 +6799,25 @@ C["reliability-patterns"] = {
         "//   timeout + retry-with-backoff + circuit breaker + bulkhead + fallback\n" +
         "// So a slow/failing dependency fails fast, in isolation, with a\n" +
         "//   graceful degraded response - instead of cascading an outage."
+    },
+    {
+      title: "Example 3: the reliability pattern toolkit",
+      description: "<p>Each pattern addresses a specific failure mode; together they make a system degrade gracefully instead of collapsing.</p>",
+      code: "// Retry:            recover from TRANSIENT failures (with backoff + jitter)\n" +
+        "// Circuit Breaker:  stop calling a DOWN dependency (fail fast)\n" +
+        "// Bulkhead:         isolate resources so one failure can't sink everything\n" +
+        "// Throttling:       cap load to protect the system\n" +
+        "// Compensating Tx:  undo steps when a multi-step operation fails\n" +
+        "// Health Endpoint:  expose status for LBs/orchestrators to act on"
+    },
+    {
+      title: "Example 4 (edge case): combine them - one alone is incomplete",
+      description: "<p>The patterns reinforce each other; using retry without a circuit breaker, for example, can amplify an outage.</p>",
+      code: "// Retry WITHOUT a circuit breaker -> during an outage, retries multiply load on\n" +
+        "//   the dead service (retry storm). Pair them: breaker opens, retries stop.\n" +
+        "// Bulkhead WITHOUT timeouts -> a pool fills with hung calls anyway.\n" +
+        "// Design for failure as the NORMAL case (it's distributed): assume every remote\n" +
+        "//   call can fail/slow, and layer these patterns accordingly."
     }
   ],
   whenToUse: "<p>Apply reliability patterns to any system where uptime and graceful failure matter &mdash; " +
@@ -4697,6 +6857,23 @@ C["availability"] = {
         "//   -> no single region/stack failure takes the system down.\n" +
         "// + Throttling & load leveling -> overload doesn't cause cascading failure.\n" +
         "// + Health monitoring -> failed nodes are detected and bypassed."
+    },
+    {
+      title: "Example 3: redundancy across failure domains",
+      description: "<p>Availability comes from eliminating single points of failure - redundant instances spread across independent domains.</p>",
+      code: "// app: N instances across multiple AZs behind a health-checked LB\n" +
+        "// db:  primary + replicas in different AZs, automatic failover\n" +
+        "// region failure tolerance? multi-region active-active or warm standby\n" +
+        "// Each layer redundant + spread so no single rack/AZ/region outage = full outage."
+    },
+    {
+      title: "Example 4 (edge case): availability vs consistency and cost",
+      description: "<p>Higher availability often means accepting eventual consistency and steeply rising cost - more nines is rarely worth it for everything.</p>",
+      code: "// Multi-region active-active boosts availability but writes are now eventually\n" +
+        "//   consistent (or need costly cross-region consensus) - the CAP trade-off.\n" +
+        "// Each extra nine (99.9 -> 99.99 -> 99.999) ~10x's the effort/cost.\n" +
+        "// Set the SLA per service by business impact; gold-plating availability on a\n" +
+        "//   non-critical service wastes money and adds complexity."
     }
   ],
   whenToUse: "<p>Use Availability patterns for systems with strict uptime needs, global user bases, or " +
@@ -4737,6 +6914,25 @@ C["deployment-stamps"] = {
         "// Safe rollout: deploy a new version to one stamp first (canary),\n" +
         "//   verify, then roll out to the rest.\n" +
         "// Also enables data residency (a stamp per region/jurisdiction)."
+    },
+    {
+      title: "Example 3: independent self-contained 'stamps' (cells)",
+      description: "<p>Deploy multiple complete copies of the stack, each serving a subset of tenants - scaling and isolation by replication.</p>",
+      code: "// stamp 1: full stack (app+db+cache) -> tenants A-M\n" +
+        "// stamp 2: full stack             -> tenants N-Z\n" +
+        "// stamp 3: full stack             -> enterprise tenant X (dedicated)\n" +
+        "// scale by adding stamps; a stamp failure affects only ITS tenants (blast-radius\n" +
+        "//   containment). Big tenants get their own stamp."
+    },
+    {
+      title: "Example 4 (edge case): routing tenants and per-stamp operations",
+      description: "<p>You need a routing layer to map each tenant to a stamp, and operating many stamps multiplies deployment/upgrade work.</p>",
+      code: "// A traffic-routing tier must know tenant -> stamp mapping (and handle moving a\n" +
+        "//   tenant between stamps for rebalancing - a data migration).\n" +
+        "// 50 stamps = 50 stacks to deploy, patch, monitor -> automate ruthlessly\n" +
+        "//   (infra-as-code, rolling per-stamp upgrades).\n" +
+        "// Overkill below large multi-tenant scale; great for blast-radius + noisy-neighbor\n" +
+        "//   isolation when you're there."
     }
   ],
   whenToUse: "<p>Use Deployment Stamps for large multi-tenant SaaS, systems that must scale beyond a single " +
@@ -4777,6 +6973,25 @@ C["throttling"] = {
         "//   each request consumes 1 token; empty bucket -> throttled.\n" +
         "// Allows short bursts (up to 100) while bounding the sustained rate.\n" +
         "// Tiered: free = 60/min, pro = 1000/min (enforce plan quotas)."
+    },
+    {
+      title: "Example 3: rate limiting with a token bucket",
+      description: "<p>Throttling caps the request rate per client/key; the token bucket is the classic algorithm allowing bursts up to a limit.</p>",
+      code: "// bucket: capacity 100, refill 10 tokens/sec\n" +
+        "//   each request takes 1 token; empty bucket -> 429 Too Many Requests\n" +
+        "//   + Retry-After header\n" +
+        "// allows short bursts (up to 100) but limits the sustained rate to 10/s.\n" +
+        "// Apply per API key / IP / tenant; common tiers: free 60/min, paid 6000/min."
+    },
+    {
+      title: "Example 4 (edge case): distributed limits and graceful rejection",
+      description: "<p>Per-instance limits don't add up to a global limit, and clients must handle 429s well or throttling backfires.</p>",
+      code: "// 5 instances each allowing 100/s = 500/s globally, not 100 -> use a SHARED\n" +
+        "//   counter (Redis) for a true global limit.\n" +
+        "// Return 429 + Retry-After so clients back off; a client that ignores it and\n" +
+        "//   hammers harder makes things worse.\n" +
+        "// Throttle gracefully (queue/shed low-priority) rather than hard-failing premium\n" +
+        "//   traffic; distinguish abuse from legitimate spikes."
     }
   ],
   whenToUse: "<p>Use Throttling to protect services from overload and abuse, enforce fair usage and plan " +
@@ -4817,6 +7032,23 @@ C["geodes"] = {
         "//   replicates across regions (Cosmos DB, DynamoDB Global Tables,\n" +
         "//   Spanner). Trade-off: cross-region consistency vs latency\n" +
         "//   (often eventual/tunable consistency between regions)."
+    },
+    {
+      title: "Example 3: geographically distributed nodes serving any request",
+      description: "<p>Geodes (geographical nodes) deploy a full stack in many regions; any geode can serve any user, routed to the nearest.</p>",
+      code: "// regions: us-east, eu-west, ap-south - each a full, active deployment\n" +
+        "// geo-DNS / anycast routes a user to the NEAREST geode -> low latency worldwide\n" +
+        "// all geodes are active (not standby) and share/replicate a global data layer\n" +
+        "//   (e.g. Cosmos DB / Spanner) so any node can handle any request."
+    },
+    {
+      title: "Example 4 (edge case): the global data layer is the hard part",
+      description: "<p>Active-everywhere compute is easy; keeping data consistent across regions (or accepting eventual consistency) is the real challenge and cost.</p>",
+      code: "// Writes in us-east must be visible in ap-south -> either pay cross-region\n" +
+        "//   consensus latency (strong) or accept eventual consistency + conflict handling.\n" +
+        "// Running full stacks in N regions multiplies cost and operational complexity.\n" +
+        "// Use geodes for genuinely global, latency-sensitive apps; for most apps a CDN +\n" +
+        "//   a couple of regions is enough."
     }
   ],
   whenToUse: "<p>Use the Geodes pattern for globally-distributed applications needing <strong>low latency " +
@@ -4857,6 +7089,24 @@ C["high-availability"] = {
       code: "// Redundant instances (Deployment Stamps) across regions (Geodes)\n" +
         "//   + Health Endpoint Monitoring to detect failures and reroute\n" +
         "//   -> a node/region failure is bypassed automatically, no outage."
+    },
+    {
+      title: "Example 3: eliminate single points of failure at every layer",
+      description: "<p>High availability is achieved by redundancy + automatic failover so no single component outage causes downtime.</p>",
+      code: "// LB:    redundant pair / managed, health-checked\n" +
+        "// app:   N stateless instances across AZs (any can die)\n" +
+        "// db:    primary + replicas, auto-failover\n" +
+        "// even DNS/config: no single dependency that, if down, takes everything out.\n" +
+        "// Test it: chaos-engineering (kill an instance/AZ) to verify failover works."
+    },
+    {
+      title: "Example 4 (edge case): hidden shared dependencies undermine HA",
+      description: "<p>Redundant app servers still go down together if they all depend on one un-redundant thing - a config service, a single DB, a shared cache, even one DNS.</p>",
+      code: "// 10 redundant app servers, but all read config from ONE config service ->\n" +
+        "//   that service dies -> total outage despite the app redundancy.\n" +
+        "// Map the FULL dependency graph; a chain of 99.9% dependencies multiplies to\n" +
+        "//   LESS than 99.9% overall. Make critical shared deps redundant too, and add\n" +
+        "//   graceful degradation (cached/last-known-good config) for the rest."
     }
   ],
   whenToUse: "<p>Apply High Availability patterns to systems where downtime is costly &mdash; revenue-critical " +
@@ -4898,6 +7148,24 @@ C["bulkhead"] = {
         "//   - tenant (one tenant's spike can't starve others - Noisy Neighbor)\n" +
         "//   - criticality (critical path gets its own reserved resources)\n" +
         "// Containers/pods with resource limits are a form of bulkheading too."
+    },
+    {
+      title: "Example 3: isolate resources into pools",
+      description: "<p>Like watertight ship compartments, separate thread/connection pools per dependency so one failure can't drown the rest.</p>",
+      code: "// shared pool (bad): 200 threads for ALL downstream calls\n" +
+        "//   service B hangs -> all 200 threads stuck on B -> A, C calls starve too.\n" +
+        "// bulkheaded (good): 50 threads for B, 50 for C, 50 for D, 50 for the DB\n" +
+        "//   B hangs -> only B's 50 threads block; calls to C/D/DB keep working."
+    },
+    {
+      title: "Example 4 (edge case): sizing the compartments",
+      description: "<p>Too-small pools throttle healthy traffic; too-large ones don't isolate. Bulkheads also can't help if the shared resource itself (e.g. the DB) is the bottleneck.</p>",
+      code: "// Pool for B sized at 5 -> normal B traffic queues/times out even when B is fine.\n" +
+        "// Pool sized at 195 -> barely isolates from the others. Size per dependency's\n" +
+        "//   real concurrency need + headroom.\n" +
+        "// If everything ultimately hits ONE database, per-service thread pools won't save\n" +
+        "//   you from DB exhaustion -> bulkhead the DB connections too. Pair with timeouts\n" +
+        "//   + circuit breakers."
     }
   ],
   whenToUse: "<p>Use Bulkhead to contain failures and prevent resource exhaustion from cascading &mdash; isolate " +
@@ -4942,6 +7210,26 @@ C["circuit-breaker"] = {
         "// When OPEN: returns unknownStock() instantly (no slow timeout,\n" +
         "//   no hammering the struggling service). Pair with a TIMEOUT so\n" +
         "//   calls don't hang, and retries+backoff for transient blips."
+    },
+    {
+      title: "Example 3: the closed / open / half-open states",
+      description: "<p>The breaker trips after repeated failures, fails fast while open, then tests recovery - sparing the failing dependency.</p>",
+      code: "// CLOSED:    calls pass through; count failures\n" +
+        "// -> failures exceed threshold (e.g. 50% of last 20 calls) ->\n" +
+        "// OPEN:      reject immediately (fail fast) for a cooldown; no calls to the dep\n" +
+        "// -> cooldown elapses ->\n" +
+        "// HALF-OPEN: allow a few trial calls; success -> CLOSED, failure -> OPEN again\n" +
+        "// Often paired with a fallback (cached/default response)."
+    },
+    {
+      title: "Example 4 (edge case): tuning thresholds and the fallback trap",
+      description: "<p>Too-sensitive breakers trip on noise; a careless fallback can mask failures or return wrong data.</p>",
+      code: "// Threshold too low -> trips on a transient blip -> needless degradation.\n" +
+        "// Too high -> never trips -> no protection. Tune on real error patterns + volume.\n" +
+        "// Fallback that returns stale/empty data can HIDE an outage from monitoring ->\n" +
+        "//   always alert when a breaker opens.\n" +
+        "// Combine with retry (for transient) + bulkhead (for isolation); a breaker alone\n" +
+        "//   doesn't cap concurrent slow calls."
     }
   ],
   whenToUse: "<p>Use a Circuit Breaker around <strong>any synchronous call to a remote dependency</strong> that " +
@@ -4985,6 +7273,26 @@ C["resiliency"] = {
         "//   + circuit breaker (stop if persistently failing)\n" +
         "//   + bulkhead (isolate its resources) + fallback (degrade gracefully)\n" +
         "// One dependency failing -> contained, recovered-from, or degraded."
+    },
+    {
+      title: "Example 3: design for failure as the normal case",
+      description: "<p>In distributed systems, components WILL fail - resiliency is building so the system recovers or degrades instead of crashing.</p>",
+      code: "// assume every remote call can fail, time out, or be slow, then:\n" +
+        "//   timeout  -> never wait forever\n" +
+        "//   retry    -> recover transient failures (backoff + jitter)\n" +
+        "//   breaker  -> stop hammering a down dependency\n" +
+        "//   fallback -> degrade gracefully (cached/default)\n" +
+        "//   bulkhead -> contain the blast radius"
+    },
+    {
+      title: "Example 4 (edge case): resiliency you never tested isn't resilient",
+      description: "<p>Failure-handling code paths rarely run, so they rot; chaos testing is how you verify they actually work.</p>",
+      code: "// The 'failover' / fallback code only runs during incidents -> it silently breaks\n" +
+        "//   (wrong config, stale credentials) and you find out at the worst time.\n" +
+        "// Chaos engineering: deliberately kill instances, inject latency/errors in\n" +
+        "//   staging (or carefully in prod) to prove recovery works.\n" +
+        "// Also: resiliency adds complexity - don't add every pattern blindly; match to\n" +
+        "//   the failure modes that actually matter for the dependency."
     }
   ],
   whenToUse: "<p>Apply resiliency patterns to all distributed systems &mdash; networks, services, and hardware " +
@@ -5026,6 +7334,24 @@ C["compensating-transaction"] = {
         "//   - you can't 'un-send' a confirmation email (send a correction)\n" +
         "//   - a refund may incur fees; intermediate states were briefly visible\n" +
         "// Design compensations to be idempotent and to handle these realities."
+    },
+    {
+      title: "Example 3: undo prior steps when a later step fails",
+      description: "<p>Without distributed transactions, each completed step has a compensating action that semantically reverses it (the saga rollback).</p>",
+      code: "// book trip: [reserve flight] [reserve hotel] [charge card]\n" +
+        "// charge FAILS -> run compensations in reverse:\n" +
+        "//   cancelHotel(); cancelFlight();\n" +
+        "// Note 'compensate' is semantic, not a literal rollback - a charged refund is a\n" +
+        "//   NEW transaction, not an undo. Each compensation must be idempotent."
+    },
+    {
+      title: "Example 4 (edge case): compensation itself can fail (and isn't perfect)",
+      description: "<p>The undo step may fail or have side effects that can't be reversed - needing retries, manual intervention, and acceptance of intermediate visibility.</p>",
+      code: "// cancelHotel() fails too -> retry with backoff, then escalate to a human / DLQ.\n" +
+        "// Some effects can't truly be undone (a sent email, a shipped item) -> compensate\n" +
+        "//   with a corrective action (send apology, issue return label).\n" +
+        "// During the saga, other readers may briefly SEE the half-done state -> design\n" +
+        "//   for that (pending statuses). Prefer one ACID transaction when steps fit one DB."
     }
   ],
   whenToUse: "<p>Use Compensating Transactions for multi-step operations spanning services/resources that can't " +
@@ -5067,6 +7393,26 @@ C["retry"] = {
         "// DON'T RETRY: 400/401/404 (permanent - retrying won't help),\n" +
         "//          or non-idempotent ops (a retried 'charge' may double-charge)\n" +
         "// Pair with a circuit breaker so persistent failures stop retrying."
+    },
+    {
+      title: "Example 3: retry transient failures with backoff + jitter",
+      description: "<p>Retry only errors likely to be temporary, spacing attempts out to avoid synchronized hammering.</p>",
+      code: "for (attempt = 0; attempt < max; attempt++) {\n" +
+        "  try { return call(); }\n" +
+        "  catch (e) {\n" +
+        "    if (!isTransient(e)) throw e;           // don't retry 4xx / validation errors\n" +
+        "    sleep(random(0, min(cap, base * 2^attempt))); // exp backoff + full jitter\n" +
+        "  }\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): retrying non-idempotent ops and amplifying outages",
+      description: "<p>Retries can double-charge non-idempotent calls and pile load onto a failing service unless bounded and gated by a breaker.</p>",
+      code: "// Retrying POST /charge after a timeout (request actually succeeded) -> double\n" +
+        "//   charge. Only retry idempotent ops, or use an idempotency key.\n" +
+        "// Retrying through a sustained outage = retry storm -> pair with a CIRCUIT BREAKER\n" +
+        "//   and a retry budget (cap retries as a % of traffic).\n" +
+        "// Never retry forever or with no delay; cap attempts + total time."
     }
   ],
   whenToUse: "<p>Use Retry for transient, recoverable failures in any network/distributed call &mdash; service-" +
@@ -5108,6 +7454,24 @@ C["security"] = {
         "//   + federated identity (delegated, MFA-capable auth)\n" +
         "//   + least-privilege access + encryption + audit/security monitoring\n" +
         "// No single control is trusted alone; compromise of one is contained."
+    },
+    {
+      title: "Example 3: defense in depth and least privilege",
+      description: "<p>Security is layered - no single control is trusted alone, and every component gets the minimum access it needs.</p>",
+      code: "// layers: WAF -> gateway auth -> service authz -> encrypted data -> audit logs\n" +
+        "// least privilege: the order-service DB user can read/write ORDERS only, not\n" +
+        "//   the users table; a leaked credential limits the blast radius.\n" +
+        "// Patterns: Gatekeeper (broker access), Valet Key (scoped tokens),\n" +
+        "//   Federated Identity (delegate auth). Assume any one layer can be breached."
+    },
+    {
+      title: "Example 4 (edge case): don't roll your own crypto/auth; mind the trust boundary",
+      description: "<p>The most common security failures are home-grown auth/crypto and trusting input that crosses a boundary.</p>",
+      code: "// DON'T: invent your own token format, password hashing, or encryption.\n" +
+        "//   Use vetted libraries/standards (OAuth2/OIDC, bcrypt/argon2, AES-GCM, TLS).\n" +
+        "// Trust boundary: NEVER trust client input or headers set outside your perimeter\n" +
+        "//   (e.g. 'X-User-Id') unless your gateway sets them AND services are unreachable\n" +
+        "//   directly. Validate/encode everything crossing a boundary (injection, XSS)."
     }
   ],
   whenToUse: "<p>Apply security patterns to any system handling user data, authentication, payments, or " +
@@ -5146,6 +7510,24 @@ C["federated-identity"] = {
         "// Enterprise: federate with the company's directory (Azure AD/Okta) via\n" +
         "//   SAML/OIDC -> employees use their corporate identity; central control\n" +
         "//   over provisioning/deprovisioning (deactivate once -> access revoked)."
+    },
+    {
+      title: "Example 3: delegate authentication to an identity provider",
+      description: "<p>Your app trusts an external IdP (Google, Okta, Azure AD) to authenticate users and returns a token your app verifies.</p>",
+      code: "// OIDC flow (simplified):\n" +
+        "//   user -> your app -> redirect to IdP login\n" +
+        "//   IdP authenticates -> redirects back with an id_token (signed JWT)\n" +
+        "//   your app VERIFIES the signature + issuer + audience + expiry -> logs user in\n" +
+        "// You never see/store the password; SSO + social login come for free."
+    },
+    {
+      title: "Example 4 (edge case): token validation and trust pitfalls",
+      description: "<p>The security rests entirely on verifying the token correctly - skipping a check (or trusting an unsigned token) breaks everything.</p>",
+      code: "// MUST verify: signature (against IdP's published keys/JWKS), 'iss', 'aud', 'exp'.\n" +
+        "//   Accepting alg:'none', or not checking 'aud', lets forged/replayed tokens in.\n" +
+        "// Handle key rotation (refresh JWKS) and clock skew on 'exp'.\n" +
+        "// You're now dependent on the IdP's availability -> an IdP outage = no logins.\n" +
+        "// Use a vetted OIDC library; don't hand-parse JWTs."
     }
   ],
   whenToUse: "<p>Use Federated Identity to offer social login or enterprise SSO, to support B2B/B2E scenarios " +
@@ -5188,6 +7570,24 @@ C["gatekeeper"] = {
         "// It stores NO secrets and has minimal rights; the trusted backend\n" +
         "//   (with the real privileges/data) is only reachable via the gatekeeper.\n" +
         "// Limits blast radius if the public-facing layer is breached."
+    },
+    {
+      title: "Example 3: a hardened broker in front of trusted services",
+      description: "<p>A dedicated gatekeeper instance validates/sanitizes all requests so the protected services never touch untrusted input directly.</p>",
+      code: "// untrusted client -> GATEKEEPER (validate, authn, sanitize, rate-limit)\n" +
+        "//                  -> (private network) trusted services + data store\n" +
+        "// The gatekeeper holds NO secrets/keys itself and has minimal privileges; if it's\n" +
+        "//   compromised, the attacker still can't reach storage credentials directly.\n" +
+        "// Backends are reachable ONLY via the gatekeeper (private subnet)."
+    },
+    {
+      title: "Example 4 (edge case): only works if the backend is truly unreachable directly",
+      description: "<p>If a client can bypass the gatekeeper and hit a service directly, the whole protection collapses.</p>",
+      code: "// Misconfig: services have public IPs / open security groups -> attacker skips the\n" +
+        "//   gatekeeper entirely. Enforce: private network, mTLS, firewall to ONLY accept\n" +
+        "//   traffic from the gatekeeper.\n" +
+        "// The gatekeeper is also a SPOF + bottleneck on the critical path -> run it HA.\n" +
+        "// It complements (not replaces) authz inside services - defense in depth."
     }
   ],
   whenToUse: "<p>Use the Gatekeeper pattern to protect sensitive services and data exposed to untrusted clients &mdash; " +
@@ -5230,6 +7630,24 @@ C["health-endpoint-monitoring"] = {
         "// Kubernetes: liveness probe fails -> restart the pod;\n" +
         "//             readiness probe fails -> remove from service endpoints.\n" +
         "// External monitor: endpoint down from multiple regions -> alert on-call."
+    },
+    {
+      title: "Example 3: an endpoint that reports real dependency health",
+      description: "<p>A health endpoint checks critical dependencies and returns a status code/body that LBs and orchestrators act on.</p>",
+      code: "GET /health  ->\n" +
+        "  200 { status:'UP', checks:{ db:'UP', cache:'UP' } }      // route traffic\n" +
+        "  503 { status:'DOWN', checks:{ db:'DOWN', cache:'UP' } }  // take out of rotation\n" +
+        "// Split: /health/live (process alive -> restart) vs /health/ready (deps ok ->\n" +
+        "//   receive traffic). Keep it fast, with timeouts on each check."
+    },
+    {
+      title: "Example 4 (edge case): shallow lies vs deep cascades",
+      description: "<p>A check that's too shallow keeps a broken node in rotation; one that's too deep can take the whole fleet down over a non-critical blip.</p>",
+      code: "// Too shallow ('return 200') -> LB keeps sending traffic to a node with a dead DB.\n" +
+        "// Too deep (readiness pings 5 downstreams) -> one downstream blips -> EVERY\n" +
+        "//   instance reports unready -> LB drops them all -> self-inflicted outage.\n" +
+        "// Check only CRITICAL local deps; don't fail readiness on optional ones. Secure\n" +
+        "//   the endpoint too - it can leak internal topology/version info."
     }
   ],
   whenToUse: "<p>Implement health endpoints on every service &mdash; load balancers and orchestrators rely on " +

@@ -44,6 +44,26 @@ C["introduction"] = {
         "spring.datasource.url=jdbc:postgresql://localhost:5432/store\n" +
         "spring.jpa.hibernate.ddl-auto=update\n" +
         "# No XML, no boilerplate wiring - Boot configures the datasource & JPA for you."
+    },
+    {
+      title: "Example 3: starter dependencies pull in a whole stack",
+      description: "<p>One starter brings a curated, version-aligned set of libraries - no manual dependency hunting.</p>",
+      code: "<!-- pom.xml: this single starter brings Spring MVC, Tomcat, Jackson, validation -->\n" +
+        "<dependency>\n" +
+        "  <groupId>org.springframework.boot</groupId>\n" +
+        "  <artifactId>spring-boot-starter-web</artifactId>\n" +
+        "</dependency>\n" +
+        "<!-- The parent BOM manages versions so the transitive deps don't conflict. -->"
+    },
+    {
+      title: "Example 4 (edge case): auto-config 'magic' can surprise you",
+      description: "<p>Boot configures things based on what's on the classpath; an unexpected default is the price of convention-over-configuration.</p>",
+      code: "# Add spring-boot-starter-security and EVERY endpoint is suddenly locked\n" +
+        "# behind HTTP Basic with a generated password printed at startup:\n" +
+        "#   Using generated security password: 8e6...\n" +
+        "# Diagnose what auto-config ran:\n" +
+        "java -jar app.jar --debug   # prints the auto-configuration report\n" +
+        "# Then override the relevant default rather than fighting the magic."
     }
   ],
   whenToUse: "<p>Reach for Spring Boot for essentially any backend Java service &mdash; REST APIs, " +
@@ -84,6 +104,29 @@ C["why-use-spring"] = {
         "    accounts.withdraw(from, amount);\n" +
         "    accounts.deposit(to, amount);   // if this throws, the withdraw rolls back\n" +
         "}"
+    },
+    {
+      title: "Example 3: the plumbing Spring handles for you",
+      description: "<p>Transactions, declarative caching, scheduling, retries - all become annotations instead of hand-written infrastructure.</p>",
+      code: "@Service\n" +
+        "class ReportService {\n" +
+        "  @Transactional               // begin/commit/rollback managed for you\n" +
+        "  @Cacheable(\"reports\")        // result cached automatically\n" +
+        "  Report generate(long id) { /* just business logic */ }\n" +
+        "\n" +
+        "  @Scheduled(cron = \"0 0 * * * *\") // run hourly, no scheduler boilerplate\n" +
+        "  void cleanup() {}\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): without Spring you wire all of this by hand",
+      description: "<p>The value is clearest by contrast - plain Java means manual object graphs, transaction management, and lifecycle handling.</p>",
+      code: "// Plain Java: you construct and thread dependencies everywhere\n" +
+        "var repo = new JdbcUserRepo(dataSource);\n" +
+        "var service = new UserService(repo, new EmailClient(cfg), txManager);\n" +
+        "// ...and you open/commit/rollback transactions yourself in every method.\n" +
+        "// Spring centralizes this; the trade-off is a learning curve and 'where did\n" +
+        "// this bean come from?' debugging."
     }
   ],
   whenToUse: "<p>Choose Spring when building non-trivial Java backends where you'd otherwise reinvent dependency " +
@@ -124,6 +167,28 @@ C["terminology"] = {
         "// @Configuration  -> a class that DEFINES beans (via @Bean methods)\n" +
         "// @Component      -> marks a class to be auto-detected as a bean\n" +
         "// AOP             -> cross-cutting concerns (logging, tx) via proxies"
+    },
+    {
+      title: "Example 3: bean vs component vs the container",
+      description: "<p>The core vocabulary in one place: a <em>bean</em> is a container-managed object; <code>@Component</code>/<code>@Service</code> mark classes to become beans; the <em>ApplicationContext</em> is the container.</p>",
+      code: "@Service                        // a stereotype -> this class becomes a BEAN\n" +
+        "class PricingService {}\n" +
+        "\n" +
+        "// At startup the ApplicationContext (the IoC CONTAINER) scans, instantiates,\n" +
+        "// and wires beans. You can fetch one (rarely needed) via:\n" +
+        "PricingService p = context.getBean(PricingService.class);"
+    },
+    {
+      title: "Example 4 (edge case): @Component vs @Bean - who creates the object",
+      description: "<p>A frequent point of confusion: <code>@Component</code> lets Spring instantiate your class; <code>@Bean</code> in a config class registers an object <em>you</em> construct (the only option for third-party types you can't annotate).</p>",
+      code: "@Component class MyService {}     // Spring news it up via component scan\n" +
+        "\n" +
+        "@Configuration\n" +
+        "class AppConfig {\n" +
+        "  @Bean ObjectMapper objectMapper() { // 3rd-party class: YOU build it\n" +
+        "    return new ObjectMapper().findAndRegisterModules();\n" +
+        "  }\n" +
+        "}"
     }
   ],
   whenToUse: "<p>This isn't a feature you 'use' &mdash; it's the shared language you need before everything " +
@@ -174,6 +239,30 @@ C["architecture"] = {
         "    service.place(new OrderRequest(...));\n" +
         "    verify(fake).save(any(Order.class));\n" +
         "}"
+    },
+    {
+      title: "Example 3: the layers and what each one owns",
+      description: "<p>Controller (HTTP) &rarr; Service (business logic) &rarr; Repository (persistence), with DTOs at the edge and entities inside.</p>",
+      code: "@RestController class OrderController {       // HTTP concerns only\n" +
+        "  private final OrderService service;\n" +
+        "  @PostMapping(\"/orders\") OrderDto create(@RequestBody CreateOrder req) {\n" +
+        "    return service.place(req);                // delegates to business layer\n" +
+        "  }\n" +
+        "}\n" +
+        "@Service class OrderService {                 // rules, transactions\n" +
+        "  private final OrderRepository repo;         // talks to persistence\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): leaking entities or skipping the service layer",
+      description: "<p>Two common anti-patterns: returning JPA entities straight from controllers (couples your API to the DB schema and risks lazy-loading errors), and putting business logic in the controller.</p>",
+      code: "// SMELL: controller returns the entity directly\n" +
+        "@GetMapping(\"/{id}\") User get(@PathVariable long id) { return repo.findById(id).get(); }\n" +
+        "//   -> API now mirrors DB columns; lazy fields can throw during serialization.\n" +
+        "// Prefer mapping to a UserDto in the service layer.\n" +
+        "//\n" +
+        "// SMELL: 'fat controller' doing DB calls and rules - untestable, duplicated.\n" +
+        "// Keep controllers thin; business logic lives in @Service."
     }
   ],
   whenToUse: "<p>Use this layered structure as the default for Spring Boot apps &mdash; it's universally " +
@@ -222,6 +311,29 @@ C["dependency-injection"] = {
         "    service.notifyUser(user);\n" +
         "    verify(email).send(any());\n" +
         "}"
+    },
+    {
+      title: "Example 3: constructor injection (the recommended form)",
+      description: "<p>A single constructor needs no <code>@Autowired</code>; fields can be <code>final</code> and the class is trivially testable.</p>",
+      code: "@Service\n" +
+        "class CheckoutService {\n" +
+        "  private final PaymentGateway gateway;\n" +
+        "  private final OrderRepository orders;\n" +
+        "  CheckoutService(PaymentGateway gateway, OrderRepository orders) { // auto-wired\n" +
+        "    this.gateway = gateway; this.orders = orders;\n" +
+        "  }\n" +
+        "}\n" +
+        "// In a unit test: new CheckoutService(mockGateway, mockOrders) - no Spring."
+    },
+    {
+      title: "Example 4 (edge case): field injection and circular dependencies",
+      description: "<p>Field injection (<code>@Autowired</code> on a field) hides dependencies and can't be final; and two beans depending on each other via constructors fails at startup.</p>",
+      code: "@Autowired private OrderRepository repo; // discouraged: not final, hard to test\n" +
+        "\n" +
+        "// Circular: A's constructor needs B, B's needs A ->\n" +
+        "//   BeanCurrentlyInCreationException at startup.\n" +
+        "// Real fix: extract the shared logic into a third bean. Band-aids: @Lazy on\n" +
+        "// one dependency, or setter injection - but the cycle is usually a design smell."
     }
   ],
   whenToUse: "<p>DI is fundamental &mdash; you use it for virtually every Spring bean that needs a collaborator. " +
@@ -264,6 +376,26 @@ C["spring-ioc"] = {
         "\n" +
         "// WITH IoC: declare beans; Spring creates & injects them for you\n" +
         "// (control is 'inverted' from your code to the framework)"
+    },
+    {
+      title: "Example 3: inversion of control vs the traditional flow",
+      description: "<p>Instead of your code creating its dependencies, the container creates them and hands them in - 'don't call us, we'll call you'.</p>",
+      code: "// Traditional control: the class decides what it depends on\n" +
+        "class Service { private final Repo repo = new JdbcRepo(); } // hard-coded\n" +
+        "\n" +
+        "// Inverted control: the container supplies it\n" +
+        "@Service class Service2 { Service2(Repo repo) {} } // Spring chooses & injects\n" +
+        "// Now you can swap Repo implementations (test/prod) without touching Service2."
+    },
+    {
+      title: "Example 4 (edge case): multiple candidates need @Qualifier or @Primary",
+      description: "<p>If two beans satisfy a dependency, the container can't choose and startup fails unless you disambiguate.</p>",
+      code: "@Service class StripeGateway implements PaymentGateway {}\n" +
+        "@Service class PaypalGateway implements PaymentGateway {}\n" +
+        "\n" +
+        "// Injecting PaymentGateway -> NoUniqueBeanDefinitionException.\n" +
+        "// Fix with @Primary on one, or @Qualifier at the injection point:\n" +
+        "Checkout(@Qualifier(\"stripeGateway\") PaymentGateway gw) {}"
     }
   ],
   whenToUse: "<p>IoC is always on in a Spring app &mdash; it's the foundation, not an optional feature. The " +
@@ -310,6 +442,30 @@ C["spring-aop"] = {
         "    public Report build(Long id) { /* expensive work */ }\n" +
         "}\n" +
         "// You didn't write proxy code - Spring's AOP infrastructure does it."
+    },
+    {
+      title: "Example 3: an @Around aspect for timing",
+      description: "<p>An aspect wraps matched methods to add behavior (logging, metrics) without touching their code.</p>",
+      code: "@Aspect @Component\n" +
+        "class TimingAspect {\n" +
+        "  @Around(\"@annotation(Timed)\")        // every method annotated @Timed\n" +
+        "  Object time(ProceedingJoinPoint pjp) throws Throwable {\n" +
+        "    long t = System.nanoTime();\n" +
+        "    try { return pjp.proceed(); }\n" +
+        "    finally { log.info(\"{} took {}ns\", pjp.getSignature(), System.nanoTime()-t); }\n" +
+        "  }\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): self-invocation bypasses the proxy",
+      description: "<p>Spring AOP works via proxies, so a method calling another annotated method on <code>this</code> skips the aspect entirely - a notorious <code>@Transactional</code>/<code>@Cacheable</code> bug.</p>",
+      code: "@Service class Svc {\n" +
+        "  public void outer() { inner(); }       // internal call -> NO proxy\n" +
+        "  @Transactional public void inner() {}   // transaction NOT started here!\n" +
+        "}\n" +
+        "// 'inner()' runs without a transaction because the call didn't go through the\n" +
+        "// proxy. Fixes: call via an injected self-reference, split into two beans, or\n" +
+        "// move the annotation to the entry method 'outer'."
     }
   ],
   whenToUse: "<p>Use AOP for genuine cross-cutting concerns that would otherwise be duplicated everywhere: " +
@@ -353,6 +509,26 @@ C["spring-bean-scope"] = {
         "@Component\n" +
         "@Scope(value = \"request\", proxyMode = TARGET_CLASS) // one per HTTP request\n" +
         "class RequestContext { /* holds data for the current request only */ }"
+    },
+    {
+      title: "Example 3: prototype and web scopes",
+      description: "<p>Beyond singleton: <code>prototype</code> creates a new instance per injection; <code>request</code>/<code>session</code> tie lifetime to the web request/session.</p>",
+      code: "@Component @Scope(\"prototype\")          // new instance every time it's requested\n" +
+        "class TaskContext {}\n" +
+        "\n" +
+        "@Component @Scope(value = \"request\", proxyMode = ScopedProxyMode.TARGET_CLASS)\n" +
+        "class RequestAudit {}                   // one per HTTP request"
+    },
+    {
+      title: "Example 4 (edge case): a shorter-lived bean inside a singleton",
+      description: "<p>Injecting a prototype/request bean into a singleton captures ONE instance forever unless you use a scoped proxy or a provider.</p>",
+      code: "@Service class Singleton {\n" +
+        "  @Autowired TaskContext ctx; // prototype, but injected ONCE -> not 'fresh'\n" +
+        "  @Autowired ObjectProvider<TaskContext> provider; // resolve per use instead\n" +
+        "  void handle() { TaskContext fresh = provider.getObject(); }\n" +
+        "}\n" +
+        "// Without the provider/scoped-proxy, 'ctx' is the same object on every call -\n" +
+        "// silently defeating the prototype/request scope."
     }
   ],
   whenToUse: "<p>Stick with the default <strong>singleton</strong> for the vast majority of beans &mdash; " +
@@ -398,6 +574,27 @@ C["annotations"] = {
         "    @Value(\"${app.timeout:30}\")      // inject a property (default 30)\n" +
         "    private int timeout;\n" +
         "}"
+    },
+    {
+      title: "Example 3: the stereotype and mapping annotations you'll use daily",
+      description: "<p>Stereotypes mark beans; mapping annotations bind HTTP; <code>@Value</code>/<code>@ConfigurationProperties</code> inject config.</p>",
+      code: "@RestController                         // = @Controller + @ResponseBody\n" +
+        "class Api {\n" +
+        "  @Value(\"${app.greeting}\") String greeting; // inject a property\n" +
+        "  @GetMapping(\"/hi/{name}\")\n" +
+        "  String hi(@PathVariable String name, @RequestParam(defaultValue=\"en\") String lang) {\n" +
+        "    return greeting + name;\n" +
+        "  }\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): meta-annotations and proxy-only behavior",
+      description: "<p>Many annotations are composed of others, and behavioral ones (<code>@Transactional</code>, <code>@Async</code>) only work through Spring's proxy - they do nothing on private or self-invoked methods.</p>",
+      code: "// @RestController is itself annotated with @Controller + @ResponseBody (meta).\n" +
+        "\n" +
+        "@Async private void send() {} // NO effect: @Async needs a public, proxied call\n" +
+        "// Behavioral annotations require: public method + call from another bean +\n" +
+        "// the feature enabled (@EnableAsync / @EnableTransactionManagement)."
     }
   ],
   whenToUse: "<p>You'll use annotations constantly &mdash; they're the primary way you tell Spring what to do. " +
@@ -446,6 +643,27 @@ C["configuration"] = {
         "}\n" +
         "// application-prod.yml would point at the real database instead.\n" +
         "// Activate with: --spring.profiles.active=prod"
+    },
+    {
+      title: "Example 3: profiles and type-safe configuration properties",
+      description: "<p>Profiles swap config per environment; <code>@ConfigurationProperties</code> binds a group of keys to a typed object.</p>",
+      code: "# application-prod.yml (active when spring.profiles.active=prod)\n" +
+        "app:\n" +
+        "  retries: 5\n" +
+        "  base-url: https://api.prod.example.com\n" +
+        "\n" +
+        "@ConfigurationProperties(prefix = \"app\")\n" +
+        "record AppProps(int retries, String baseUrl) {} // typed, validated, autocompletes"
+    },
+    {
+      title: "Example 4 (edge case): property precedence and secrets",
+      description: "<p>Later sources override earlier ones (command-line &gt; env var &gt; profile file &gt; default), which surprises people; and secrets must not live in committed property files.</p>",
+      code: "# This env var / CLI arg overrides application.yml at runtime:\n" +
+        "java -jar app.jar --server.port=9000\n" +
+        "SERVER_PORT=9000 java -jar app.jar      # relaxed binding: SERVER_PORT -> server.port\n" +
+        "\n" +
+        "# DON'T commit secrets to application.yml. Inject via env vars or a secrets\n" +
+        "# manager (Vault, AWS Secrets Manager) - committed credentials are a breach waiting."
     }
   ],
   whenToUse: "<p>Use <strong>externalized properties</strong> for anything that varies by environment " +
@@ -492,6 +710,29 @@ C["spring-mvc-intro"] = {
         "// 3. It finds the matching @GetMapping/@PostMapping handler\n" +
         "// 4. Controller method runs, calls services\n" +
         "// 5. Return value is serialized (JSON) or rendered (view) back to client"
+    },
+    {
+      title: "Example 3: request binding, validation, and status",
+      description: "<p>Controllers bind path/query/body, validate with <code>@Valid</code>, and control the HTTP status.</p>",
+      code: "@PostMapping(\"/users\")\n" +
+        "@ResponseStatus(HttpStatus.CREATED)\n" +
+        "UserDto create(@Valid @RequestBody CreateUser req) {\n" +
+        "  return service.create(req);\n" +
+        "}\n" +
+        "record CreateUser(@NotBlank String name, @Email String email) {} // bean validation"
+    },
+    {
+      title: "Example 4 (edge case): centralize error handling with @ControllerAdvice",
+      description: "<p>Without a global handler, validation/exception responses are inconsistent; <code>@RestControllerAdvice</code> maps exceptions to clean responses in one place.</p>",
+      code: "@RestControllerAdvice\n" +
+        "class ApiErrors {\n" +
+        "  @ExceptionHandler(MethodArgumentNotValidException.class)\n" +
+        "  @ResponseStatus(HttpStatus.BAD_REQUEST)\n" +
+        "  ErrorResponse onInvalid(MethodArgumentNotValidException e) {\n" +
+        "    return new ErrorResponse(\"validation\", e.getMessage());\n" +
+        "  }\n" +
+        "}\n" +
+        "// Avoids leaking stack traces and gives every endpoint a uniform error shape."
     }
   ],
   whenToUse: "<p>Spring MVC is the default choice for building web endpoints and REST APIs in Spring Boot &mdash; " +
@@ -542,6 +783,29 @@ C["spring-security"] = {
         "//             |  authorize  (allowed?) |\n" +
         "// If authentication fails -> 401 Unauthorized\n" +
         "// If authorization fails  -> 403 Forbidden  (controller never runs)"
+    },
+    {
+      title: "Example 3: a modern SecurityFilterChain",
+      description: "<p>Configure access rules with the lambda DSL - the current style replacing the old <code>WebSecurityConfigurerAdapter</code>.</p>",
+      code: "@Bean\n" +
+        "SecurityFilterChain chain(HttpSecurity http) throws Exception {\n" +
+        "  return http\n" +
+        "    .authorizeHttpRequests(a -> a\n" +
+        "        .requestMatchers(\"/public/**\").permitAll()\n" +
+        "        .requestMatchers(\"/admin/**\").hasRole(\"ADMIN\")\n" +
+        "        .anyRequest().authenticated())\n" +
+        "    .httpBasic(Customizer.withDefaults())\n" +
+        "    .build();\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): CSRF and stateless APIs",
+      description: "<p>CSRF protection is on by default and right for session/cookie apps, but for a stateless token API it blocks POSTs - disable it deliberately, not blindly.</p>",
+      code: "// Token-based REST API (no cookies/session): disable CSRF + go stateless\n" +
+        "http.csrf(csrf -> csrf.disable())\n" +
+        "    .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS));\n" +
+        "// For a browser app using session cookies, KEEP CSRF on - disabling it there\n" +
+        "// reopens the very attack it prevents."
     }
   ],
   whenToUse: "<p>Use Spring Security on any application that has logins, protected resources, or different " +
@@ -587,6 +851,27 @@ C["authentication"] = {
         "    return \"Logged in as: \" + auth.getName();\n" +
         "}\n" +
         "// Or: SecurityContextHolder.getContext().getAuthentication()"
+    },
+    {
+      title: "Example 3: a UserDetailsService backed by your database",
+      description: "<p>Spring Security delegates user lookup to a <code>UserDetailsService</code>; pair it with a password encoder.</p>",
+      code: "@Bean UserDetailsService users(UserRepository repo) {\n" +
+        "  return username -> repo.findByUsername(username)\n" +
+        "      .map(u -> User.withUsername(u.username())\n" +
+        "          .password(u.passwordHash()).roles(u.role()).build())\n" +
+        "      .orElseThrow(() -> new UsernameNotFoundException(username));\n" +
+        "}\n" +
+        "@Bean PasswordEncoder encoder() { return new BCryptPasswordEncoder(); }"
+    },
+    {
+      title: "Example 4 (edge case): never store plaintext; avoid username enumeration",
+      description: "<p>Passwords must be hashed with a slow algorithm, and login errors should not reveal whether a username exists.</p>",
+      code: "// WRONG: storing or comparing raw passwords\n" +
+        "if (input.equals(user.password())) {} // plaintext - a breach exposes everything\n" +
+        "\n" +
+        "// RIGHT: encoder.matches(raw, storedHash) with BCrypt/Argon2.\n" +
+        "// Also return the SAME generic 'bad credentials' message for unknown user vs\n" +
+        "// wrong password, so attackers can't enumerate valid usernames."
     }
   ],
   whenToUse: "<p>You need authentication whenever your app has the concept of a 'logged-in user' or protected " +
@@ -633,6 +918,28 @@ C["authorization"] = {
         "// Fine-grained: permission/authority-based\n" +
         "//   .requestMatchers(\"/orders/**\").hasAuthority(\"order:read\")\n" +
         "// Fine-grained authorities scale better as permissions multiply."
+    },
+    {
+      title: "Example 3: method-level security with @PreAuthorize",
+      description: "<p>Annotate service/controller methods for fine-grained, expression-based access control.</p>",
+      code: "@EnableMethodSecurity   // turn it on\n" +
+        "@Service class AccountService {\n" +
+        "  @PreAuthorize(\"hasRole('ADMIN')\")\n" +
+        "  void closeAny(long id) {}\n" +
+        "\n" +
+        "  @PreAuthorize(\"#ownerId == authentication.name\") // owner-only\n" +
+        "  void closeOwn(String ownerId) {}\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): roles vs authorities, and ordering of rules",
+      description: "<p><code>hasRole('ADMIN')</code> implicitly checks the authority <code>ROLE_ADMIN</code>; and request matchers are evaluated top-down, so the most specific rule must come first.</p>",
+      code: "// hasRole('ADMIN') == hasAuthority('ROLE_ADMIN') - don't add the prefix twice.\n" +
+        "\n" +
+        "// Order matters - anyRequest() last:\n" +
+        "a.requestMatchers(\"/admin/**\").hasRole(\"ADMIN\")\n" +
+        " .requestMatchers(\"/**\").permitAll()      // if this were FIRST, /admin would be open\n" +
+        " .anyRequest().authenticated();"
     }
   ],
   whenToUse: "<p>Apply authorization whenever different users should have different access &mdash; admin vs " +
@@ -683,6 +990,31 @@ C["oauth2"] = {
         "        .oauth2ResourceServer(o -> o.jwt(withDefaults())); // validate the token\n" +
         "    return http.build();\n" +
         "}"
+    },
+    {
+      title: "Example 3: login via an external provider (OAuth2 client)",
+      description: "<p>With the oauth2-client starter, a few properties enable 'Log in with Google/GitHub'.</p>",
+      code: "# application.yml\n" +
+        "spring:\n" +
+        "  security:\n" +
+        "    oauth2:\n" +
+        "      client:\n" +
+        "        registration:\n" +
+        "          google:\n" +
+        "            client-id: ${GOOGLE_CLIENT_ID}\n" +
+        "            client-secret: ${GOOGLE_CLIENT_SECRET}\n" +
+        "            scope: openid,profile,email\n" +
+        "// Then: http.oauth2Login(Customizer.withDefaults());"
+    },
+    {
+      title: "Example 4 (edge case): resource server validates tokens, doesn't issue them",
+      description: "<p>A common confusion: OAuth2 has distinct roles. An API usually acts as a <em>resource server</em> verifying tokens, not as the authorization server.</p>",
+      code: "# Resource server just needs the issuer to validate incoming JWTs:\n" +
+        "spring.security.oauth2.resourceserver.jwt.issuer-uri: https://accounts.google.com\n" +
+        "// http.oauth2ResourceServer(o -> o.jwt(Customizer.withDefaults()));\n" +
+        "//\n" +
+        "// Don't build your own authorization server unless you must - use a managed\n" +
+        "// IdP (Auth0, Keycloak, Okta). Implementing OAuth2 flows yourself is error-prone."
     }
   ],
   whenToUse: "<p>Use OAuth2 when you want users to log in via an external identity provider (social/enterprise " +
@@ -730,6 +1062,25 @@ C["jwt-authentication"] = {
         "        .oauth2ResourceServer(o -> o.jwt(withDefaults()));\n" +
         "    return http.build();\n" +
         "}"
+    },
+    {
+      title: "Example 3: the structure of a JWT",
+      description: "<p>A JWT is three base64url parts - header.payload.signature - carrying claims the server verifies with a signature.</p>",
+      code: "// header.payload.signature\n" +
+        "// payload (decoded) - readable, NOT secret:\n" +
+        "{ \"sub\": \"user-123\", \"role\": \"ADMIN\", \"exp\": 1718500000 }\n" +
+        "// The signature (HMAC or RSA) is what proves the token wasn't tampered with.\n" +
+        "// Server validates signature + exp on each request; no session storage needed."
+    },
+    {
+      title: "Example 4 (edge case): JWTs can't be easily revoked - and the payload is readable",
+      description: "<p>The trade-off of statelessness: a leaked token is valid until it expires, and anyone can read (not forge) the claims.</p>",
+      code: "// DON'T put secrets in the payload - it's base64, not encrypted:\n" +
+        "{ \"ssn\": \"123-45-6789\" } // readable by anyone holding the token!\n" +
+        "\n" +
+        "// Revocation: a logged-out/compromised token still works until 'exp'. Mitigate\n" +
+        "// with short lifetimes + refresh tokens, or a server-side denylist (which\n" +
+        "// reintroduces state). Always verify 'exp' and the signature algorithm (reject 'none')."
     }
   ],
   whenToUse: "<p>Use JWTs for <strong>stateless APIs</strong> &mdash; REST backends serving SPAs, mobile apps, " +
@@ -777,6 +1128,29 @@ C["spring-boot-starters"] = {
         "// spring-boot-starter-test         -> JUnit, Mockito, AssertJ, Spring Test\n" +
         "// spring-boot-starter-actuator     -> production endpoints (health, metrics)\n" +
         "// spring-boot-starter-validation   -> Bean Validation (jakarta.validation)"
+    },
+    {
+      title: "Example 3: common starters and what they bundle",
+      description: "<p>Each starter is a curated, version-aligned bundle so you don't pick individual library versions.</p>",
+      code: "<!-- web: Spring MVC + embedded Tomcat + Jackson -->\n" +
+        "spring-boot-starter-web\n" +
+        "<!-- data-jpa: Hibernate + Spring Data JPA + a connection pool -->\n" +
+        "spring-boot-starter-data-jpa\n" +
+        "<!-- test: JUnit 5 + Mockito + AssertJ + Spring test support -->\n" +
+        "spring-boot-starter-test\n" +
+        "<!-- The parent BOM aligns all transitive versions to avoid conflicts. -->"
+    },
+    {
+      title: "Example 4 (edge case): swapping the embedded server, and starter bloat",
+      description: "<p>Starters bring opinionated transitive deps; you can exclude one (e.g. swap Tomcat for Undertow) but should also avoid pulling in starters you don't need.</p>",
+      code: "<dependency>\n" +
+        "  <artifactId>spring-boot-starter-web</artifactId>\n" +
+        "  <exclusions>\n" +
+        "    <exclusion><artifactId>spring-boot-starter-tomcat</artifactId></exclusion>\n" +
+        "  </exclusions>\n" +
+        "</dependency>\n" +
+        "<dependency><artifactId>spring-boot-starter-undertow</artifactId></dependency>\n" +
+        "<!-- Each starter adds to startup time/footprint - add deliberately. -->"
     }
   ],
   whenToUse: "<p>Use starters as your default way to add functionality &mdash; prefer the relevant " +
@@ -821,6 +1195,25 @@ C["autoconfiguration"] = {
         "//   run with --debug, or hit the actuator 'conditions' endpoint\n" +
         "// Disable a specific one:\n" +
         "//   @SpringBootApplication(exclude = DataSourceAutoConfiguration.class)"
+    },
+    {
+      title: "Example 3: conditional configuration and overriding a default",
+      description: "<p>Auto-config is driven by <code>@Conditional</code> checks; defining your own bean usually backs off the default.</p>",
+      code: "// Boot auto-configures a DataSource only if one isn't already defined:\n" +
+        "//   @ConditionalOnMissingBean(DataSource.class)\n" +
+        "// So providing your own wins:\n" +
+        "@Bean DataSource dataSource() { return myCustomPool(); } // overrides the default"
+    },
+    {
+      title: "Example 4 (edge case): debugging and disabling auto-config",
+      description: "<p>When a default misbehaves, use the condition report to see what ran, and exclude specific auto-configurations.</p>",
+      code: "# See which auto-configs matched and why:\n" +
+        "java -jar app.jar --debug   # prints the CONDITIONS EVALUATION REPORT\n" +
+        "\n" +
+        "// Turn one off explicitly:\n" +
+        "@SpringBootApplication(exclude = DataSourceAutoConfiguration.class)\n" +
+        "// e.g. a stray DB driver on the classpath makes Boot try to configure a\n" +
+        "// datasource and fail at startup - excluding it (or setting the URL) fixes it."
     }
   ],
   whenToUse: "<p>Auto-configuration is always working for you &mdash; the skill is understanding and steering " +
@@ -869,6 +1262,30 @@ C["actuators"] = {
         "    }\n" +
         "}\n" +
         "// Now /actuator/health reflects the payment gateway's status too."
+    },
+    {
+      title: "Example 3: health, info, and a custom health indicator",
+      description: "<p>Actuator exposes operational endpoints; you can add domain-specific health checks.</p>",
+      code: "# expose selected endpoints\n" +
+        "management.endpoints.web.exposure.include=health,info,metrics,prometheus\n" +
+        "\n" +
+        "@Component\n" +
+        "class QueueHealth implements HealthIndicator {\n" +
+        "  public Health health() {\n" +
+        "    return queue.isUp() ? Health.up().build()\n" +
+        "                        : Health.down().withDetail(\"queue\",\"unreachable\").build();\n" +
+        "  }\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): don't expose everything publicly",
+      description: "<p>Endpoints like <code>/env</code>, <code>/heapdump</code>, and <code>/loggers</code> leak secrets or allow runtime changes - they must be secured or not exposed.</p>",
+      code: "# DANGEROUS in prod if reachable unauthenticated:\n" +
+        "management.endpoints.web.exposure.include=*   # exposes env, heapdump, etc.\n" +
+        "\n" +
+        "# Safer: expose a minimal set and secure the rest behind auth / a separate port:\n" +
+        "management.server.port=9001            # admin port, not public\n" +
+        "# /env can reveal DB passwords; /heapdump can dump in-memory secrets."
     }
   ],
   whenToUse: "<p>Add Actuator to essentially every service you deploy &mdash; the <code>/health</code> endpoint " +
@@ -912,6 +1329,23 @@ C["embedded-server"] = {
         "\n" +
         "<!-- To use Undertow instead of Tomcat: exclude Tomcat, add the Undertow starter -->\n" +
         "<!-- spring-boot-starter-web excludes tomcat; add spring-boot-starter-undertow -->"
+    },
+    {
+      title: "Example 3: tuning the embedded server via properties",
+      description: "<p>Port, thread pool, and timeouts are all configured with simple properties - no external server tuning.</p>",
+      code: "server.port=8443\n" +
+        "server.tomcat.threads.max=200          # request worker threads\n" +
+        "server.tomcat.connection-timeout=20s\n" +
+        "server.ssl.key-store=classpath:keystore.p12  # HTTPS, no external config\n" +
+        "# The server is just a dependency now - 'java -jar app.jar' and it's running."
+    },
+    {
+      title: "Example 4 (edge case): thread-pool exhaustion under load",
+      description: "<p>The default servlet model is thread-per-request; slow downstream calls can saturate the pool and stall the whole service.</p>",
+      code: "// 200 threads, each blocked 5s on a slow API = ~40 req/s ceiling, then queueing.\n" +
+        "// Mitigations: set timeouts on all outbound calls, add a circuit breaker,\n" +
+        "// raise server.tomcat.threads.max judiciously, or switch I/O-bound endpoints\n" +
+        "// to WebFlux / virtual threads (spring.threads.virtual.enabled=true, Boot 3.2+)."
     }
   ],
   whenToUse: "<p>The embedded server is the default and recommended model for modern Spring Boot apps, " +
@@ -963,6 +1397,27 @@ C["hibernate"] = {
         "    p.setName(newName);   // no explicit save() needed!\n" +
         "    // Hibernate detects the change and issues UPDATE at transaction commit\n" +
         "}"
+    },
+    {
+      title: "Example 3: ddl-auto and schema management",
+      description: "<p>Boot can auto-create/update schema from entities - convenient in dev, dangerous in prod.</p>",
+      code: "# DEV ONLY: regenerate schema from entities\n" +
+        "spring.jpa.hibernate.ddl-auto=update\n" +
+        "\n" +
+        "# PROD: manage schema with migrations (Flyway/Liquibase), validate only\n" +
+        "spring.jpa.hibernate.ddl-auto=validate\n" +
+        "# 'update' never drops columns and can drift; 'create' WIPES data on restart."
+    },
+    {
+      title: "Example 4 (edge case): the N+1 problem in Spring Boot",
+      description: "<p>The classic Hibernate trap shows up constantly with lazy associations - watch the SQL logs and use fetch joins or entity graphs.</p>",
+      code: "# Reveal the query count while developing:\n" +
+        "spring.jpa.show-sql=true\n" +
+        "logging.level.org.hibernate.SQL=DEBUG\n" +
+        "\n" +
+        "// Fix N+1 with a fetch join in the repository:\n" +
+        "@Query(\"select o from Order o join fetch o.items where o.id = :id\")\n" +
+        "Optional<Order> findWithItems(@Param(\"id\") Long id);"
     }
   ],
   whenToUse: "<p>Use Hibernate/JPA for the bulk of standard CRUD persistence in a Spring Boot app &mdash; it " +
@@ -1005,6 +1460,24 @@ C["entity-lifecycle"] = {
         "    @PrePersist void onCreate() { createdAt = Instant.now(); } // before INSERT\n" +
         "    @PreUpdate  void onUpdate() { /* e.g. set updatedAt */ }   // before UPDATE\n" +
         "}"
+    },
+    {
+      title: "Example 3: transient → managed → detached in action",
+      description: "<p>An entity's state determines whether changes are tracked and flushed.</p>",
+      code: "User u = new User(\"Sam\");        // TRANSIENT - not tracked\n" +
+        "em.persist(u);                   // MANAGED - now tracked\n" +
+        "u.setName(\"Samuel\");             // dirty-checked: UPDATE auto-flushed at commit\n" +
+        "em.detach(u);                    // DETACHED - further changes NOT tracked\n" +
+        "u.setName(\"Sammy\");              // ignored until re-attached via merge()"
+    },
+    {
+      title: "Example 4 (edge case): LazyInitializationException on a detached entity",
+      description: "<p>Accessing a lazy association after the persistence context closes (e.g. in the view layer) throws - the entity is detached.</p>",
+      code: "Order o = service.find(id);      // tx ends -> 'o' is DETACHED\n" +
+        "o.getItems().size();             // LazyInitializationException: no session\n" +
+        "\n" +
+        "// Fixes: fetch the association inside the transaction (join fetch / @EntityGraph),\n" +
+        "// or map to a DTO before returning. Avoid open-session-in-view as a crutch."
     }
   ],
   whenToUse: "<p>You don't 'use' lifecycle states directly &mdash; understanding them is what lets you predict " +
@@ -1052,6 +1525,27 @@ C["relationships"] = {
         "// FIX: fetch the association up front in a single query\n" +
         "@Query(\"SELECT o FROM Order o JOIN FETCH o.items\")\n" +
         "List<Order> findAllWithItems();"
+    },
+    {
+      title: "Example 3: a bidirectional @OneToMany with the owning side",
+      description: "<p>The <code>@ManyToOne</code> side owns the foreign key; <code>mappedBy</code> marks the inverse side.</p>",
+      code: "@Entity class Order {\n" +
+        "  @OneToMany(mappedBy = \"order\", cascade = CascadeType.ALL, orphanRemoval = true)\n" +
+        "  List<Item> items = new ArrayList<>();\n" +
+        "}\n" +
+        "@Entity class Item {\n" +
+        "  @ManyToOne @JoinColumn(name = \"order_id\") Order order; // owning side (the FK)\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): infinite-loop serialization and eager fetch storms",
+      description: "<p>Bidirectional relationships cause JSON infinite recursion, and <code>@ManyToOne</code> defaults to EAGER, quietly loading huge graphs.</p>",
+      code: "// Serializing Order -> Item -> Order -> ... = StackOverflowError.\n" +
+        "// Fix: @JsonManagedReference/@JsonBackReference, or map to DTOs (best).\n" +
+        "\n" +
+        "@ManyToOne(fetch = FetchType.LAZY) // @ManyToOne is EAGER by default - override it\n" +
+        "Customer customer;\n" +
+        "// Eager associations on every load can pull in far more than you need."
     }
   ],
   whenToUse: "<p>Map relationships whenever your domain has connected entities &mdash; orders/items, users/" +
@@ -1096,6 +1590,28 @@ C["transactions"] = {
         "// By default Spring rolls back on RuntimeException but NOT checked exceptions.\n" +
         "@Transactional(rollbackFor = IOException.class)  // also roll back on this\n" +
         "public void importData() throws IOException { /* ... */ }"
+    },
+    {
+      title: "Example 3: @Transactional rollback rules",
+      description: "<p>By default Spring rolls back on unchecked exceptions only - checked exceptions commit unless you say otherwise.</p>",
+      code: "@Transactional\n" +
+        "void transfer(Account from, Account to, int amt) {\n" +
+        "  debit(from, amt);\n" +
+        "  credit(to, amt);   // if this throws RuntimeException -> BOTH roll back\n" +
+        "}\n" +
+        "\n" +
+        "@Transactional(rollbackFor = Exception.class) // also roll back on checked\n" +
+        "void importFile() throws IOException {}"
+    },
+    {
+      title: "Example 4 (edge case): self-invocation and checked-exception surprise",
+      description: "<p>Two classic bugs: a checked exception commits by default, and calling a <code>@Transactional</code> method from within the same bean bypasses the proxy so no transaction starts.</p>",
+      code: "@Transactional void save() throws IOException { ...throw new IOException(); }\n" +
+        "// COMMITS despite the exception (checked) - use rollbackFor = Exception.class.\n" +
+        "\n" +
+        "void outer() { this.inner(); }            // internal call\n" +
+        "@Transactional void inner() {}            // NOT transactional - proxy bypassed\n" +
+        "// Move @Transactional to the entry method, or call via an injected self-proxy."
     }
   ],
   whenToUse: "<p>Wrap any operation that performs multiple related writes (or a write that must be all-or-" +
@@ -1147,6 +1663,23 @@ C["spring-data"] = {
         "    // Or use Pageable for pagination + sorting out of the box\n" +
         "    Page<Order> findByCustomerId(Long customerId, Pageable pageable);\n" +
         "}"
+    },
+    {
+      title: "Example 3: one interface, full CRUD for free",
+      description: "<p>Extending a repository interface gives save/find/delete/paging without any implementation.</p>",
+      code: "interface ProductRepository extends JpaRepository<Product, Long> {}\n" +
+        "// Instantly available: save, findById, findAll(Pageable), deleteById, count...\n" +
+        "// Spring generates the implementation at runtime - you write zero SQL/boilerplate.\n" +
+        "// The same programming model works across JPA, Mongo, Redis, etc."
+    },
+    {
+      title: "Example 4 (edge case): the abstraction is leaky across stores",
+      description: "<p>Derived-query names and capabilities differ by backend; code that 'just works' on JPA may behave differently (or be unsupported) on Mongo/JDBC.</p>",
+      code: "// e.g. JPA supports rich @Query (JPQL); Mongo uses @Query with JSON;\n" +
+        "// Spring Data JDBC doesn't do lazy loading or dirty checking at all.\n" +
+        "// Don't assume a repository method ports unchanged between modules - the\n" +
+        "// common interface hides real semantic differences in transactions, fetching,\n" +
+        "// and query language."
     }
   ],
   whenToUse: "<p>Use Spring Data for virtually all standard data access in a Spring Boot app &mdash; it removes " +
@@ -1190,6 +1723,25 @@ C["spring-data-jpa"] = {
         "if (maxPrice != null) spec = spec.and((root, q, cb) ->\n" +
         "    cb.lessThan(root.get(\"price\"), maxPrice));\n" +
         "List<Product> results = repo.findAll(spec); // needs JpaSpecificationExecutor"
+    },
+    {
+      title: "Example 3: projections to avoid loading whole entities",
+      description: "<p>Interface or DTO projections fetch only the columns you need - faster and avoids lazy-loading traps.</p>",
+      code: "interface NameOnly { String getName(); String getEmail(); } // closed projection\n" +
+        "List<NameOnly> findByActiveTrue();\n" +
+        "\n" +
+        "// DTO projection via constructor expression:\n" +
+        "@Query(\"select new com.app.UserCard(u.id, u.name) from User u\")\n" +
+        "List<UserCard> cards();"
+    },
+    {
+      title: "Example 4 (edge case): modifying queries and the read-only default",
+      description: "<p>A bulk <code>@Modifying</code> query bypasses the persistence context (stale entities) and needs a transaction; ordinary repository methods are read-only by default.</p>",
+      code: "@Modifying @Transactional\n" +
+        "@Query(\"update User u set u.active = false where u.lastLogin < :cutoff\")\n" +
+        "int deactivateStale(@Param(\"cutoff\") LocalDate cutoff);\n" +
+        "// Bulk update runs straight in SQL - already-loaded User entities won't reflect it\n" +
+        "// until refreshed. Without @Transactional you'd get TransactionRequiredException."
     }
   ],
   whenToUse: "<p>Spring Data JPA is the go-to for applications backed by a relational database (Postgres, " +
@@ -1233,6 +1785,26 @@ C["spring-data-mongodb"] = {
         "        .with(Sort.by(\"name\")).limit(20);\n" +
         "List<Product> results = mongoTemplate.find(query, Product.class);\n" +
         "// MongoTemplate also exposes the aggregation pipeline for grouping/analytics."
+    },
+    {
+      title: "Example 3: a document entity and repository",
+      description: "<p>Documents map to collections; nested objects/arrays live inside the document rather than in join tables.</p>",
+      code: "@Document(collection = \"orders\")\n" +
+        "record Order(@Id String id, String customer, List<Item> items) {} // items embedded\n" +
+        "\n" +
+        "interface OrderRepo extends MongoRepository<Order, String> {\n" +
+        "  List<Order> findByCustomer(String customer);\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): no joins, weaker transactional guarantees",
+      description: "<p>Document modeling means duplicating/embedding data; cross-document transactions are limited and schema flexibility can hide data drift.</p>",
+      code: "// There are no JOINs - either embed related data (duplication) or do multiple\n" +
+        "// round-trips / $lookup. Embedded copies can go stale if the source changes.\n" +
+        "//\n" +
+        "// Multi-document ACID transactions require a replica set and are costlier than\n" +
+        "// in SQL. And schema-less means a typo'd field is silently a NEW field, not an\n" +
+        "// error - validate at the application layer."
     }
   ],
   whenToUse: "<p>Choose MongoDB (and this module) when your data is document-shaped, schema-flexible, or rapidly " +
@@ -1281,6 +1853,26 @@ C["spring-data-jdbc"] = {
         "    repo.save(c);    // REQUIRED: JDBC won't auto-detect the change like JPA does\n" +
         "}\n" +
         "// What you see is what runs - no hidden flush, no lazy proxies."
+    },
+    {
+      title: "Example 3: simpler model, no lazy loading or dirty checking",
+      description: "<p>Spring Data JDBC loads a full aggregate eagerly and has no proxy magic - what you query is what you get.</p>",
+      code: "@Table(\"orders\")\n" +
+        "record Order(@Id Long id, String customer, Set<Item> items) {} // aggregate root\n" +
+        "\n" +
+        "interface OrderRepo extends CrudRepository<Order, Long> {}\n" +
+        "// Loading an Order loads its items immediately; there's no detached/lazy state,\n" +
+        "// so no LazyInitializationException and far easier mental model than JPA."
+    },
+    {
+      title: "Example 4 (edge case): you give up JPA conveniences",
+      description: "<p>No lazy loading means large aggregates load fully; there's no dirty checking (you must call save), and fewer mapping features than Hibernate.</p>",
+      code: "var o = repo.findById(1L).get();\n" +
+        "o.items().add(newItem);\n" +
+        "// NOT auto-persisted - no dirty checking. You must:\n" +
+        "repo.save(o);\n" +
+        "// Also: a huge aggregate is always loaded whole. Great for DDD aggregates,\n" +
+        "// awkward for sprawling object graphs where JPA's laziness would help."
     }
   ],
   whenToUse: "<p>Choose Spring Data JDBC when you want relational persistence that's <strong>simple and " +
@@ -1327,6 +1919,26 @@ C["microservices"] = {
         "    public static void main(String[] a) { SpringApplication.run(OrderServiceApp.class, a); }\n" +
         "}\n" +
         "// Other services now call 'order-service' by name, not a hard-coded URL."
+    },
+    {
+      title: "Example 3: services own their data and talk over the network",
+      description: "<p>Each service is independently deployable with its own database; they communicate via HTTP/messaging, not a shared schema.</p>",
+      code: "// order-service calls inventory-service over HTTP - no shared DB\n" +
+        "@Service class OrderService {\n" +
+        "  private final RestClient inventory; // points at http://inventory-service\n" +
+        "  void place(Order o) {\n" +
+        "    inventory.post().uri(\"/reserve\").body(o.items()).retrieve().toBodilessEntity();\n" +
+        "  }\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): distributed systems add hard problems",
+      description: "<p>The network is unreliable and there are no cross-service transactions - you trade in-process simplicity for partial failure, eventual consistency, and operational complexity.</p>",
+      code: "// You CAN'T do a single @Transactional across two services. Patterns instead:\n" +
+        "//  - Saga: a sequence of local transactions with compensating actions on failure\n" +
+        "//  - Outbox: write event + state in one local tx, publish asynchronously\n" +
+        "// Plus: retries, idempotency, distributed tracing, and per-service deploys.\n" +
+        "// A monolith is the right default until you have a concrete reason to split."
     }
   ],
   whenToUse: "<p>Adopt microservices when you have concrete drivers: multiple teams needing to deploy " +
@@ -1371,6 +1983,24 @@ C["spring-cloud"] = {
         "  <version>2023.0.x</version>   <!-- must match your Spring Boot version -->\n" +
         "  <type>pom</type><scope>import</scope>\n" +
         "</dependency></dependencies></dependencyManagement>"
+    },
+    {
+      title: "Example 3: the toolkit pieces map to distributed concerns",
+      description: "<p>Spring Cloud bundles solutions for the recurring problems of distributed systems.</p>",
+      code: "// Config Server  -> centralized externalized configuration\n" +
+        "// Gateway        -> single entry point, routing, cross-cutting filters\n" +
+        "// Eureka/Consul  -> service discovery (find instances dynamically)\n" +
+        "// OpenFeign      -> declarative inter-service HTTP clients\n" +
+        "// Resilience4j   -> circuit breakers, retries, bulkheads\n" +
+        "// Sleuth/Micrometer Tracing -> distributed tracing across hops"
+    },
+    {
+      title: "Example 4 (edge case): don't adopt the whole stack for a monolith",
+      description: "<p>Spring Cloud only earns its complexity in a real multi-service system; on a single app it's pure overhead and version-coupling pain.</p>",
+      code: "// Spring Cloud release trains are pinned to specific Boot versions - upgrading\n" +
+        "// Boot can force a coordinated Cloud upgrade. For a single service you almost\n" +
+        "// never need discovery/gateway/config-server. Managed platforms (Kubernetes,\n" +
+        "// service mesh) also cover some of these concerns - avoid duplicating them."
     }
   ],
   whenToUse: "<p>Use Spring Cloud when you're building a genuine microservices/distributed system on Spring Boot " +
@@ -1421,6 +2051,27 @@ C["spring-cloud-gateway"] = {
         "            - AddRequestHeader=X-Gateway, true\n" +
         "            - name: RequestRateLimiter             # throttle here, once, for all\n" +
         "// Auth, rate limiting, CORS done at the edge instead of in every service."
+    },
+    {
+      title: "Example 3: route definitions with filters",
+      description: "<p>The gateway routes by path/host and applies filters (rewrite, headers, rate limit) per route.</p>",
+      code: "spring:\n" +
+        "  cloud:\n" +
+        "    gateway:\n" +
+        "      routes:\n" +
+        "        - id: orders\n" +
+        "          uri: lb://order-service        # load-balanced via discovery\n" +
+        "          predicates: [ Path=/api/orders/** ]\n" +
+        "          filters: [ StripPrefix=1, AddRequestHeader=X-Gateway,true ]"
+    },
+    {
+      title: "Example 4 (edge case): it's reactive, and a single point of failure",
+      description: "<p>Spring Cloud Gateway runs on the reactive (WebFlux) stack, so blocking code in a filter stalls the event loop; and the gateway must be made highly available.</p>",
+      code: "// Filters run on Netty's event loop - a blocking JDBC/HTTP call there throttles\n" +
+        "// EVERY request. Keep filter logic non-blocking (or offload to a bounded scheduler).\n" +
+        "//\n" +
+        "// The gateway is on the critical path for all traffic: run multiple replicas,\n" +
+        "// add health checks, and don't put heavy business logic in it - keep it thin."
     }
   ],
   whenToUse: "<p>Use an API gateway when you have multiple microservices and want a single, controlled entry " +
@@ -1468,6 +2119,26 @@ C["cloud-config"] = {
         "  config:\n" +
         "    import: optional:configserver:http://config-server:8888\n" +
         "// Change the value in Git -> POST /actuator/refresh to apply without restart."
+    },
+    {
+      title: "Example 3: a client points at the config server",
+      description: "<p>Services fetch their configuration from a central server (often backed by Git) at startup.</p>",
+      code: "# config server (backed by a Git repo of <app>-<profile>.yml files)\n" +
+        "spring.cloud.config.server.git.uri=https://github.com/acme/config-repo\n" +
+        "\n" +
+        "# client: which server + which config to pull\n" +
+        "spring.config.import=optional:configserver:http://config:8888\n" +
+        "spring.application.name=order-service   # -> loads order-service.yml"
+    },
+    {
+      title: "Example 4 (edge case): refresh scope and the config server as SPOF",
+      description: "<p>Changing central config doesn't update running apps unless you trigger a refresh; and the config server becomes a startup-critical dependency.</p>",
+      code: "// @RefreshScope beans re-read config on POST /actuator/refresh (or Spring Cloud Bus).\n" +
+        "// Without it, a changed value only takes effect on restart.\n" +
+        "//\n" +
+        "// If the config server is down at startup, clients can't boot - run it HA, and\n" +
+        "// consider 'fail-fast=false' / local fallbacks. Secrets still belong in a vault,\n" +
+        "// not plaintext in the Git-backed config repo."
     }
   ],
   whenToUse: "<p>Centralized config is valuable when you run many services or many instances and want a single, " +
@@ -1514,6 +2185,26 @@ C["spring-cloud-circuit-breaker"] = {
         "// (after a wait duration)\n" +
         "// HALF-OPEN-> allow a few trial calls; if they succeed -> CLOSED, else -> OPEN\n" +
         "// Result: a struggling dependency can't drag the whole system down."
+    },
+    {
+      title: "Example 3: circuit breaker with a fallback (Resilience4j)",
+      description: "<p>When a downstream call keeps failing, the breaker 'opens' and short-circuits to a fallback instead of piling up timeouts.</p>",
+      code: "@CircuitBreaker(name = \"inventory\", fallbackMethod = \"fromCache\")\n" +
+        "int available(String sku) { return inventoryClient.get(sku); }\n" +
+        "\n" +
+        "int fromCache(String sku, Throwable t) { return cache.getOrDefault(sku, 0); }\n" +
+        "// After N failures the breaker opens; calls go straight to fromCache, giving the\n" +
+        "// downstream time to recover. It half-opens later to test if it's healthy."
+    },
+    {
+      title: "Example 4 (edge case): a fallback that hides real failures",
+      description: "<p>Fallbacks must degrade gracefully, not silently return wrong data; and a breaker without timeouts/bulkheads doesn't fully protect you.</p>",
+      code: "// BAD fallback: pretend everything is fine\n" +
+        "int fromCache(String sku, Throwable t) { return Integer.MAX_VALUE; } // oversells stock!\n" +
+        "\n" +
+        "// Pair the breaker with a TimeLimiter (cap slow calls) and a Bulkhead (cap\n" +
+        "// concurrent calls) - a breaker alone won't stop a slow dependency from tying\n" +
+        "// up threads. Always log/alert when the breaker opens."
     }
   ],
   whenToUse: "<p>Use a circuit breaker around <strong>any synchronous call to a remote dependency</strong> that " +
@@ -1559,6 +2250,27 @@ C["spring-cloud-open-feign"] = {
         "\n" +
         "// WITH Feign: the interface IS the client\n" +
         "// var receipt = paymentClient.charge(req);"
+    },
+    {
+      title: "Example 3: a declarative HTTP client interface",
+      description: "<p>You declare an interface; Feign generates the HTTP-calling implementation.</p>",
+      code: "@FeignClient(name = \"inventory-service\") // resolved via discovery / config\n" +
+        "interface InventoryClient {\n" +
+        "  @GetMapping(\"/items/{sku}\")\n" +
+        "  Item get(@PathVariable String sku);\n" +
+        "}\n" +
+        "// Inject InventoryClient and call get(\"abc\") - no manual RestTemplate/RestClient."
+    },
+    {
+      title: "Example 4 (edge case): timeouts, error decoding, and resilience",
+      description: "<p>Feign has its own timeout/retry config and a default error behavior; wrap calls with a circuit breaker and decode errors meaningfully.</p>",
+      code: "# Per-client timeouts (defaults are generous - set them!):\n" +
+        "feign.client.config.inventory-service.connectTimeout=1000\n" +
+        "feign.client.config.inventory-service.readTimeout=2000\n" +
+        "\n" +
+        "// A non-2xx response throws FeignException by default - add an ErrorDecoder to\n" +
+        "// map status codes to domain exceptions, and combine with @CircuitBreaker.\n" +
+        "// Feign's built-in Retryer can silently retry non-idempotent calls - be careful."
     }
   ],
   whenToUse: "<p>Use OpenFeign in microservice systems to make inter-service HTTP calls clean and uniform, " +
@@ -1607,6 +2319,27 @@ C["micrometer"] = {
         "// Add the Prometheus registry dependency + actuator, then:\n" +
         "//   management.endpoints.web.exposure.include=prometheus\n" +
         "//   Prometheus scrapes GET /actuator/prometheus"
+    },
+    {
+      title: "Example 3: custom metrics with counters and timers",
+      description: "<p>Micrometer is a vendor-neutral facade (like SLF4J, but for metrics) - record once, export to Prometheus/Datadog/etc.</p>",
+      code: "@Service class OrderService {\n" +
+        "  private final Counter placed;\n" +
+        "  OrderService(MeterRegistry reg) { placed = reg.counter(\"orders.placed\"); }\n" +
+        "  @Timed(\"orders.place.time\")        // records latency distribution\n" +
+        "  void place(Order o) { placed.increment(); }\n" +
+        "}\n" +
+        "// Scrape at /actuator/prometheus"
+    },
+    {
+      title: "Example 4 (edge case): high-cardinality tags blow up storage",
+      description: "<p>Tagging metrics with unbounded values (user id, request id) creates a separate time series per value and can overwhelm the metrics backend.</p>",
+      code: "// BAD: a new time series per user -> cardinality explosion\n" +
+        "reg.counter(\"requests\", \"userId\", userId).increment();\n" +
+        "\n" +
+        "// GOOD: tag with low-cardinality dimensions only\n" +
+        "reg.counter(\"requests\", \"endpoint\", \"/orders\", \"status\", \"200\").increment();\n" +
+        "// Keep tag values bounded (status, endpoint, region) - never raw IDs or URLs."
     }
   ],
   whenToUse: "<p>Use Micrometer (via Actuator) on every production service to get observability &mdash; request " +
@@ -1653,6 +2386,27 @@ C["eureka"] = {
         "// Or with a load-balanced RestClient/WebClient:\n" +
         "//   restClient.get().uri(\"http://payment-service/charges/1\")...\n" +
         "// 'payment-service' -> an actual healthy instance, chosen automatically."
+    },
+    {
+      title: "Example 3: register and discover by logical name",
+      description: "<p>Services register with Eureka and look each other up by name, so instances can scale and move without hardcoded hosts.</p>",
+      code: "@EnableDiscoveryClient   // registers this service with Eureka\n" +
+        "@SpringBootApplication\n" +
+        "class OrderApp {}\n" +
+        "\n" +
+        "// Call by logical name; client-side load balancing picks an instance:\n" +
+        "@FeignClient(\"inventory-service\") interface Inv { /* ... */ }\n" +
+        "// or restClient.get().uri(\"http://inventory-service/items/1\")"
+    },
+    {
+      title: "Example 4 (edge case): platform-native discovery often replaces Eureka",
+      description: "<p>On Kubernetes, DNS/Services already provide discovery, so running Eureka duplicates the platform - and Eureka's eventual consistency can return stale instances.</p>",
+      code: "// On Kubernetes you typically just call the Service DNS name:\n" +
+        "//   http://inventory-service.default.svc.cluster.local\n" +
+        "// and let kube-proxy load-balance - no Eureka needed.\n" +
+        "//\n" +
+        "// Eureka favors availability over consistency (AP): a just-died instance may\n" +
+        "// still appear in the registry briefly, so clients still need retries/breakers."
     }
   ],
   whenToUse: "<p>Use service discovery like Eureka when you run multiple, dynamically-scaled service instances " +
@@ -1706,6 +2460,25 @@ C["spring-mvc"] = {
         "class ApiController {\n" +
         "    @GetMapping(\"/api/user\") User user() { return currentUser(); }\n" +
         "}"
+    },
+    {
+      title: "Example 3: the DispatcherServlet request flow",
+      description: "<p>One front controller routes every request: DispatcherServlet &rarr; HandlerMapping &rarr; your controller &rarr; message converter/view.</p>",
+      code: "// 1. DispatcherServlet receives GET /orders/5\n" +
+        "// 2. HandlerMapping finds OrderController.get(5)\n" +
+        "// 3. Your method runs, returns an Order\n" +
+        "// 4. HttpMessageConverter (Jackson) serializes it to JSON\n" +
+        "@GetMapping(\"/orders/{id}\") Order get(@PathVariable long id) { return svc.find(id); }"
+    },
+    {
+      title: "Example 4 (edge case): @Controller vs @RestController and content negotiation",
+      description: "<p>A plain <code>@Controller</code> method's return value is treated as a view name unless annotated <code>@ResponseBody</code> - a classic 'why am I getting a 404 / template error' bug.</p>",
+      code: "@Controller class C {\n" +
+        "  @GetMapping(\"/data\") String data() { return \"hello\"; } // tries to render a VIEW 'hello'!\n" +
+        "  @GetMapping(\"/json\") @ResponseBody String json() { return \"hello\"; } // writes body\n" +
+        "}\n" +
+        "// @RestController = @Controller + @ResponseBody on every method - use it for APIs.\n" +
+        "// The Accept header drives which converter runs (JSON vs XML)."
     }
   ],
   whenToUse: "<p>Spring MVC is the default for building web endpoints and REST APIs in Spring Boot &mdash; use " +
@@ -1753,6 +2526,28 @@ C["servlet"] = {
         "        log.info(req.getRequestURI() + \" took \" + (System.currentTimeMillis() - start));\n" +
         "    }\n" +
         "}"
+    },
+    {
+      title: "Example 3: a Filter for a cross-cutting web concern",
+      description: "<p>When you do touch the servlet layer, it's usually a <code>Filter</code> for request-wide logic (logging, request IDs, CORS).</p>",
+      code: "@Component\n" +
+        "class RequestIdFilter extends OncePerRequestFilter {\n" +
+        "  protected void doFilterInternal(HttpServletRequest req,\n" +
+        "      HttpServletResponse res, FilterChain chain) throws ... {\n" +
+        "    MDC.put(\"requestId\", UUID.randomUUID().toString()); // for log correlation\n" +
+        "    try { chain.doFilter(req, res); } finally { MDC.clear(); }\n" +
+        "  }\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): filter ordering and forgetting chain.doFilter",
+      description: "<p>Filters run in a chain; the wrong order breaks things (e.g. auth after logging), and forgetting to call <code>chain.doFilter</code> silently drops the request.</p>",
+      code: "// Omitting chain.doFilter(req, res) -> the request never reaches the controller,\n" +
+        "// often appearing as an empty/hung response with no error.\n" +
+        "//\n" +
+        "// Control order with @Order or FilterRegistrationBean.setOrder(). Security,\n" +
+        "// CORS, and tracing filters are order-sensitive. Prefer Spring interceptors/\n" +
+        "// @ControllerAdvice for app concerns; reserve raw Filters for truly low-level needs."
     }
   ],
   whenToUse: "<p>You'll almost never write raw servlets in modern Spring Boot &mdash; <code>@RestController</code>/" +
@@ -1798,6 +2593,26 @@ C["jsp-files"] = {
         "<h1 th:text=\"'Hello, ' + ${name}\">Hello, placeholder</h1>\n" +
         "<!-- Add spring-boot-starter-thymeleaf; templates live in src/main/resources/templates -->\n" +
         "// JSP, by contrast, needs a WAR + extra config to work with embedded Tomcat."
+    },
+    {
+      title: "Example 3: why JSP is awkward in Boot - use Thymeleaf instead",
+      description: "<p>JSP doesn't work in an executable JAR; the modern server-side template engine is Thymeleaf.</p>",
+      code: "<!-- Thymeleaf template src/main/resources/templates/order.html -->\n" +
+        "<h1 th:text=\"${order.id}\">id</h1>\n" +
+        "<ul><li th:each=\"i : ${order.items}\" th:text=\"${i.name}\"></li></ul>\n" +
+        "\n" +
+        "// Controller returns the template name:\n" +
+        "@GetMapping(\"/order/{id}\") String view(@PathVariable long id, Model m) {\n" +
+        "  m.addAttribute(\"order\", svc.find(id)); return \"order\";\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): JSP forces WAR packaging and a servlet container",
+      description: "<p>JSP can't be served from a fat JAR, so choosing it means giving up Boot's signature executable-JAR + embedded-server model.</p>",
+      code: "// To use JSP you must package as WAR and deploy to an external/embedded Tomcat\n" +
+        "// with the Jasper compiler - losing 'java -jar app.jar' simplicity.\n" +
+        "// For server-rendered pages: Thymeleaf. For SPAs/mobile: a JSON REST API.\n" +
+        "// JSP only makes sense when maintaining an existing legacy MVC app."
     }
   ],
   whenToUse: "<p>Honestly, for <strong>new</strong> Spring Boot projects you should generally <em>not</em> " +
@@ -1845,6 +2660,26 @@ C["components"] = {
         "    }\n" +
         "}\n" +
         "// One place to map exceptions -> HTTP status + error body."
+    },
+    {
+      title: "Example 3: interceptor vs filter vs @ControllerAdvice",
+      description: "<p>Different hooks for different layers: filters (servlet level), interceptors (Spring MVC, with handler context), advice (controller exceptions/model).</p>",
+      code: "// HandlerInterceptor - runs around controller methods, knows the handler\n" +
+        "class AuthInterceptor implements HandlerInterceptor {\n" +
+        "  public boolean preHandle(HttpServletRequest req, HttpServletResponse res, Object h) {\n" +
+        "    return req.getHeader(\"X-Api-Key\") != null; // false short-circuits the request\n" +
+        "  }\n" +
+        "}\n" +
+        "// Register via WebMvcConfigurer.addInterceptors(...)"
+    },
+    {
+      title: "Example 4 (edge case): picking the wrong layer",
+      description: "<p>Each component sees different context - choosing the wrong one means you lack the data (or run too early/late) for the job.</p>",
+      code: "// A Filter runs BEFORE Spring MVC, so it can't see which @Controller/handler\n" +
+        "// will serve the request - use a HandlerInterceptor if you need that.\n" +
+        "// Exception-to-response mapping belongs in @ControllerAdvice, not a Filter\n" +
+        "// (a Filter can't cleanly produce a JSON error via your message converters).\n" +
+        "// Match the component to the layer that actually has the context you need."
     }
   ],
   whenToUse: "<p>You interact with these components whenever you go beyond basic request mapping: add an " +
@@ -1892,6 +2727,24 @@ C["testing"] = {
         "// JPA repository/queries  -> @DataJpaTest (in-memory or Testcontainers DB)\n" +
         "// Whole app wired together-> @SpringBootTest (slowest; use sparingly)\n" +
         "// Replace a collaborator  -> @MockBean / @MockitoBean"
+    },
+    {
+      title: "Example 3: the testing pyramid in Spring Boot",
+      description: "<p>Many fast unit tests, fewer slice tests, fewest full-context tests - match the tool to the level.</p>",
+      code: "// Unit (no Spring): pure logic, milliseconds\n" +
+        "new PriceCalculator().total(cart);\n" +
+        "// Slice (@WebMvcTest / @DataJpaTest): one layer + minimal context\n" +
+        "// Integration (@SpringBootTest): whole app wired up, slow - use sparingly\n" +
+        "// Rule: push logic down so most of it is covered by fast unit tests."
+    },
+    {
+      title: "Example 4 (edge case): over-using @SpringBootTest makes suites crawl",
+      description: "<p>Loading the full context for every test is slow; reuse contexts and prefer slices to keep the suite fast.</p>",
+      code: "// Each distinct test configuration spins up a new ApplicationContext (cached by\n" +
+        "// config). Lots of @MockBean / @TestPropertySource variations = many contexts =\n" +
+        "// slow builds.\n" +
+        "// Keep test config consistent so the cache is reused, and reach for @WebMvcTest /\n" +
+        "// @DataJpaTest slices instead of a full @SpringBootTest when you only need one layer."
     }
   ],
   whenToUse: "<p>Test at the lowest level that gives you confidence: prefer fast plain-JUnit unit tests for " +
@@ -1938,6 +2791,31 @@ C["springboottest-annotation"] = {
         "        assertThat(o.getId()).isNotNull();\n" +
         "    }\n" +
         "}"
+    },
+    {
+      title: "Example 3: a full integration test with a random port",
+      description: "<p><code>webEnvironment = RANDOM_PORT</code> starts a real embedded server so you can hit endpoints over HTTP.</p>",
+      code: "@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)\n" +
+        "class OrderApiIT {\n" +
+        "  @Autowired TestRestTemplate rest;\n" +
+        "  @Test void createsOrder() {\n" +
+        "    var res = rest.postForEntity(\"/orders\", new CreateOrder(\"sku\"), OrderDto.class);\n" +
+        "    assertThat(res.getStatusCode()).isEqualTo(HttpStatus.CREATED);\n" +
+        "  }\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): real DB via Testcontainers, not H2",
+      description: "<p>Testing against an in-memory H2 hides dialect-specific bugs; spin up the real database with Testcontainers for fidelity.</p>",
+      code: "@SpringBootTest\n" +
+        "@Testcontainers\n" +
+        "class RepoIT {\n" +
+        "  @Container static PostgreSQLContainer<?> db = new PostgreSQLContainer<>(\"postgres:16\");\n" +
+        "  @DynamicPropertySource static void props(DynamicPropertyRegistry r) {\n" +
+        "    r.add(\"spring.datasource.url\", db::getJdbcUrl);\n" +
+        "  }\n" +
+        "}\n" +
+        "// H2 may accept SQL Postgres rejects (or vice versa) - test the engine you ship."
     }
   ],
   whenToUse: "<p>Use <code>@SpringBootTest</code> for true <strong>integration tests</strong> where you need " +
@@ -1988,6 +2866,28 @@ C["mockbean-annotation"] = {
         "        assertThat(checkout.complete(cart)).isTrue();\n" +
         "    }\n" +
         "}"
+    },
+    {
+      title: "Example 3: replacing a bean in the context with a mock",
+      description: "<p><code>@MockBean</code> swaps a real bean for a Mockito mock inside the Spring context - ideal for stubbing a slow/external collaborator in a slice test.</p>",
+      code: "@WebMvcTest(OrderController.class)\n" +
+        "class OrderControllerTest {\n" +
+        "  @Autowired MockMvc mvc;\n" +
+        "  @MockBean OrderService service; // real OrderService replaced by a mock\n" +
+        "  @Test void returnsOrder() throws Exception {\n" +
+        "    when(service.find(1L)).thenReturn(new OrderDto(1L));\n" +
+        "    mvc.perform(get(\"/orders/1\")).andExpect(status().isOk());\n" +
+        "  }\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): @MockBean resets the context cache",
+      description: "<p>Each unique set of <code>@MockBean</code>s creates a new ApplicationContext (slower suite); and in newer Spring it's superseded by <code>@MockitoBean</code>.</p>",
+      code: "// Different @MockBean combinations -> different cached contexts -> more startups.\n" +
+        "// Keep mocks consistent across a test class to reuse the context.\n" +
+        "//\n" +
+        "// Spring Framework 6.2+ deprecates @MockBean in favor of @MockitoBean.\n" +
+        "// In a plain unit test (no context) you don't need it at all - just Mockito.mock()."
     }
   ],
   whenToUse: "<p>Use <code>@MockBean</code> in tests that <em>need a Spring context</em> but should isolate the " +
@@ -2036,6 +2936,24 @@ C["mock-mvc"] = {
         "            .content(\"{\\\"name\\\":\\\"\\\"}\"))   // invalid: blank name\n" +
         "       .andExpect(status().isBadRequest());      // validation kicks in\n" +
         "}"
+    },
+    {
+      title: "Example 3: asserting JSON responses with jsonPath",
+      description: "<p>MockMvc drives the web layer without a running server and lets you assert status, headers, and JSON body.</p>",
+      code: "mvc.perform(post(\"/orders\")\n" +
+        "      .contentType(MediaType.APPLICATION_JSON)\n" +
+        "      .content(\"{\\\"sku\\\":\\\"abc\\\"}\"))\n" +
+        "   .andExpect(status().isCreated())\n" +
+        "   .andExpect(jsonPath(\"$.id\").exists())\n" +
+        "   .andExpect(jsonPath(\"$.sku\").value(\"abc\"));"
+    },
+    {
+      title: "Example 4 (edge case): MockMvc isn't a real server",
+      description: "<p>It bypasses the actual servlet container and network, so it won't catch real serialization/port/filter-ordering issues - use a RANDOM_PORT integration test for those.</p>",
+      code: "// MockMvc dispatches through Spring MVC internally - no real HTTP, no real Tomcat.\n" +
+        "// It may pass while a true end-to-end call fails due to a servlet filter,\n" +
+        "// connector config, or message-converter difference.\n" +
+        "// For genuine HTTP behavior use @SpringBootTest(RANDOM_PORT) + TestRestTemplate/WebTestClient."
     }
   ],
   whenToUse: "<p>Use MockMvc to test controllers and the web layer &mdash; routing, request/response mapping, " +
@@ -2086,6 +3004,29 @@ C["jpa-test"] = {
         "    // Spring points the datasource at the throwaway Postgres container\n" +
         "    // -> queries are validated against REAL Postgres behavior\n" +
         "}"
+    },
+    {
+      title: "Example 3: testing a custom repository query",
+      description: "<p><code>@DataJpaTest</code> loads only JPA components, rolls back after each test, and provides a <code>TestEntityManager</code> to set up data.</p>",
+      code: "@DataJpaTest\n" +
+        "class UserRepoTest {\n" +
+        "  @Autowired UserRepository repo;\n" +
+        "  @Autowired TestEntityManager em;\n" +
+        "  @Test void findsByEmail() {\n" +
+        "    em.persistAndFlush(new User(\"sam@x.com\"));\n" +
+        "    assertThat(repo.findByEmail(\"sam@x.com\")).isPresent();\n" +
+        "  }\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): the embedded-DB default can mislead",
+      description: "<p><code>@DataJpaTest</code> replaces your datasource with an in-memory DB by default, so dialect-specific SQL/migrations may not be exercised.</p>",
+      code: "// Keep the real database for fidelity:\n" +
+        "@DataJpaTest\n" +
+        "@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)\n" +
+        "// ...pointed at a Testcontainers Postgres. Otherwise a native query that works\n" +
+        "// on H2 may fail in production, and Flyway/Liquibase migrations might be skipped.\n" +
+        "// Each test rolls back by default - don't rely on data persisting across tests."
     }
   ],
   whenToUse: "<p>Use <code>@DataJpaTest</code> to test the data layer in isolation &mdash; verifying custom " +

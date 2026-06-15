@@ -40,6 +40,29 @@ C["introduction-to-typescript"] = {
         "// compiled output.js (types stripped away)\n" +
         "const add = (a, b) => a + b;\n" +
         "// Nothing 'TypeScript' survives to runtime - it's a compile-time tool."
+    },
+    {
+      title: "Example 3: Autocomplete and safe refactoring",
+      description: "<p>Because the compiler knows each object's shape, the editor can complete properties and rename across the whole codebase safely.</p>",
+      code: "interface User { id: number; firstName: string; lastName: string; }\n" +
+        "\n" +
+        "function fullName(u: User) {\n" +
+        "  return u.fistName + \" \" + u.lastName;\n" +
+        "  //       ^^^^^^^^ ERROR: typo caught - did you mean 'firstName'?\n" +
+        "}\n" +
+        "// Rename 'firstName' -> 'givenName' in the interface and the editor\n" +
+        "// updates every usage. In plain JS a typo here is a silent runtime bug."
+    },
+    {
+      title: "Example 4 (edge case): Types are erased - boundaries are NOT validated",
+      description: "<p>A common misconception: a type annotation does <em>not</em> check real runtime data. External input can violate the type and TypeScript will not stop it.</p>",
+      code: "interface Config { retries: number; }\n" +
+        "\n" +
+        "// The cast tells the compiler to trust us - but the JSON could be anything:\n" +
+        "const cfg = JSON.parse(localStorage.getItem(\"cfg\")!) as Config;\n" +
+        "\n" +
+        "cfg.retries.toFixed(); // compiles fine, but CRASHES if retries was a string\n" +
+        "// Lesson: validate untrusted data at runtime (e.g. with zod) - types alone don't."
     }
   ],
   whenToUse: "<p>Use TypeScript for any JavaScript project beyond a trivial script &mdash; it's now the default " +
@@ -81,6 +104,27 @@ C["typescript-vs-javascript"] = {
         "const doubled = items.map(n => n * 2);\n" +
         "// TypeScript even infers types here (items: number[], doubled: number[])\n" +
         "// without a single annotation - you opt into more typing as you go."
+    },
+    {
+      title: "Example 3: A bug TypeScript catches that JS hides",
+      description: "<p>Optional/missing object properties are a classic source of <code>undefined</code> errors that static typing surfaces immediately.</p>",
+      code: "// JavaScript: silently returns 'undefined undefined' or crashes later\n" +
+        "function label(p) { return p.title.toUpperCase(); }\n" +
+        "label({ name: \"Sam\" }); // boom at runtime: cannot read 'toUpperCase'\n" +
+        "\n" +
+        "// TypeScript: the missing property is rejected before running\n" +
+        "function labelTs(p: { title: string }) { return p.title.toUpperCase(); }\n" +
+        "labelTs({ name: \"Sam\" }); // error: 'title' is missing"
+    },
+    {
+      title: "Example 4 (edge case): TS does NOT fix JavaScript's runtime quirks",
+      description: "<p>TypeScript reasons about types; it does not change how JavaScript actually executes.</p>",
+      code: "const sum: number = 0.1 + 0.2;\n" +
+        "console.log(sum === 0.3); // false - floating point, still true in TS\n" +
+        "\n" +
+        "const xs: number[] = [10, 1, 2];\n" +
+        "xs.sort();                // [1, 10, 2] - default sort is lexicographic!\n" +
+        "// Types can't save you from JS semantics; you still need to know the language."
     }
   ],
   whenToUse: "<p>Choose TypeScript over plain JavaScript when correctness, maintainability, and tooling matter " +
@@ -123,6 +167,29 @@ C["ts-js-interoperability"] = {
         "  }\n" +
         "}\n" +
         "// import legacyUtil from \"./legacy.js\";  // works inside TypeScript"
+    },
+    {
+      title: "Example 3: Writing your own declaration file for an untyped library",
+      description: "<p>When a JS package ships no types and no <code>@types</code> exists, you describe its shape in a <code>.d.ts</code> so you regain checking.</p>",
+      code: "// types/legacy-math.d.ts\n" +
+        "declare module \"legacy-math\" {\n" +
+        "  export function add(a: number, b: number): number;\n" +
+        "  export const PI: number;\n" +
+        "}\n" +
+        "\n" +
+        "// now this is fully typed even though legacy-math is plain JS:\n" +
+        "import { add } from \"legacy-math\";\n" +
+        "add(1, 2);        // OK\n" +
+        "add(1, \"2\");      // ERROR caught thanks to the .d.ts"
+    },
+    {
+      title: "Example 4 (edge case): JS with no types becomes implicit 'any'",
+      description: "<p>Importing an untyped module silently gives you <code>any</code>, quietly disabling type safety unless you turn on <code>noImplicitAny</code>.</p>",
+      code: "import sketchy from \"untyped-lib\";  // type is 'any'\n" +
+        "sketchy.doAnything().that.you.want;  // no error - checking is OFF here\n" +
+        "\n" +
+        "// With \"noImplicitAny\": true the import itself errors until you add types,\n" +
+        "// forcing a conscious choice instead of a silent hole in your safety net."
     }
   ],
   whenToUse: "<p>Interop matters constantly: every time you use an npm package (most are JS) and whenever you " +
@@ -170,6 +237,27 @@ C["installation-and-configuration"] = {
         "  },\n" +
         "  \"include\": [\"src/**/*\"]\n" +
         "}"
+    },
+    {
+      title: "Example 3: Pin the compiler version for the whole team",
+      description: "<p>A local install records the exact version so everyone (and CI) type-checks identically.</p>",
+      code: "// package.json\n" +
+        "{\n" +
+        "  \"devDependencies\": { \"typescript\": \"5.6.2\" },\n" +
+        "  \"scripts\": { \"typecheck\": \"tsc --noEmit\" }\n" +
+        "}\n" +
+        "// 'npx tsc' resolves the LOCAL 5.6.2, not whatever is installed globally.\n" +
+        "// A global tsc on another machine could be 4.x and report different errors."
+    },
+    {
+      title: "Example 4 (edge case): 'no inputs were found'",
+      description: "<p>A misconfigured <code>include</code>/<code>rootDir</code> is the most common first-run failure.</p>",
+      code: "// tsconfig.json says:\n" +
+        "{ \"compilerOptions\": { \"rootDir\": \"src\" }, \"include\": [\"src/**/*\"] }\n" +
+        "\n" +
+        "// but your files live in lib/ -> error TS18003:\n" +
+        "//   No inputs were found in config file ... Specified 'include' paths were []\n" +
+        "// Fix: point include/rootDir at the actual source folder."
     }
   ],
   whenToUse: "<p>You configure TypeScript once at the start of every project (or inherit a shared base config). " +
@@ -219,6 +307,26 @@ C["tsconfig-json"] = {
         "  \"extends\": \"../../tsconfig.base.json\",\n" +
         "  \"compilerOptions\": { \"outDir\": \"dist\" }\n" +
         "}"
+    },
+    {
+      title: "Example 3: Targeting the DOM vs Node with 'lib' and 'types'",
+      description: "<p><code>lib</code> chooses which built-in APIs exist; getting it wrong causes 'cannot find name' errors.</p>",
+      code: "// Browser app - needs DOM globals like document, window, fetch:\n" +
+        "{ \"compilerOptions\": { \"lib\": [\"ES2022\", \"DOM\"] } }\n" +
+        "\n" +
+        "// Node-only service - no DOM; pull in Node's globals via @types/node:\n" +
+        "{ \"compilerOptions\": { \"lib\": [\"ES2022\"], \"types\": [\"node\"] } }\n" +
+        "// Omitting DOM in a browser project => 'Cannot find name document'."
+    },
+    {
+      title: "Example 4 (edge case): include/exclude vs the 'files' array",
+      description: "<p><code>exclude</code> only filters what <code>include</code> globbed - it cannot remove a file that is imported, and an explicit <code>files</code> list ignores globs entirely.</p>",
+      code: "{\n" +
+        "  \"include\": [\"src/**/*\"],\n" +
+        "  \"exclude\": [\"src/legacy.ts\"]   // excluded from the glob...\n" +
+        "}\n" +
+        "// ...but if src/app.ts does `import './legacy'`, legacy.ts is STILL compiled.\n" +
+        "// exclude prunes the entry set, not the dependency graph."
     }
   ],
   whenToUse: "<p>You touch <code>tsconfig.json</code> whenever you start a project or need to change how code " +
@@ -267,6 +375,29 @@ C["compiler-options"] = {
         "}\n" +
         "// Now: import { User } from \"@/models/User\";\n" +
         "// (Note: your bundler/runtime must resolve the alias too.)"
+    },
+    {
+      title: "Example 3: noUncheckedIndexedAccess for safer array/record access",
+      description: "<p>This flag makes indexed access include <code>undefined</code>, catching out-of-bounds and missing-key bugs.</p>",
+      code: "// with \"noUncheckedIndexedAccess\": true\n" +
+        "const arr: string[] = [\"a\"];\n" +
+        "const first = arr[0];        // type is string | undefined\n" +
+        "first.toUpperCase();         // ERROR: 'first' is possibly undefined\n" +
+        "\n" +
+        "const dict: Record<string, number> = {};\n" +
+        "dict[\"missing\"].toFixed();   // ERROR caught - the key may not exist"
+    },
+    {
+      title: "Example 4 (edge case): turning on strict flags on a legacy codebase",
+      description: "<p>Flip stricter checks one at a time, not all at once, or you drown in errors.</p>",
+      code: "// Step 1 - tolerate existing code, only enforce new rules gradually:\n" +
+        "{ \"compilerOptions\": {\n" +
+        "    \"strict\": true,\n" +
+        "    \"noImplicitAny\": false,    // temporarily relax the loudest one\n" +
+        "    \"strictNullChecks\": true\n" +
+        "} }\n" +
+        "// Migrate file-by-file, then remove the relaxations. Enabling everything\n" +
+        "// on a large JS-origin project can produce thousands of errors at once."
     }
   ],
   whenToUse: "<p>Adjust compiler options to match your environment (browser vs Node, ESM vs CJS), your safety " +
@@ -309,6 +440,29 @@ C["running-typescript"] = {
         "\n" +
         "# In real front-end apps the dev server (e.g. Vite) does this for you\n" +
         "# and reloads the browser on each change (HMR)."
+    },
+    {
+      title: "Example 3: A type-checked production build pipeline",
+      description: "<p>Type-check first (fail fast), then emit. This guarantees no type errors ship even if the bundler skips checking.</p>",
+      code: "// package.json\n" +
+        "{\n" +
+        "  \"scripts\": {\n" +
+        "    \"build\": \"tsc --noEmit && vite build\",\n" +
+        "    \"start\": \"node dist/server.js\"\n" +
+        "  }\n" +
+        "}\n" +
+        "// '&&' means a failing type-check aborts the build before any artifact is made."
+    },
+    {
+      title: "Example 4 (edge case): ESM/CJS mismatch when running directly",
+      description: "<p>Running TS directly often breaks on module-system mismatches that a configured build would handle.</p>",
+      code: "// app.ts uses ESM syntax:\n" +
+        "import { readFile } from \"node:fs/promises\";\n" +
+        "\n" +
+        "# but package.json has no \"type\": \"module\" and tsconfig targets CommonJS:\n" +
+        "npx ts-node app.ts\n" +
+        "#   SyntaxError: Cannot use import statement outside a module\n" +
+        "# Fix: set \"type\":\"module\" + module:NodeNext, or use 'tsx' which is lenient."
     }
   ],
   whenToUse: "<p>Pick the run method by context: <code>tsc</code> (or a bundler) for production builds where you " +
@@ -351,6 +505,27 @@ C["tsc"] = {
         "  }\n" +
         "}\n" +
         "// CI runs both: a green 'typecheck' guarantees no type errors shipped."
+    },
+    {
+      title: "Example 3: Faster rebuilds with incremental + project references",
+      description: "<p>On big repos, incremental builds and <code>tsc --build</code> only recompile what changed.</p>",
+      code: "// tsconfig.json\n" +
+        "{ \"compilerOptions\": { \"incremental\": true } }\n" +
+        "// writes a .tsbuildinfo cache so the next 'tsc' skips unchanged files\n" +
+        "\n" +
+        "# In a monorepo with project references:\n" +
+        "npx tsc --build        # builds dependencies in order, caches results\n" +
+        "npx tsc --build --clean  # wipe the build outputs/cache"
+    },
+    {
+      title: "Example 4 (edge case): emitting JS even when there are type errors",
+      description: "<p>By default <code>tsc</code> still writes output on type errors; <code>noEmitOnError</code> stops that.</p>",
+      code: "// Surprise: this emits broken-intent JS AND prints an error (exit code 1):\n" +
+        "npx tsc\n" +
+        "\n" +
+        "// Make a type error block the output entirely:\n" +
+        "{ \"compilerOptions\": { \"noEmitOnError\": true } }\n" +
+        "// Now no dist/*.js is produced until the types are clean."
     }
   ],
   whenToUse: "<p>Use <code>tsc</code> as the authoritative type checker and, for simple Node libraries, as the " +
@@ -393,6 +568,27 @@ C["ts-node"] = {
         "\n" +
         "# Node (recent versions) can also run .ts directly in many cases:\n" +
         "node --experimental-strip-types src/app.ts"
+    },
+    {
+      title: "Example 3: Speeding up ts-node by skipping type checks",
+      description: "<p>The <code>--transpile-only</code> flag (or <code>swc</code>) drops checking for speed - useful for dev, dangerous as your only safety net.</p>",
+      code: "# Much faster start, but type errors no longer stop execution:\n" +
+        "npx ts-node --transpile-only src/server.ts\n" +
+        "\n" +
+        "# Use the swc backend for an even bigger speedup:\n" +
+        "npx ts-node --swc src/server.ts\n" +
+        "# Always keep a separate 'tsc --noEmit' so skipped checks are caught elsewhere."
+    },
+    {
+      title: "Example 4 (edge case): ESM config friction with ts-node",
+      description: "<p><code>ts-node</code> is notoriously finicky with ESM; this is a frequent reason teams switch to <code>tsx</code>.</p>",
+      code: "// package.json: { \"type\": \"module\" }\n" +
+        "npx ts-node src/app.ts\n" +
+        "//   Error: Unknown file extension \".ts\"  (ESM loader confusion)\n" +
+        "\n" +
+        "// Workarounds: the ESM loader flag...\n" +
+        "node --loader ts-node/esm src/app.ts\n" +
+        "// ...or just use tsx, which handles ESM/CJS transparently: npx tsx src/app.ts"
     }
   ],
   whenToUse: "<p>Use <code>ts-node</code> (or <code>tsx</code>) when you want to run TypeScript without a " +
@@ -431,6 +627,26 @@ C["ts-playground"] = {
         "type Flatten<T> = T extends Array<infer U> ? U : T;\n" +
         "type A = Flatten<string[]>; // string\n" +
         "// The generated URL contains the code - perfect for Stack Overflow / issues."
+    },
+    {
+      title: "Example 3: Toggling compiler options to reproduce a bug",
+      description: "<p>The Playground's config menu lets you flip flags to show how behavior changes - perfect for an issue report.</p>",
+      code: "// With strictNullChecks OFF this compiles; turn it ON and it errors:\n" +
+        "function first(xs: string[]) {\n" +
+        "  const x = xs[0];     // string  (lenient)  vs  string|undefined (strict)\n" +
+        "  return x.toUpperCase();\n" +
+        "}\n" +
+        "// Set the flag in the Playground's TS Config panel, share the URL, and the\n" +
+        "// recipient sees the exact same setup - no 'works on my machine'."
+    },
+    {
+      title: "Example 4 (edge case): inspecting expanded types with the Quick Info / utilities",
+      description: "<p>Use a helper type to force the Playground to display a fully-resolved type - invaluable for debugging gnarly generics.</p>",
+      code: "type Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never;\n" +
+        "\n" +
+        "type Messy = Pick<{ a: number; b: string; c: boolean }, \"a\" | \"b\">;\n" +
+        "type Clear = Expand<Messy>; // hover shows { a: number; b: string }\n" +
+        "// Without Expand, hovering often shows the unhelpful 'Pick<...>' alias."
     }
   ],
   whenToUse: "<p>Reach for the Playground whenever you want to test a type idea quickly, understand <em>why</em> " +
@@ -476,6 +692,34 @@ C["typescript-types"] = {
         "// Top types:  unknown (safe), any (escape hatch)\n" +
         "// Bottom:     never (impossible value)\n" +
         "// Assertions: as, as const, as any, ! (non-null), satisfies"
+    },
+    {
+      title: "Example 3: unknown vs any - the safe vs unsafe top type",
+      description: "<p>Both accept any value, but <code>unknown</code> forces you to narrow before use while <code>any</code> disables all checking.</p>",
+      code: "let a: any;\n" +
+        "a = JSON.parse(\"{}\");\n" +
+        "a.foo.bar.baz;        // compiles - 'any' turns OFF type safety\n" +
+        "\n" +
+        "let u: unknown;\n" +
+        "u = JSON.parse(\"{}\");\n" +
+        "u.foo;                // ERROR: 'u' is of type 'unknown'\n" +
+        "if (typeof u === \"object\" && u && \"foo\" in u) u.foo; // must narrow first"
+    },
+    {
+      title: "Example 4 (edge case): never - the type that holds no value",
+      description: "<p><code>never</code> models the impossible: a function that never returns, or an exhausted union branch.</p>",
+      code: "function fail(msg: string): never { throw new Error(msg); }\n" +
+        "\n" +
+        "type Shape = { kind: \"circle\" } | { kind: \"square\" };\n" +
+        "function area(s: Shape) {\n" +
+        "  switch (s.kind) {\n" +
+        "    case \"circle\": return 1;\n" +
+        "    case \"square\": return 2;\n" +
+        "    default:\n" +
+        "      const _exhaustive: never = s; // ERROR if a new Shape is added unhandled\n" +
+        "      return _exhaustive;\n" +
+        "  }\n" +
+        "}"
     }
   ],
   whenToUse: "<p>You use types continuously &mdash; the skill is choosing the <em>right</em> one and letting " +
@@ -510,6 +754,28 @@ C["type-boolean"] = {
         "  return n % 2 === 0;\n" +
         "}\n" +
         "if (isEven(4)) { /* ... */ }"
+    },
+    {
+      title: "Example 3: Narrowing a boolean flag",
+      description: "<p>The compiler tracks a boolean through control flow, so each branch knows the exact value.</p>",
+      code: "function render(loading: boolean) {\n" +
+        "  if (loading) {\n" +
+        "    // here TS knows loading === true\n" +
+        "    return \"Loading...\";\n" +
+        "  }\n" +
+        "  // here TS knows loading === false\n" +
+        "  return \"Done\";\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): coercion and the !! idiom",
+      description: "<p>Use <code>Boolean(x)</code> or <code>!!x</code> to turn any value into a real boolean - never the <code>Boolean</code> wrapper object.</p>",
+      code: "const name: string | null = getName();\n" +
+        "const hasName: boolean = !!name;     // '' and null -> false, else true\n" +
+        "const same = Boolean(name);          // equivalent, clearer intent\n" +
+        "\n" +
+        "let bad: Boolean = true;  // AVOID: 'Boolean' is the object wrapper, not the\n" +
+        "                          // primitive - it even allows odd truthy behavior."
     }
   ],
   whenToUse: "<p>Use <code>boolean</code> for any true/false flag, condition, or predicate result &mdash; it's " +
@@ -546,6 +812,26 @@ C["type-number"] = {
         "console.log(sum);          // 0.30000000000000004  (not exactly 0.3!)\n" +
         "console.log(sum === 0.3);  // false\n" +
         "// For money, use integer cents or a decimal library, not raw floats."
+    },
+    {
+      title: "Example 3: number covers ints, floats, hex, and special values",
+      description: "<p>There is only one numeric type - integers and floats are the same <code>number</code>, and <code>NaN</code>/<code>Infinity</code> are also of type <code>number</code>.</p>",
+      code: "const int: number = 42;\n" +
+        "const float: number = 3.14;\n" +
+        "const hex: number = 0xff;       // 255\n" +
+        "const big: number = 1_000_000;  // numeric separators allowed\n" +
+        "const oops: number = NaN;        // NaN is, confusingly, a 'number'\n" +
+        "const inf: number = Infinity;    // so is Infinity"
+    },
+    {
+      title: "Example 4 (edge case): use bigint for integers beyond MAX_SAFE_INTEGER",
+      description: "<p><code>number</code> loses precision past 2^53; <code>bigint</code> is a separate type for exact large integers.</p>",
+      code: "const unsafe = 9007199254740993;        // number -> rounds to ...992 !\n" +
+        "const exact = 9007199254740993n;        // bigint -> exact\n" +
+        "\n" +
+        "const x: bigint = 10n;\n" +
+        "// x + 1;   // ERROR: can't mix bigint and number\n" +
+        "x + 1n;     // OK - bigint arithmetic stays in bigint"
     }
   ],
   whenToUse: "<p>Use <code>number</code> for all ordinary numeric values. <strong>Critical gotchas:</strong> " +
@@ -584,6 +870,27 @@ C["type-string"] = {
         "}\n" +
         "slug(\"  Hello World \"); // \"hello-world\"\n" +
         "slug(42); // ERROR: number is not assignable to string"
+    },
+    {
+      title: "Example 3: Template literals for interpolation and multiline",
+      description: "<p>Backtick strings embed expressions and span lines - the idiomatic way to build text.</p>",
+      code: "const user = \"Sam\";\n" +
+        "const count = 3;\n" +
+        "const msg: string = `Hi ${user}, you have ${count} item${count === 1 ? \"\" : \"s\"}`;\n" +
+        "\n" +
+        "const sql: string = `\n" +
+        "  SELECT * FROM users\n" +
+        "  WHERE name = '${user}'\n" +
+        "`;"
+    },
+    {
+      title: "Example 4 (edge case): .length counts UTF-16 units, not characters",
+      description: "<p>A surprising gotcha: emoji and other astral-plane characters count as 2, so <code>.length</code> is not the visible character count.</p>",
+      code: "\"cafe\".length;   // 4\n" +
+        "\"\\u{1F600}\".length; // 2  (a single emoji, but two UTF-16 code units)\n" +
+        "[...\"\\u{1F600}\"].length; // 1  - spread iterates by code point\n" +
+        "\n" +
+        "let s: String = \"x\"; // AVOID the 'String' wrapper object; use lowercase 'string'"
     }
   ],
   whenToUse: "<p>Use <code>string</code> for all text. Prefer template literals for interpolation and " +
@@ -621,6 +928,28 @@ C["type-void"] = {
         "}\n" +
         "// This is why [1,2,3].forEach(n => arr.push(n)) is allowed -\n" +
         "// push returns a number, but the void callback type ignores it."
+    },
+    {
+      title: "Example 3: void in a callback type ignores any return value",
+      description: "<p>A <code>void</code>-returning callback type lets you pass functions that <em>do</em> return something - the value is just ignored. This is why <code>arr.forEach</code> accepts <code>push</code>.</p>",
+      code: "type Handler = (x: number) => void;\n" +
+        "\n" +
+        "const out: number[] = [];\n" +
+        "const h: Handler = (x) => out.push(x); // push returns number, but that's OK\n" +
+        "// The 'void' return type means 'I won't use the return value', not\n" +
+        "// 'this function must return undefined'."
+    },
+    {
+      title: "Example 4 (edge case): void vs undefined",
+      description: "<p>They are not interchangeable - an explicit <code>undefined</code> return type forces you to return a value, while <code>void</code> does not.</p>",
+      code: "function a(): void { /* may return nothing OR a value that's ignored */ }\n" +
+        "\n" +
+        "function b(): undefined {\n" +
+        "  // must explicitly return undefined (or nothing in a body that falls off)\n" +
+        "  return undefined;\n" +
+        "}\n" +
+        "const r: void = a(); // fine\n" +
+        "// Don't annotate a variable as ': void' to hold real data - it's meaningless."
     }
   ],
   whenToUse: "<p>Use <code>void</code> as the return type of functions that exist for side effects &mdash; " +
@@ -660,6 +989,24 @@ C["type-undefined"] = {
         "  if (s === undefined) return \"\";\n" +
         "  return s[0];        // OK: narrowed to string here\n" +
         "}"
+    },
+    {
+      title: "Example 3: optional property vs explicit undefined",
+      description: "<p><code>?</code> and <code>| undefined</code> differ: an optional property may be omitted entirely; a required <code>| undefined</code> property must be present (even if its value is undefined).</p>",
+      code: "interface A { x?: number; }            // x may be absent\n" +
+        "interface B { x: number | undefined; } // x MUST be provided\n" +
+        "\n" +
+        "const a: A = {};                  // OK\n" +
+        "const b1: B = {};                 // ERROR: property 'x' is missing\n" +
+        "const b2: B = { x: undefined };   // OK"
+    },
+    {
+      title: "Example 4 (edge case): optional chaining and nullish coalescing",
+      description: "<p>Use <code>?.</code> to short-circuit on undefined and <code>??</code> to supply a default only for null/undefined (not for 0 or '').</p>",
+      code: "const len = user?.profile?.bio?.length; // number | undefined, no crash\n" +
+        "\n" +
+        "const port = config.port ?? 8080;   // 0 would be KEPT (?? only catches null/undefined)\n" +
+        "const portBad = config.port || 8080; // BUG: 0 is falsy -> wrongly becomes 8080"
     }
   ],
   whenToUse: "<p>You'll deal with <code>undefined</code> constantly &mdash; it models optional/missing data. " +
@@ -700,6 +1047,30 @@ C["type-null"] = {
         "  bio?: string;               // undefined = bio was never provided\n" +
         "}\n" +
         "// Choosing one consistently makes intent clear across the codebase."
+    },
+    {
+      title: "Example 3: handling a nullable return before use",
+      description: "<p>Under <code>strictNullChecks</code>, you must narrow away <code>null</code> before using the value.</p>",
+      code: "function find(id: number): User | null { /* ... */ return null; }\n" +
+        "\n" +
+        "const u = find(1);\n" +
+        "u.name;            // ERROR: 'u' is possibly 'null'\n" +
+        "if (u !== null) {\n" +
+        "  u.name;          // OK - narrowed to User\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): typeof null is 'object'",
+      description: "<p>A classic JavaScript wart that leaks into guards - <code>typeof null === \"object\"</code>, so a bare <code>typeof x === \"object\"</code> check still includes null.</p>",
+      code: "function handle(x: object | null) {\n" +
+        "  if (typeof x === \"object\") {\n" +
+        "    // x is still 'object | null' here - null sneaks through!\n" +
+        "    x?.toString();\n" +
+        "  }\n" +
+        "  if (x !== null && typeof x === \"object\") {\n" +
+        "    x.toString(); // now correctly narrowed to 'object'\n" +
+        "  }\n" +
+        "}"
     }
   ],
   whenToUse: "<p>Use <code>null</code> for deliberate emptiness &mdash; an explicitly cleared field, a " +
@@ -745,6 +1116,29 @@ C["type-interface"] = {
         "  find(id: number) { /* ... */ return null; }\n" +
         "  save(user: User) { /* ... */ }\n" +
         "}"
+    },
+    {
+      title: "Example 3: optional, readonly, and method members",
+      description: "<p>Interfaces describe optional props (<code>?</code>), immutable props (<code>readonly</code>), and methods.</p>",
+      code: "interface Account {\n" +
+        "  readonly id: string;   // can't be reassigned after creation\n" +
+        "  balance: number;\n" +
+        "  nickname?: string;     // optional\n" +
+        "  deposit(amount: number): void; // method signature\n" +
+        "}\n" +
+        "\n" +
+        "const acc: Account = { id: \"a1\", balance: 0, deposit(a) { this.balance += a; } };\n" +
+        "acc.id = \"a2\"; // ERROR: 'id' is read-only"
+    },
+    {
+      title: "Example 4 (edge case): declaration merging",
+      description: "<p>Unlike a type alias, two interfaces with the same name <em>merge</em> - powerful for augmentation, surprising if accidental.</p>",
+      code: "interface Box { width: number; }\n" +
+        "interface Box { height: number; }  // merges, does NOT error\n" +
+        "\n" +
+        "const b: Box = { width: 10, height: 20 }; // both required\n" +
+        "\n" +
+        "// type Box = { width: number }; type Box = {...} // would ERROR: duplicate"
     }
   ],
   whenToUse: "<p>Use interfaces to model the shape of objects, the contracts your classes implement, and the " +
@@ -787,6 +1181,25 @@ C["type-class"] = {
         "  if (e instanceof ApiError) { /* runtime check works - classes are real */ }\n" +
         "}\n" +
         "// 'instanceof SomeInterface' is impossible: interfaces vanish at compile time."
+    },
+    {
+      title: "Example 3: a class name is both a type and a value",
+      description: "<p>Declaring a class creates a runtime constructor <em>and</em> an instance type of the same name.</p>",
+      code: "class Point { constructor(public x: number, public y: number) {} }\n" +
+        "\n" +
+        "const p: Point = new Point(1, 2); // 'Point' used as a TYPE\n" +
+        "const Ctor = Point;               // 'Point' used as a VALUE (the constructor)\n" +
+        "const q = new Ctor(3, 4);\n" +
+        "// implements works too: 'class Foo implements SomeInterface { ... }'"
+    },
+    {
+      title: "Example 4 (edge case): structural typing - no 'implements' needed to match",
+      description: "<p>TypeScript is structural, so any object with the same shape is assignable to a class type, even without inheriting from it.</p>",
+      code: "class Money { constructor(public amount: number) {} }\n" +
+        "\n" +
+        "const fake: Money = { amount: 5 }; // OK! shape matches, no 'new' required\n" +
+        "// But beware: a class with PRIVATE members is NOT purely structural -\n" +
+        "// private fields are nominal, so a plain object can't satisfy it."
     }
   ],
   whenToUse: "<p>Use classes when you need objects with identity, encapsulated state, and behavior &mdash; " +
@@ -829,6 +1242,29 @@ C["type-enum"] = {
         "// Or an 'as const' object when you need the values as data\n" +
         "const Role = { Admin: \"admin\", User: \"user\" } as const;\n" +
         "type Role = typeof Role[keyof typeof Role]; // \"admin\" | \"user\""
+    },
+    {
+      title: "Example 3: const enum and string enums",
+      description: "<p><code>const enum</code> is inlined at compile time (no runtime object); string enums give readable values.</p>",
+      code: "const enum Dir { Up, Down }     // inlined: no JS object emitted\n" +
+        "const d = Dir.Up;               // compiles to: const d = 0;\n" +
+        "\n" +
+        "enum Status {                    // string enum - debuggable values\n" +
+        "  Active = \"ACTIVE\",\n" +
+        "  Closed = \"CLOSED\",\n" +
+        "}\n" +
+        "console.log(Status.Active);     // \"ACTIVE\""
+    },
+    {
+      title: "Example 4 (edge case): numeric enums are unsafe and reverse-mapped",
+      description: "<p>Numeric enums accept arbitrary numbers and create reverse mappings - a common reason to prefer a union of string literals or <code>as const</code>.</p>",
+      code: "enum Level { Low, High }   // 0, 1\n" +
+        "const x: Level = 99;       // NO ERROR - any number is accepted!\n" +
+        "console.log(Level[0]);     // \"Low\" - reverse map bloats the output\n" +
+        "\n" +
+        "// Safer modern alternative - a literal union:\n" +
+        "type Level2 = \"low\" | \"high\";\n" +
+        "const y: Level2 = \"bogus\"; // ERROR, as you'd want"
     }
   ],
   whenToUse: "<p>Use enums for a fixed, named set of related constants where having a runtime object is useful " +
@@ -869,6 +1305,25 @@ C["type-array"] = {
         "  return values.reduce((a, b) => a + b, 0);\n" +
         "}\n" +
         "// Signals the function won't mutate the caller's array."
+    },
+    {
+      title: "Example 3: readonly arrays and arrays of unions",
+      description: "<p><code>readonly T[]</code> blocks mutation; a union element type holds mixed values.</p>",
+      code: "const ids: readonly number[] = [1, 2, 3];\n" +
+        "ids.push(4);          // ERROR: push doesn't exist on a readonly array\n" +
+        "\n" +
+        "const mixed: (number | string)[] = [1, \"two\", 3];\n" +
+        "mixed.forEach(v => typeof v === \"string\" ? v.toUpperCase() : v.toFixed());"
+    },
+    {
+      title: "Example 4 (edge case): indexed access can lie without noUncheckedIndexedAccess",
+      description: "<p>By default <code>arr[i]</code> is typed as the element type even when the index is out of bounds - a frequent source of <code>undefined</code> bugs.</p>",
+      code: "const xs: number[] = [10];\n" +
+        "const v = xs[5];      // typed 'number', but is actually undefined at runtime\n" +
+        "v.toFixed();          // compiles, throws at runtime\n" +
+        "\n" +
+        "// Enable \"noUncheckedIndexedAccess\" so v becomes 'number | undefined'\n" +
+        "// and the compiler forces you to check."
     }
   ],
   whenToUse: "<p>Use array types for any collection of same-typed items &mdash; ubiquitous. Prefer " +
@@ -909,6 +1364,27 @@ C["type-tuple"] = {
         "  return [v, () => { v = !v; }];\n" +
         "}\n" +
         "const [isOpen, toggle] = useToggle(); // destructure the tuple"
+    },
+    {
+      title: "Example 3: named, optional, and rest elements in tuples",
+      description: "<p>Tuple members can be labeled for readability, marked optional, or gather the rest.</p>",
+      code: "type HttpResult = [status: number, body: string]; // labels aid hovering\n" +
+        "const r: HttpResult = [200, \"OK\"];\n" +
+        "\n" +
+        "type Point = [x: number, y: number, z?: number]; // z optional\n" +
+        "const p2: Point = [1, 2];\n" +
+        "\n" +
+        "type Args = [name: string, ...scores: number[]]; // rest element\n" +
+        "const a: Args = [\"Sam\", 90, 85, 100];"
+    },
+    {
+      title: "Example 4 (edge case): a plain array literal is NOT inferred as a tuple",
+      description: "<p>Without an annotation or <code>as const</code>, TypeScript widens <code>[1, 2]</code> to <code>number[]</code>, losing positions and lengths.</p>",
+      code: "const pair = [1, \"a\"];          // inferred (number | string)[], NOT a tuple\n" +
+        "// pair has no fixed length and pair[0] is number|string\n" +
+        "\n" +
+        "const tup = [1, \"a\"] as const;  // readonly [1, \"a\"] - precise tuple\n" +
+        "const [n, s] = tup;             // n: 1, s: \"a\""
     }
   ],
   whenToUse: "<p>Use a tuple for a small, fixed set of values with distinct types and meaningful order that " +
@@ -951,6 +1427,26 @@ C["type-object"] = {
         "\n" +
         "// Equivalent with the Record utility type\n" +
         "const scores2: Record<string, number> = { sam: 10 };"
+    },
+    {
+      title: "Example 3: object vs {} vs Record - three very different things",
+      description: "<p>These are commonly confused. <code>object</code> = any non-primitive; <code>{}</code> = anything except null/undefined; <code>Record</code> = a typed dictionary.</p>",
+      code: "let a: object = { x: 1 }; a = [1]; a = () => {}; // any non-primitive\n" +
+        "a = 5;          // ERROR: number is a primitive\n" +
+        "\n" +
+        "let b: {} = 5;  // OK! '{}' accepts almost anything (even numbers)\n" +
+        "let b2: {} = null; // ERROR (only null/undefined are rejected)\n" +
+        "\n" +
+        "let c: Record<string, number> = { a: 1, b: 2 }; // typed dictionary"
+    },
+    {
+      title: "Example 4 (edge case): you can't read properties off 'object'",
+      description: "<p><code>object</code> is too broad to be useful - it knows of no properties, so prefer a concrete shape or <code>Record</code>.</p>",
+      code: "function logKeys(o: object) {\n" +
+        "  o.name;                 // ERROR: Property 'name' does not exist on 'object'\n" +
+        "  return Object.keys(o);  // about all you can safely do\n" +
+        "}\n" +
+        "// Prefer: function logKeys(o: Record<string, unknown>) { ... }"
     }
   ],
   whenToUse: "<p>Rarely use the bare <code>object</code> type &mdash; it's too broad to do anything useful with " +
@@ -992,6 +1488,27 @@ C["type-unknown"] = {
         "}\n" +
         "\n" +
         "const data: unknown = JSON.parse(input); // don't trust shape - validate it"
+    },
+    {
+      title: "Example 3: typing a JSON parse / fetch boundary safely",
+      description: "<p>Return <code>unknown</code> from a parser so callers are forced to validate before trusting the data.</p>",
+      code: "async function getJson(url: string): Promise<unknown> {\n" +
+        "  const res = await fetch(url);\n" +
+        "  return res.json(); // pretend-safe 'any' becomes honest 'unknown'\n" +
+        "}\n" +
+        "\n" +
+        "const data = await getJson(\"/user\");\n" +
+        "data.name;  // ERROR - must validate first\n" +
+        "if (typeof data === \"object\" && data && \"name\" in data) data.name; // OK"
+    },
+    {
+      title: "Example 4 (edge case): unknown in unions absorbs everything",
+      description: "<p><code>unknown</code> is the top type, so any union containing it collapses to <code>unknown</code>.</p>",
+      code: "type A = unknown | string;   // = unknown  (string is absorbed)\n" +
+        "type B = unknown & string;   // = string   (intersection narrows instead)\n" +
+        "\n" +
+        "// You cannot do much with unknown without narrowing - that's the point:\n" +
+        "function f(x: unknown) { return x + 1; } // ERROR: object is of type 'unknown'"
     }
   ],
   whenToUse: "<p>Use <code>unknown</code> wherever data enters your program with no compile-time guarantee of " +
@@ -1032,6 +1549,25 @@ C["type-any"] = {
         "\n" +
         "// Better: type as unknown, then narrow/validate\n" +
         "const safe: unknown = JSON.parse(input);"
+    },
+    {
+      title: "Example 3: any is contagious - it spreads through your code",
+      description: "<p>Once a value is <code>any</code>, everything derived from it becomes <code>any</code>, silently switching off checking far from the original cast.</p>",
+      code: "const data: any = JSON.parse(\"{}\");\n" +
+        "const name = data.user.name; // name: any (no error, even though it could crash)\n" +
+        "const upper = name.toUpperCase(); // any\n" +
+        "upper.nonsense();             // still no error - safety is gone downstream"
+    },
+    {
+      title: "Example 4 (edge case): ban it with the linter, allow only deliberate escapes",
+      description: "<p>Teams enforce <code>no-explicit-any</code> and require a comment to opt out, so every <code>any</code> is a conscious decision.</p>",
+      code: "// eslint: @typescript-eslint/no-explicit-any flags this:\n" +
+        "function parse(x: any) {}        // lint error\n" +
+        "\n" +
+        "// Deliberate, justified escape hatch:\n" +
+        "// eslint-disable-next-line @typescript-eslint/no-explicit-any -- 3rd-party untyped\n" +
+        "function bridge(x: any) {}\n" +
+        "// Prefer 'unknown' first; reach for 'any' only when interop truly demands it."
     }
   ],
   whenToUse: "<p>Avoid <code>any</code> whenever possible. Legitimate uses are narrow: <em>gradual migration</em> " +
@@ -1076,6 +1612,26 @@ C["type-never"] = {
         "      return _exhaustive;\n" +
         "  }\n" +
         "}"
+    },
+    {
+      title: "Example 3: never as a 'filtered out' result in types",
+      description: "<p>Conditional and mapped types use <code>never</code> to drop members - and <code>never</code> vanishes from unions.</p>",
+      code: "type NonString<T> = T extends string ? never : T;\n" +
+        "type R = NonString<string | number | boolean>; // number | boolean\n" +
+        "\n" +
+        "type U = string | never; // = string  (never disappears in a union)\n" +
+        "// This is exactly how Exclude<T, U> is built under the hood."
+    },
+    {
+      title: "Example 4 (edge case): never is assignable TO everything, nothing assignable to it",
+      description: "<p><code>never</code> is the bottom type - it fits any slot, but only <code>never</code> fits a <code>never</code> slot.</p>",
+      code: "function unreachable(): never { throw new Error(); }\n" +
+        "const a: number = unreachable();   // OK: never -> number\n" +
+        "const b: string = unreachable();   // OK: never -> string\n" +
+        "\n" +
+        "let n: never;\n" +
+        "n = 5;        // ERROR: number is not assignable to never\n" +
+        "// An accidental 'never' (e.g. an over-narrowed variable) makes assignments fail."
     }
   ],
   whenToUse: "<p>The everyday use of <code>never</code> is <strong>exhaustiveness checking</strong> over " +
@@ -1116,6 +1672,25 @@ C["as-const"] = {
       code: "const ROLES = [\"admin\", \"editor\", \"viewer\"] as const;\n" +
         "type Role = typeof ROLES[number]; // \"admin\" | \"editor\" | \"viewer\"\n" +
         "// Add a role to the array -> the type updates automatically."
+    },
+    {
+      title: "Example 3: as const to derive a literal union from an array",
+      description: "<p>A frequent pattern: define values once as a <code>const</code> array, then derive the type so the two never drift apart.</p>",
+      code: "const ROLES = [\"admin\", \"editor\", \"viewer\"] as const;\n" +
+        "type Role = typeof ROLES[number];  // \"admin\" | \"editor\" | \"viewer\"\n" +
+        "\n" +
+        "function setRole(r: Role) {}\n" +
+        "setRole(\"editor\"); // OK\n" +
+        "setRole(\"owner\");  // ERROR - and ROLES stays the single source of truth"
+    },
+    {
+      title: "Example 4 (edge case): as const makes everything deeply readonly",
+      description: "<p>It freezes the type at the literal level all the way down, so you can't mutate the resulting object/array.</p>",
+      code: "const cfg = { retries: 3, tags: [\"a\"] } as const;\n" +
+        "// type: { readonly retries: 3; readonly tags: readonly [\"a\"] }\n" +
+        "cfg.retries = 5;     // ERROR: read-only\n" +
+        "cfg.tags.push(\"b\");  // ERROR: push not on readonly tuple\n" +
+        "// Great for constants; wrong if you need a mutable value."
     }
   ],
   whenToUse: "<p>Use <code>as const</code> for constant data you want typed precisely and immutably: " +
@@ -1155,6 +1730,23 @@ C["as-type"] = {
         "const n = value as number;   // compiles - but it's actually a string!\n" +
         "n.toFixed(2);                // runtime crash: toFixed is not a function\n" +
         "// The 'as' silenced the compiler without making it true."
+    },
+    {
+      title: "Example 3: the safe double-assertion through unknown",
+      description: "<p>TypeScript blocks asserts between unrelated types; routing through <code>unknown</code> is the explicit 'I really mean it' escape - a code smell to use sparingly.</p>",
+      code: "const n = 5;\n" +
+        "const s = n as string;            // ERROR: neither type overlaps the other\n" +
+        "const s2 = n as unknown as string; // allowed, but you've lied to the compiler\n" +
+        "s2.toUpperCase();                  // compiles, CRASHES at runtime"
+    },
+    {
+      title: "Example 4 (edge case): assertions don't convert, and the angle-bracket form clashes with JSX",
+      description: "<p><code>as</code> only changes the compiler's view, never the runtime value; and in <code>.tsx</code> files the old <code>&lt;T&gt;value</code> syntax is ambiguous with JSX.</p>",
+      code: "const input = \"42\";\n" +
+        "const num = input as number; // ERROR anyway; but even if forced, it's still\n" +
+        "                             // the string \"42\" at runtime - use Number(input).\n" +
+        "\n" +
+        "// In .tsx, use 'value as T'; '<T>value' is parsed as a JSX tag and breaks."
     }
   ],
   whenToUse: "<p>Use <code>as</code> assertions only when you legitimately know a value's type better than the " +
@@ -1194,6 +1786,22 @@ C["as-any"] = {
         "if (typeof data === \"string\" || Array.isArray(data)) {\n" +
         "  const len = data.length; // safe, checked\n" +
         "}"
+    },
+    {
+      title: "Example 3: prefer a narrow cast over as any",
+      description: "<p>If you must assert, assert to the smallest correct type, not <code>any</code> - you keep checking everywhere else.</p>",
+      code: "const el = document.getElementById(\"name\");\n" +
+        "(el as any).value;                      // BAD: disables all checking on el\n" +
+        "(el as HTMLInputElement).value;         // GOOD: precise, still type-checked\n" +
+        "// 'as any' throws away every guarantee; the targeted cast keeps the rest."
+    },
+    {
+      title: "Example 4 (edge case): as any silently swallows later real errors",
+      description: "<p>Because <code>any</code> propagates, an <code>as any</code> can hide bugs introduced long after you wrote it.</p>",
+      code: "const cfg = loadConfig() as any;\n" +
+        "// months later someone renames cfg.timeout -> cfg.timeoutMs\n" +
+        "setTimeout(fn, cfg.timeout); // STILL compiles (any), now silently undefined\n" +
+        "// Had cfg been typed, the rename would have produced a compile error here."
     }
   ],
   whenToUse: "<p>Use <code>as any</code> only as a genuine last resort &mdash; bridging an incorrect " +
@@ -1231,6 +1839,27 @@ C["non-null-assertion"] = {
         "  return user!.name; // compiles even if user is undefined...\n" +
         "}\n" +
         "getName();           // runtime crash: cannot read 'name' of undefined"
+    },
+    {
+      title: "Example 3: ! on DOM lookups and definite assignment",
+      description: "<p>Two common spots: a DOM element you know exists, and a class field initialized outside the constructor (the <code>!</code> definite-assignment modifier).</p>",
+      code: "const root = document.getElementById(\"app\")!; // assert it's not null\n" +
+        "root.append(\"hi\");\n" +
+        "\n" +
+        "class Comp {\n" +
+        "  el!: HTMLElement;        // ! = 'I promise this gets set before use'\n" +
+        "  init() { this.el = root; } // set later, e.g. in a lifecycle hook\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): ! is erased - a wrong promise still crashes",
+      description: "<p>The non-null assertion adds zero runtime check; if the value really is null, you get the very error you were trying to avoid.</p>",
+      code: "const found = users.find(u => u.id === 999)!; // assert 'definitely found'\n" +
+        "found.name; // if id 999 doesn't exist -> runtime TypeError\n" +
+        "\n" +
+        "// Safer: narrow instead of asserting\n" +
+        "const maybe = users.find(u => u.id === 999);\n" +
+        "if (maybe) maybe.name;"
     }
   ],
   whenToUse: "<p>Use the non-null assertion sparingly, only when you're certain a value is present but the " +
@@ -1277,6 +1906,28 @@ C["satisfies-keyword"] = {
         "palette.primary;  // autocompletes; known key\n" +
         "// palette.tertiary -> ERROR (not a known key) - specificity retained\n" +
         "// A non-string value would also be rejected by 'satisfies'."
+    },
+    {
+      title: "Example 3: satisfies keeps the narrow type that 'as' would erase",
+      description: "<p>This is the headline benefit: validate against a type but retain the precise inferred literal types of the value.</p>",
+      code: "type Routes = Record<string, { method: string }>;\n" +
+        "\n" +
+        "const routes = {\n" +
+        "  home: { method: \"GET\" },\n" +
+        "  save: { method: \"POST\" },\n" +
+        "} satisfies Routes;\n" +
+        "\n" +
+        "routes.home.method; // type is \"GET\" (literal!), and 'routes.typo' is an error\n" +
+        "// With ': Routes' you'd lose the literals; with 'as Routes' you'd lose key checks."
+    },
+    {
+      title: "Example 4 (edge case): satisfies still rejects invalid values",
+      description: "<p>Unlike <code>as</code>, it does not let you force a bad value through - it only validates.</p>",
+      code: "type Color = { r: number; g: number; b: number };\n" +
+        "\n" +
+        "const c = { r: 255, g: 0, b: \"oops\" } satisfies Color;\n" +
+        "//                            ^^^^^^ ERROR: string not assignable to number\n" +
+        "const forced = { r: 255 } as Color; // 'as' would WRONGLY allow this"
     }
   ],
   whenToUse: "<p>Use <code>satisfies</code> when you want to <em>validate</em> a value against a type while " +
@@ -1325,6 +1976,27 @@ C["type-inference"] = {
         "function total(items: number[]): number {\n" +
         "  return items.reduce((a, b) => a + b, 0); // return inferred, but annotated for clarity\n" +
         "}"
+    },
+    {
+      title: "Example 3: contextual typing infers callback parameters",
+      description: "<p>TypeScript infers parameter types from the surrounding context, so you rarely annotate callback args.</p>",
+      code: "[1, 2, 3].map(n => n * 2);     // n inferred as number from the array\n" +
+        "\n" +
+        "window.addEventListener(\"click\", e => {\n" +
+        "  e.clientX; // e inferred as MouseEvent - no annotation needed\n" +
+        "});\n" +
+        "\n" +
+        "const handler: (s: string) => void = s => s.toUpperCase(); // s: string"
+    },
+    {
+      title: "Example 4 (edge case): literal widening",
+      description: "<p>Inference 'widens' literals for mutable bindings, which can lose the precise type you wanted.</p>",
+      code: "let mode = \"on\";          // inferred as string (widened), NOT \"on\"\n" +
+        "const mode2 = \"on\";       // inferred as \"on\" (const keeps the literal)\n" +
+        "\n" +
+        "function set(m: \"on\" | \"off\") {}\n" +
+        "set(mode);   // ERROR: string not assignable to \"on\" | \"off\"\n" +
+        "set(mode2);  // OK - or use 'let mode = \"on\" as const'"
     }
   ],
   whenToUse: "<p>Lean on inference everywhere it works &mdash; for local variables, array/object literals, and " +
@@ -1374,6 +2046,25 @@ C["type-compatibility"] = {
         "\n" +
         "// But assigning via a variable bypasses the literal check (see Example 1).\n" +
         "// This catches typos like { x: 1, y: 2, colour: \"red\" } on direct literals."
+    },
+    {
+      title: "Example 3: excess property checks on object literals",
+      description: "<p>Structural typing normally allows extra properties - except a fresh object <em>literal</em> assigned directly is checked strictly, catching typos.</p>",
+      code: "interface Opts { debug?: boolean; }\n" +
+        "\n" +
+        "const o = { dbug: true };\n" +
+        "const a: Opts = o;          // OK - structural, extra prop allowed via a variable\n" +
+        "const b: Opts = { dbug: true }; // ERROR: 'dbug' not in Opts (literal is strict)\n" +
+        "// The literal check is a deliberate typo-catcher; the variable path is not."
+    },
+    {
+      title: "Example 4 (edge case): function parameter bivariance and fewer-args rule",
+      description: "<p>A function needing <em>fewer</em> parameters is assignable where more are expected - which is why callbacks can ignore arguments.</p>",
+      code: "type Cb = (a: number, b: number) => void;\n" +
+        "const f: Cb = (a) => console.log(a); // OK: ignoring 'b' is allowed\n" +
+        "\n" +
+        "// But return types are checked: a callback may not return less specifically\n" +
+        "// than required. Method parameters are bivariant (looser) than function ones."
     }
   ],
   whenToUse: "<p>You don't 'use' type compatibility directly &mdash; understanding it explains a lot of " +
@@ -1420,6 +2111,27 @@ C["combining-types"] = {
         "\n" +
         "function get(p: Point, axis: Axis) { return p[axis]; }\n" +
         "get({ x: 1, y: 2 }, \"x\"); // only \"x\" or \"y\" accepted"
+    },
+    {
+      title: "Example 3: discriminated unions - the workhorse pattern",
+      description: "<p>A shared literal 'tag' field lets the compiler narrow a union to one exact shape per branch.</p>",
+      code: "type Result =\n" +
+        "  | { status: \"ok\"; data: string }\n" +
+        "  | { status: \"error\"; message: string };\n" +
+        "\n" +
+        "function show(r: Result) {\n" +
+        "  if (r.status === \"ok\") return r.data;     // narrowed to the ok shape\n" +
+        "  return r.message;                          // narrowed to the error shape\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): intersecting incompatible types yields never",
+      description: "<p>Combining conflicting primitive types produces <code>never</code> - a silent footgun.</p>",
+      code: "type Bad = string & number;   // never - no value is both\n" +
+        "const x: Bad = \"a\";           // ERROR: not assignable to never\n" +
+        "\n" +
+        "// Object intersections with conflicting fields also collapse those fields:\n" +
+        "type C = { id: string } & { id: number }; // id: never"
     }
   ],
   whenToUse: "<p>You'll combine types constantly: unions to model a value that can be one of several things " +
@@ -1463,6 +2175,26 @@ C["union-types"] = {
         "    case \"error\":   return r.message; // r is the error variant here\n" +
         "  }\n" +
         "}"
+    },
+    {
+      title: "Example 3: you can only access members common to all members",
+      description: "<p>Before narrowing, a union exposes only the properties/methods that every member shares.</p>",
+      code: "function pad(x: string | number) {\n" +
+        "  x.toFixed(2);          // ERROR: toFixed not on string\n" +
+        "  x.toString();          // OK - both string and number have toString\n" +
+        "  if (typeof x === \"number\") return x.toFixed(2); // now allowed\n" +
+        "  return x.padStart(3);  // x narrowed to string\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): unions distribute over generics and arrays",
+      description: "<p><code>(A | B)[]</code> is an array whose elements may each be A or B - not an array that's all-A or all-B.</p>",
+      code: "const xs: (string | number)[] = [1, \"two\", 3]; // mixed elements OK\n" +
+        "\n" +
+        "// vs an array that is EITHER all strings OR all numbers:\n" +
+        "let ys: string[] | number[];\n" +
+        "ys = [1, 2];      // OK\n" +
+        "ys = [1, \"two\"];  // ERROR: not uniformly one type"
     }
   ],
   whenToUse: "<p>Use unions to model any value with a finite set of alternatives: nullable results " +
@@ -1502,6 +2234,26 @@ C["intersection-types"] = {
         "\n" +
         "// Incompatible primitives collapse to 'never':\n" +
         "type Impossible = string & number; // never (no value is both)"
+    },
+    {
+      title: "Example 3: mixing in capabilities (mixin-style composition)",
+      description: "<p>Intersections compose small capability types into a richer one - an alternative to deep inheritance.</p>",
+      code: "type Timestamps = { createdAt: Date; updatedAt: Date };\n" +
+        "type SoftDelete = { deletedAt: Date | null };\n" +
+        "type Entity = { id: string };\n" +
+        "\n" +
+        "type User = Entity & Timestamps & SoftDelete & { name: string };\n" +
+        "const u: User = { id: \"1\", name: \"Sam\", createdAt: new Date(),\n" +
+        "  updatedAt: new Date(), deletedAt: null };"
+    },
+    {
+      title: "Example 4 (edge case): intersection vs interface extends differ on conflicts",
+      description: "<p>An intersection silently makes conflicting members <code>never</code>; <code>interface extends</code> raises an error instead.</p>",
+      code: "type A = { v: string } & { v: number }; // v: never (no error here)\n" +
+        "\n" +
+        "interface X { v: string }\n" +
+        "interface Y extends X { v: number } // ERROR: incompatibly overrides 'v'\n" +
+        "// 'extends' is the safer choice when you want conflicts surfaced."
     }
   ],
   whenToUse: "<p>Use intersections to compose object types from reusable pieces &mdash; mixing capabilities " +
@@ -1542,6 +2294,26 @@ C["type-aliases"] = {
         "  | { ok: false; error: string };\n" +
         "\n" +
         "const r: ApiResult<number> = { ok: true, data: 42 };"
+    },
+    {
+      title: "Example 3: aliases can name things interfaces cannot",
+      description: "<p>Only a <code>type</code> alias can name a union, tuple, primitive, or mapped/conditional type.</p>",
+      code: "type ID = string | number;        // union - interfaces can't do this\n" +
+        "type Pair = [number, number];     // tuple\n" +
+        "type Json = string | number | boolean | null | Json[] | { [k: string]: Json };\n" +
+        "// recursive alias - models arbitrary JSON"
+    },
+    {
+      title: "Example 4 (edge case): aliases don't create new nominal types",
+      description: "<p>An alias is just a name for the same structure - it gives no extra safety against mixing values. Use branding when you need that.</p>",
+      code: "type UserId = string;\n" +
+        "type OrderId = string;\n" +
+        "const uid: UserId = \"u1\";\n" +
+        "const oid: OrderId = uid; // OK?! both are just 'string'\n" +
+        "\n" +
+        "// Brand them to make them distinct:\n" +
+        "type Branded<T, B> = T & { readonly __brand: B };\n" +
+        "type RealUserId = Branded<string, \"UserId\">; // now not interchangeable"
     }
   ],
   whenToUse: "<p>Use type aliases whenever a type is non-trivial, repeated, or benefits from a meaningful name " +
@@ -1584,6 +2356,26 @@ C["keyof-operator"] = {
         "function describe(key: ConfigKey) { /* only real keys allowed */ }\n" +
         "describe(\"port\");  // OK\n" +
         "describe(\"prot\");  // ERROR - typo caught"
+    },
+    {
+      title: "Example 3: the classic type-safe property getter",
+      description: "<p><code>keyof</code> plus a generic gives a getter whose return type tracks the exact property requested.</p>",
+      code: "function get<T, K extends keyof T>(obj: T, key: K): T[K] {\n" +
+        "  return obj[key];\n" +
+        "}\n" +
+        "const user = { id: 1, name: \"Sam\" };\n" +
+        "const a = get(user, \"name\"); // a: string\n" +
+        "const b = get(user, \"id\");   // b: number\n" +
+        "get(user, \"email\");          // ERROR: 'email' is not a key of user"
+    },
+    {
+      title: "Example 4 (edge case): keyof on index signatures and arrays",
+      description: "<p><code>keyof</code> of a record yields the index type; of an array it includes numbers <em>and</em> all the array method names.</p>",
+      code: "type R = Record<string, number>;\n" +
+        "type RK = keyof R;  // string | number (numeric keys coerce to string)\n" +
+        "\n" +
+        "type AK = keyof string[]; // number | \"length\" | \"push\" | \"map\" | ...\n" +
+        "// surprising: it's not just the indices - it's every member of the array type."
     }
   ],
   whenToUse: "<p>Use <code>keyof</code> whenever you write generic code that works with an object's keys &mdash; " +
@@ -1628,6 +2420,27 @@ C["type-guards-narrowing"] = {
         "  if (\"bark\" in pet) pet.bark();  // narrowed to Dog\n" +
         "  else pet.meow();                 // narrowed to Cat\n" +
         "}"
+    },
+    {
+      title: "Example 3: the 'in' operator narrows by property presence",
+      description: "<p><code>in</code> checks for a key and narrows a union to the member that has it.</p>",
+      code: "type Admin = { role: \"admin\"; permissions: string[] };\n" +
+        "type Guest = { role: \"guest\"; sessionId: string };\n" +
+        "\n" +
+        "function describe(u: Admin | Guest) {\n" +
+        "  if (\"permissions\" in u) return u.permissions; // narrowed to Admin\n" +
+        "  return u.sessionId;                            // narrowed to Guest\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): narrowing doesn't survive a closure or await",
+      description: "<p>A narrowed variable can be re-widened if it might change between the check and the use - a subtle source of 'possibly undefined' errors.</p>",
+      code: "let v: string | undefined = get();\n" +
+        "if (v) {\n" +
+        "  setTimeout(() => v.toUpperCase(), 0); // ERROR: v possibly undefined\n" +
+        "  // TS can't prove v stays defined inside the deferred callback.\n" +
+        "}\n" +
+        "// Fix: copy to a const - const s = v; then use s, whose narrowing sticks."
     }
   ],
   whenToUse: "<p>You narrow constantly &mdash; any time you work with a union, <code>unknown</code>, or " +
@@ -1671,6 +2484,29 @@ C["equality"] = {
         "    case \"error\":   return errorBox(); // each case = that exact literal\n" +
         "  }\n" +
         "}"
+    },
+    {
+      title: "Example 3: a discriminant literal compared with ===",
+      description: "<p>Equality against a literal is how discriminated unions narrow each branch.</p>",
+      code: "type Shape =\n" +
+        "  | { kind: \"circle\"; r: number }\n" +
+        "  | { kind: \"rect\"; w: number; h: number };\n" +
+        "\n" +
+        "function area(s: Shape) {\n" +
+        "  if (s.kind === \"circle\") return Math.PI * s.r ** 2; // narrowed to circle\n" +
+        "  return s.w * s.h;                                    // narrowed to rect\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): != null catches both null AND undefined",
+      description: "<p>The loose <code>== null</code> / <code>!= null</code> is the one place loose equality is idiomatic - it matches null and undefined together and nothing else.</p>",
+      code: "function f(x: string | null | undefined) {\n" +
+        "  if (x != null) {\n" +
+        "    // x narrowed to string (both null and undefined removed)\n" +
+        "    return x.toUpperCase();\n" +
+        "  }\n" +
+        "}\n" +
+        "// 'x !== null' alone would still leave 'string | undefined'."
     }
   ],
   whenToUse: "<p>Use equality narrowing to handle nullable values (<code>=== null</code>, or the handy " +
@@ -1714,6 +2550,25 @@ C["instanceof"] = {
         "\n" +
         "// Use 'in' or a type predicate for interface-like shapes instead:\n" +
         "// if (\"fly\" in animal) { ... }"
+    },
+    {
+      title: "Example 3: narrowing caught errors",
+      description: "<p>A frequent real use - the <code>catch</code> binding is <code>unknown</code>, so <code>instanceof Error</code> narrows it before you read <code>.message</code>.</p>",
+      code: "try {\n" +
+        "  risky();\n" +
+        "} catch (err) {            // err: unknown\n" +
+        "  if (err instanceof Error) console.error(err.message); // narrowed\n" +
+        "  else console.error(\"Non-Error thrown:\", err);\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): instanceof fails across realms and with transpiled built-ins",
+      description: "<p><code>instanceof</code> relies on the prototype chain, so it breaks for objects from another window/iframe (realm) and for subclassed built-ins compiled to old targets.</p>",
+      code: "// Value from an iframe: arrayFromIframe instanceof Array === false\n" +
+        "Array.isArray(arrayFromIframe); // use this instead - realm-safe\n" +
+        "\n" +
+        "// Subclassing Error/Array with target ES5 can break instanceof at runtime;\n" +
+        "// target ES2015+ (or set the prototype manually) to avoid it."
     }
   ],
   whenToUse: "<p>Use <code>instanceof</code> to narrow values that are <em>class instances</em> &mdash; most " +
@@ -1754,6 +2609,24 @@ C["typeof"] = {
         "type Settings = typeof defaultSettings; // { theme: string; fontSize: number }\n" +
         "\n" +
         "function apply(s: Settings) { /* ... */ }"
+    },
+    {
+      title: "Example 3: distinguishing a function from data",
+      description: "<p><code>typeof x === \"function\"</code> narrows a value-or-factory union - common for 'value or lazy getter' APIs.</p>",
+      code: "function resolve<T>(v: T | (() => T)): T {\n" +
+        "  return typeof v === \"function\" ? (v as () => T)() : v;\n" +
+        "}\n" +
+        "resolve(5);          // 5\n" +
+        "resolve(() => 5);    // 5"
+    },
+    {
+      title: "Example 4 (edge case): typeof's quirks - null and arrays are 'object'",
+      description: "<p>JavaScript's <code>typeof</code> returns <code>\"object\"</code> for null and for arrays, so it can't distinguish those alone.</p>",
+      code: "typeof null;        // \"object\"  (historical bug)\n" +
+        "typeof [1, 2];      // \"object\"  (not \"array\")\n" +
+        "typeof (() => 1);   // \"function\"\n" +
+        "\n" +
+        "// To tell an array apart use Array.isArray(x), not typeof."
     }
   ],
   whenToUse: "<p>Use <code>typeof</code> as a guard to narrow unions of <em>primitives</em> &mdash; " +
@@ -1795,6 +2668,29 @@ C["truthiness"] = {
         "\n" +
         "  // Correct: check explicitly for the thing you mean\n" +
         "  if (count !== undefined) { /* handles 0 properly */ }\n" +
+        "}"
+    },
+    {
+      title: "Example 3: guarding against null before property access",
+      description: "<p>A truthy check removes <code>null</code>/<code>undefined</code> from a union so member access is safe.</p>",
+      code: "function greet(user?: { name: string }) {\n" +
+        "  if (user) {\n" +
+        "    return `Hi ${user.name}`; // user narrowed to the object\n" +
+        "  }\n" +
+        "  return \"Hi guest\";\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): the 0 and empty-string trap",
+      description: "<p>Truthiness lumps valid values (<code>0</code>, <code>\"\"</code>, <code>NaN</code>) in with null/undefined - a classic bug when those are legitimate inputs.</p>",
+      code: "function setVolume(v: number | undefined) {\n" +
+        "  if (!v) return;     // BUG: also returns when v === 0 (a valid volume!)\n" +
+        "  apply(v);\n" +
+        "}\n" +
+        "// Correct: check precisely\n" +
+        "function setVolume2(v: number | undefined) {\n" +
+        "  if (v === undefined) return;\n" +
+        "  apply(v);           // 0 now handled\n" +
         "}"
     }
   ],
@@ -1840,6 +2736,26 @@ C["type-predicates"] = {
         "// Without a predicate, filter(Boolean) still types as (string | null)[]\n" +
         "const clean = values.filter((v): v is string => v !== null);\n" +
         "// clean is string[] - the predicate narrowed the element type"
+    },
+    {
+      title: "Example 3: a predicate as an array filter for clean narrowing",
+      description: "<p>Typing a filter callback with a predicate removes <code>null</code> from the resulting array type - something a plain <code>Boolean</code> filter can't do.</p>",
+      code: "const raw: (string | null)[] = [\"a\", null, \"b\"];\n" +
+        "\n" +
+        "const bad = raw.filter(Boolean); // still (string | null)[] :(\n" +
+        "\n" +
+        "function isString(x: unknown): x is string { return typeof x === \"string\"; }\n" +
+        "const good = raw.filter(isString); // string[]  :)"
+    },
+    {
+      title: "Example 4 (edge case): predicates are unchecked promises",
+      description: "<p>TypeScript trusts your predicate's return type without verifying the logic - a wrong predicate causes unsound narrowing that crashes at runtime.</p>",
+      code: "function isUser(x: unknown): x is { name: string } {\n" +
+        "  return typeof x === \"object\"; // BUG: doesn't actually check 'name'\n" +
+        "}\n" +
+        "const v: unknown = {};\n" +
+        "if (isUser(v)) v.name.toUpperCase(); // compiles, throws at runtime\n" +
+        "// A predicate is only as safe as the boolean check inside it."
     }
   ],
   whenToUse: "<p>Write type predicates when a built-in guard isn't enough &mdash; validating the shape of " +
@@ -1888,6 +2804,28 @@ C["typescript-functions"] = {
         "\n" +
         "function apply(op: BinaryOp, x: number, y: number) { return op(x, y); }\n" +
         "apply(add, 2, 3); // 5"
+    },
+    {
+      title: "Example 3: optional, default, and rest parameters",
+      description: "<p>Three ways to type flexible argument lists.</p>",
+      code: "function build(name: string, count = 1, ...tags: string[]): string {\n" +
+        "  return `${name} x${count} [${tags.join(\",\")}]`;\n" +
+        "}\n" +
+        "build(\"box\");                 // count defaults to 1, tags []\n" +
+        "build(\"box\", 3, \"a\", \"b\");    // rest collects [\"a\",\"b\"]\n" +
+        "\n" +
+        "function f(a: number, b?: number) {} // b: number | undefined\n" +
+        "// Note: a required parameter may not follow an optional one."
+    },
+    {
+      title: "Example 4 (edge case): async return types and 'this' parameters",
+      description: "<p>An <code>async</code> function's annotated return must be a <code>Promise</code>; a fake <code>this</code> first parameter types the receiver without being a real argument.</p>",
+      code: "async function load(): Promise<string> { return \"ok\"; } // not ': string'\n" +
+        "\n" +
+        "interface Btn { label: string; }\n" +
+        "function onClick(this: Btn, e: Event) {\n" +
+        "  console.log(this.label); // 'this' typed; callers don't pass it\n" +
+        "}"
     }
   ],
   whenToUse: "<p>You type functions constantly &mdash; it's the highest-value annotation in TypeScript because " +
@@ -1930,6 +2868,23 @@ C["typing-functions"] = {
         "}\n" +
         "const byLength: Comparator<string> = (a, b) => a.length - b.length;\n" +
         "[\"bbb\", \"a\", \"cc\"].sort(byLength);"
+    },
+    {
+      title: "Example 3: a generic function type",
+      description: "<p>Function type aliases can be generic, capturing a reusable signature shape.</p>",
+      code: "type Mapper = <T, U>(items: T[], fn: (x: T) => U) => U[];\n" +
+        "\n" +
+        "const map: Mapper = (items, fn) => items.map(fn);\n" +
+        "const lengths = map([\"a\", \"bb\"], s => s.length); // number[]"
+    },
+    {
+      title: "Example 4 (edge case): call + construct signatures in one type",
+      description: "<p>An interface can describe a value that is both callable and newable - e.g. a function that also works with <code>new</code>.</p>",
+      code: "interface Factory {\n" +
+        "  (name: string): string;           // call signature\n" +
+        "  new (name: string): { name: string }; // construct signature\n" +
+        "}\n" +
+        "// Useful for typing things like Date or polymorphic factory utilities."
     }
   ],
   whenToUse: "<p>Use named function types (via <code>type</code> or an interface call signature) when the same " +
@@ -1973,6 +2928,28 @@ C["function-overloading"] = {
         "function first<T>(arr: T[]): T | undefined { return arr[0]; }\n" +
         "first([1, 2]);     // number | undefined\n" +
         "first([\"a\"]);     // string | undefined  - generics handle it cleanly"
+    },
+    {
+      title: "Example 3: the implementation signature is not callable",
+      description: "<p>Only the overload signatures are visible to callers; the implementation signature must be broad enough to cover them all but is itself hidden.</p>",
+      code: "function len(x: string): number;\n" +
+        "function len(x: any[]): number;\n" +
+        "function len(x: string | any[]): number { return x.length; } // impl - hidden\n" +
+        "\n" +
+        "len(\"hi\"); // 2\n" +
+        "len([1, 2, 3]); // 3\n" +
+        "len(42); // ERROR: no overload matches, even though impl accepts more"
+    },
+    {
+      title: "Example 4 (edge case): prefer a union or generic over overloads when you can",
+      description: "<p>Overloads are verbose and easy to get subtly wrong; a single union-typed signature is often clearer.</p>",
+      code: "// Overload-heavy:\n" +
+        "function pad(v: string): string;\n" +
+        "function pad(v: number): string;\n" +
+        "function pad(v: string | number) { return String(v).padStart(3, \"0\"); }\n" +
+        "\n" +
+        "// Simpler equivalent - just take the union directly:\n" +
+        "function pad2(v: string | number): string { return String(v).padStart(3, \"0\"); }"
     }
   ],
   whenToUse: "<p>Use overloading when a function truly behaves differently &mdash; with different return types " +
@@ -2026,6 +3003,28 @@ C["typescript-interfaces"] = {
         "interface Box { width: number; }\n" +
         "interface Box { height: number; }\n" +
         "const b: Box = { width: 10, height: 20 }; // both required"
+    },
+    {
+      title: "Example 3: index signatures for open-ended keys",
+      description: "<p>An index signature lets an interface describe objects with arbitrary keys of a known value type.</p>",
+      code: "interface StringMap {\n" +
+        "  [key: string]: string;\n" +
+        "}\n" +
+        "const headers: StringMap = { \"content-type\": \"json\" };\n" +
+        "headers[\"x-custom\"] = \"1\"; // any string key allowed\n" +
+        "headers[\"n\"] = 5;          // ERROR: value must be string"
+    },
+    {
+      title: "Example 4 (edge case): a class can implement multiple interfaces",
+      description: "<p>Interfaces are contracts - a class may satisfy several at once, unlike single-inheritance of classes.</p>",
+      code: "interface Serializable { toJSON(): string; }\n" +
+        "interface Comparable { compareTo(o: this): number; }\n" +
+        "\n" +
+        "class Money implements Serializable, Comparable {\n" +
+        "  constructor(public cents: number) {}\n" +
+        "  toJSON() { return String(this.cents); }\n" +
+        "  compareTo(o: Money) { return this.cents - o.cents; }\n" +
+        "}"
     }
   ],
   whenToUse: "<p>Use interfaces to model object shapes, define the contracts your classes <code>implement</code>, " +
@@ -2067,6 +3066,24 @@ C["types-vs-interfaces"] = {
         "type Pair = [string, number];             // tuple - alias only\n" +
         "type Keys = keyof UserI;                   // computed - alias only\n" +
         "type Partial2<T> = { [K in keyof T]?: T[K] }; // mapped - alias only"
+    },
+    {
+      title: "Example 3: declaration merging is interface-only",
+      description: "<p>The biggest behavioral difference: interfaces merge across declarations; type aliases error on a duplicate name.</p>",
+      code: "interface Win { a: number; }\n" +
+        "interface Win { b: number; }   // merges -> { a: number; b: number }\n" +
+        "\n" +
+        "type T = { a: number };\n" +
+        "type T = { b: number };        // ERROR: Duplicate identifier 'T'\n" +
+        "// Library augmentation (e.g. extending 'Window') relies on interface merging."
+    },
+    {
+      title: "Example 4 (edge case): only type aliases express unions, tuples, and mapped types",
+      description: "<p>If the type isn't an object shape, you generally need a <code>type</code> alias.</p>",
+      code: "type Status = \"on\" | \"off\";          // union - interface can't\n" +
+        "type Row = [id: number, name: string]; // tuple - interface can't\n" +
+        "type Optional<T> = { [K in keyof T]?: T[K] }; // mapped - interface can't\n" +
+        "// Rule of thumb: interface for objects/classes, type for everything else."
     }
   ],
   whenToUse: "<p>Use an <strong>interface</strong> for object shapes and class contracts, particularly public " +
@@ -2110,6 +3127,25 @@ C["extending-interfaces"] = {
         "// Equivalent with an intersection (type alias)\n" +
         "type Admin2 = User & { permissions: string[] };\n" +
         "// Both valid; 'extends' reads clearer for inheritance hierarchies."
+    },
+    {
+      title: "Example 3: extending multiple interfaces at once",
+      description: "<p>An interface can extend several others, combining all their members.</p>",
+      code: "interface HasId { id: string; }\n" +
+        "interface Timestamped { createdAt: Date; }\n" +
+        "\n" +
+        "interface Entity extends HasId, Timestamped {\n" +
+        "  name: string;\n" +
+        "}\n" +
+        "const e: Entity = { id: \"1\", createdAt: new Date(), name: \"x\" };"
+    },
+    {
+      title: "Example 4 (edge case): you may narrow a property when extending, not widen it",
+      description: "<p>An extending interface can make an inherited property <em>more</em> specific, but a conflicting/incompatible type is an error.</p>",
+      code: "interface Animal { legs: number; }\n" +
+        "interface Dog extends Animal { legs: 4; }   // OK: 4 is assignable to number\n" +
+        "interface Bird extends Animal { legs: string; } // ERROR: incompatible override\n" +
+        "// You can also extend a class's instance shape: 'interface I extends SomeClass'."
     }
   ],
   whenToUse: "<p>Use interface extension to model 'is-a-kind-of' relationships and to share common fields " +
@@ -2154,6 +3190,26 @@ C["interface-declaration"] = {
         "interface UserCtor {\n" +
         "  new (name: string): { name: string }; // CONSTRUCT signature\n" +
         "}"
+    },
+    {
+      title: "Example 3: generic interfaces",
+      description: "<p>An interface can take type parameters to describe reusable, parameterized shapes.</p>",
+      code: "interface ApiResponse<T> {\n" +
+        "  data: T;\n" +
+        "  error: string | null;\n" +
+        "}\n" +
+        "const r: ApiResponse<number[]> = { data: [1, 2], error: null };\n" +
+        "r.data.map(n => n + 1); // data is number[]"
+    },
+    {
+      title: "Example 4 (edge case): readonly arrays and method overload signatures",
+      description: "<p>Interfaces can declare overloaded methods and readonly members for precise contracts.</p>",
+      code: "interface Lookup {\n" +
+        "  readonly keys: readonly string[]; // immutable view\n" +
+        "  get(k: string): string | undefined; // overloaded:\n" +
+        "  get(k: string, fallback: string): string;\n" +
+        "}\n" +
+        "// Callers see two get() shapes; the second guarantees a non-undefined return."
     }
   ],
   whenToUse: "<p>Use the richer declaration features when simple property lists aren't enough: " +
@@ -2204,6 +3260,31 @@ C["hybrid-types"] = {
         "  parse(text: string): number;\n" +
         "}\n" +
         "// Lets consumers do money(500) AND money.parse(\"$5\") with full types."
+    },
+    {
+      title: "Example 3: a counter function with attached state",
+      description: "<p>A hybrid type models a function that also carries data - here a callable with a <code>count</code> property.</p>",
+      code: "interface Counter {\n" +
+        "  (): number;        // calling it returns the next value\n" +
+        "  count: number;     // and it exposes the current count\n" +
+        "  reset(): void;\n" +
+        "}\n" +
+        "function make(): Counter {\n" +
+        "  const c = (() => ++c.count) as Counter;\n" +
+        "  c.count = 0;\n" +
+        "  c.reset = () => { c.count = 0; };\n" +
+        "  return c;\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): typing libraries like jQuery / Express",
+      description: "<p>Hybrid types describe real-world APIs that are both invoked and namespaced - e.g. <code>$(sel)</code> plus <code>$.ajax</code>.</p>",
+      code: "interface JQueryStatic {\n" +
+        "  (selector: string): unknown;  // $(\"div\")\n" +
+        "  ajax(url: string): Promise<unknown>; // $.ajax(...)\n" +
+        "  version: string;\n" +
+        "}\n" +
+        "// The single value '$' is callable AND has methods/props - exactly hybrid."
     }
   ],
   whenToUse: "<p>Use hybrid types when you genuinely have a value that's both callable and has properties &mdash; " +
@@ -2259,6 +3340,29 @@ C["classes"] = {
         "  constructor(private r: number) { super(); }\n" +
         "  area() { return Math.PI * this.r ** 2; }\n" +
         "}"
+    },
+    {
+      title: "Example 3: getters/setters and static members",
+      description: "<p>Accessors expose computed properties; <code>static</code> members live on the class itself, not instances.</p>",
+      code: "class Temp {\n" +
+        "  constructor(private c: number) {}\n" +
+        "  get fahrenheit() { return this.c * 9 / 5 + 32; }\n" +
+        "  set fahrenheit(f: number) { this.c = (f - 32) * 5 / 9; }\n" +
+        "  static fromF(f: number) { return new Temp((f - 32) * 5 / 9); }\n" +
+        "}\n" +
+        "const t = Temp.fromF(212); // static factory\n" +
+        "t.fahrenheit;              // 212 (getter)"
+    },
+    {
+      title: "Example 4 (edge case): true privacy with #fields vs TS 'private'",
+      description: "<p>TypeScript's <code>private</code> is compile-time only; ECMAScript <code>#</code> fields are enforced at runtime and truly hidden.</p>",
+      code: "class A { private secret = 1; }\n" +
+        "const a: any = new A();\n" +
+        "a.secret; // 1 at runtime - TS 'private' is erased, no real protection\n" +
+        "\n" +
+        "class B { #secret = 1; reveal() { return this.#secret; } }\n" +
+        "const b: any = new B();\n" +
+        "b.secret;  // undefined - #secret is genuinely inaccessible from outside"
     }
   ],
   whenToUse: "<p>Use classes for objects with encapsulated state and behavior, identity and lifecycle, runtime " +
@@ -2305,6 +3409,30 @@ C["constructor-params"] = {
         "  ) {}\n" +
         "  place(order: Order) { this.repo.save(order); this.mailer.confirm(order); }\n" +
         "}"
+    },
+    {
+      title: "Example 3: combining modifiers - readonly parameter properties",
+      description: "<p>You can mix <code>readonly</code> with an access modifier to declare-and-assign an immutable field in one line.</p>",
+      code: "class Point {\n" +
+        "  constructor(\n" +
+        "    public readonly x: number,\n" +
+        "    public readonly y: number,\n" +
+        "  ) {}\n" +
+        "}\n" +
+        "const p = new Point(1, 2);\n" +
+        "p.x;       // 1\n" +
+        "p.x = 9;   // ERROR: cannot assign to read-only property"
+    },
+    {
+      title: "Example 4 (edge case): a bare parameter (no modifier) is NOT a field",
+      description: "<p>Forgetting the modifier is a classic bug - the argument stays a local and the property is never created.</p>",
+      code: "class A {\n" +
+        "  constructor(name: string) {} // no modifier -> 'name' is just a local\n" +
+        "}\n" +
+        "new A(\"x\").name; // ERROR: Property 'name' does not exist on type 'A'\n" +
+        "\n" +
+        "class B { constructor(public name: string) {} } // 'public' makes it a field\n" +
+        "new B(\"x\").name; // \"x\""
     }
   ],
   whenToUse: "<p>Use parameter properties to cut constructor boilerplate whenever a constructor argument should " +
@@ -2355,6 +3483,31 @@ C["constructor-overloading"] = {
         "  static between(start: Date, end: Date) { return new DateRange2(start, end); }\n" +
         "}\n" +
         "DateRange2.fromDays(7);   // self-documenting at the call site"
+    },
+    {
+      title: "Example 3: static factory methods as a cleaner alternative",
+      description: "<p>Named static factories are usually clearer than constructor overloads - each conveys intent.</p>",
+      code: "class Duration {\n" +
+        "  private constructor(public ms: number) {}\n" +
+        "  static fromSeconds(s: number) { return new Duration(s * 1000); }\n" +
+        "  static fromMinutes(m: number) { return new Duration(m * 60000); }\n" +
+        "}\n" +
+        "const a = Duration.fromSeconds(30);\n" +
+        "const b = Duration.fromMinutes(5); // intent obvious; no overload ambiguity"
+    },
+    {
+      title: "Example 4 (edge case): the single implementation must handle every overload",
+      description: "<p>As with function overloads, only the overload signatures are visible; the implementation body must discriminate among them at runtime.</p>",
+      code: "class Vec {\n" +
+        "  x: number; y: number;\n" +
+        "  constructor(xy: [number, number]);\n" +
+        "  constructor(x: number, y: number);\n" +
+        "  constructor(a: number | [number, number], b?: number) {\n" +
+        "    if (Array.isArray(a)) { this.x = a[0]; this.y = a[1]; }\n" +
+        "    else { this.x = a; this.y = b!; }\n" +
+        "  }\n" +
+        "}\n" +
+        "new Vec(1, 2); new Vec([1, 2]); // both valid; new Vec(1) is an error"
     }
   ],
   whenToUse: "<p>Use constructor overloading when a class genuinely needs to be created from distinct kinds of " +
@@ -2403,6 +3556,28 @@ C["access-modifiers"] = {
         "const a = new A();\n" +
         "// (a as any).tsPrivate -> 1  (TS private can be bypassed at runtime)\n" +
         "// a.#jsPrivate          -> SyntaxError (genuinely hidden)"
+    },
+    {
+      title: "Example 3: protected allows subclass access, private does not",
+      description: "<p><code>protected</code> members are visible to subclasses; <code>private</code> ones are not.</p>",
+      code: "class Base {\n" +
+        "  private id = 1;\n" +
+        "  protected name = \"base\";\n" +
+        "}\n" +
+        "class Sub extends Base {\n" +
+        "  show() {\n" +
+        "    this.name;  // OK - protected\n" +
+        "    this.id;    // ERROR: 'id' is private to Base\n" +
+        "  }\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): private affects structural compatibility",
+      description: "<p>A class with <code>private</code>/<code>protected</code> members becomes partly nominal - unrelated classes with identical shapes are no longer assignable.</p>",
+      code: "class A { private token = \"\"; }\n" +
+        "class B { private token = \"\"; }\n" +
+        "let a: A = new B(); // ERROR: types have separate declarations of 'token'\n" +
+        "// Without the private field, A and B would be structurally interchangeable."
     }
   ],
   whenToUse: "<p>Use access modifiers to enforce encapsulation: make fields <code>private</code> by default and " +
@@ -2450,6 +3625,30 @@ C["abstract-classes"] = {
         "  describe() { return `${this.color}, area ${this.area()}`; } // shared code\n" +
         "  abstract area(): number;\n" +
         "}"
+    },
+    {
+      title: "Example 3: template-method pattern with abstract + concrete members",
+      description: "<p>An abstract base can mix concrete logic with abstract 'holes' the subclass must fill.</p>",
+      code: "abstract class Report {\n" +
+        "  abstract title(): string;       // subclass must implement\n" +
+        "  abstract rows(): string[];\n" +
+        "  render(): string {              // shared concrete logic\n" +
+        "    return `# ${this.title()}\\n` + this.rows().join(\"\\n\");\n" +
+        "  }\n" +
+        "}\n" +
+        "class Sales extends Report {\n" +
+        "  title() { return \"Sales\"; }\n" +
+        "  rows() { return [\"Q1: 100\"]; }\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): cannot instantiate, and unfilled members error",
+      description: "<p>An abstract class can't be <code>new</code>'d, and a subclass that misses an abstract member won't compile.</p>",
+      code: "abstract class Shape { abstract area(): number; }\n" +
+        "new Shape();          // ERROR: cannot create an instance of an abstract class\n" +
+        "\n" +
+        "class Circle extends Shape {} // ERROR: non-abstract class must implement 'area'\n" +
+        "// You CAN type a variable as Shape and hold any concrete subclass instance."
     }
   ],
   whenToUse: "<p>Use an abstract class when subclasses genuinely <em>share implementation or state</em>, not " +
@@ -2491,6 +3690,30 @@ C["inheritance-vs-polymorphism"] = {
         "  console.log(a.speak()); // \"Woof\", then \"Meow\" - polymorphic dispatch\n" +
         "}\n" +
         "// The loop knows only 'Animal', yet each call runs the correct override."
+    },
+    {
+      title: "Example 3: polymorphism through a shared interface",
+      description: "<p>Polymorphism doesn't require inheritance - different classes implementing one interface can be used uniformly.</p>",
+      code: "interface Renderable { render(): string; }\n" +
+        "class Text implements Renderable { render() { return \"text\"; } }\n" +
+        "class Image implements Renderable { render() { return \"<img>\"; } }\n" +
+        "\n" +
+        "const items: Renderable[] = [new Text(), new Image()];\n" +
+        "items.map(i => i.render()); // each behaves per its own type"
+    },
+    {
+      title: "Example 4 (edge case): prefer composition over deep inheritance",
+      description: "<p>Inheritance is rigid - a fragile base class breaks subclasses. Composition keeps behavior swappable.</p>",
+      code: "// Brittle: behavior baked into the hierarchy\n" +
+        "// class FlyingDuck extends Duck {}  // what about a RubberDuck that can't fly?\n" +
+        "\n" +
+        "// Composition: inject behavior\n" +
+        "interface FlyBehavior { fly(): string; }\n" +
+        "class Duck {\n" +
+        "  constructor(private flying: FlyBehavior) {}\n" +
+        "  perform() { return this.flying.fly(); }\n" +
+        "}\n" +
+        "// swap behaviors freely without touching the class hierarchy"
     }
   ],
   whenToUse: "<p>Use <strong>inheritance</strong> for genuine, stable 'is-a' relationships where a subclass can " +
@@ -2535,6 +3758,27 @@ C["method-overriding"] = {
         "  override handleClick() {}    // OK: matches the base\n" +
         "}\n" +
         "// Without 'override', the typo'd version would silently add a NEW method."
+    },
+    {
+      title: "Example 3: the 'override' keyword catches broken overrides",
+      description: "<p>With <code>noImplicitOverride</code>, marking an override makes a renamed/removed base method a compile error instead of a silent new method.</p>",
+      code: "class Base { greet() { return \"hi\"; } }\n" +
+        "\n" +
+        "class Sub extends Base {\n" +
+        "  override greet() { return \"hey\"; } // verified to override a base method\n" +
+        "  override gret() { return \"oops\"; } // ERROR: nothing in base named 'gret'\n" +
+        "}\n" +
+        "// Without 'override', the typo would silently create a brand-new method."
+    },
+    {
+      title: "Example 4 (edge case): calling super and the return-type rule",
+      description: "<p>An override may return a <em>more specific</em> type (covariance) but not a wider one, and often delegates to <code>super</code>.</p>",
+      code: "class Animal { clone(): Animal { return new Animal(); } }\n" +
+        "class Dog extends Animal {\n" +
+        "  override clone(): Dog { return new Dog(); } // OK: Dog is narrower\n" +
+        "  speak() { return super.toString() + \" woof\"; } // call base via super\n" +
+        "}\n" +
+        "// Returning a wider type (e.g. 'object') would be an error."
     }
   ],
   whenToUse: "<p>Override methods when a subclass needs different behavior than its base &mdash; specializing a " +
@@ -2582,6 +3826,27 @@ C["generics"] = {
         "const numBox = new Box(5);        // Box<number>\n" +
         "const strBox = new Box(\"hello\");  // Box<string>\n" +
         "numBox.get().toFixed(2);          // typed as number"
+    },
+    {
+      title: "Example 3: relating multiple type parameters",
+      description: "<p>Generics shine when two arguments' types must line up - inference ties them together.</p>",
+      code: "function pluck<T, K extends keyof T>(items: T[], key: K): T[K][] {\n" +
+        "  return items.map(i => i[key]);\n" +
+        "}\n" +
+        "const users = [{ id: 1, name: \"Sam\" }];\n" +
+        "const names = pluck(users, \"name\"); // string[]\n" +
+        "const ids = pluck(users, \"id\");     // number[]\n" +
+        "pluck(users, \"email\");              // ERROR: not a key"
+    },
+    {
+      title: "Example 4 (edge case): default type parameters and explicit instantiation",
+      description: "<p>Generics can have defaults, and you can supply type arguments explicitly when inference can't determine them.</p>",
+      code: "interface Box<T = string> { value: T; }\n" +
+        "const a: Box = { value: \"hi\" };      // T defaults to string\n" +
+        "const b: Box<number> = { value: 1 }; // overridden\n" +
+        "\n" +
+        "function create<T>() { return [] as T[]; }\n" +
+        "const xs = create<number>(); // must pass T - nothing to infer from"
     }
   ],
   whenToUse: "<p>Use generics whenever you write code that should work uniformly across many types without " +
@@ -2627,6 +3892,26 @@ C["generic-types"] = {
         "}\n" +
         "const ages = new Dictionary<string, number>();\n" +
         "ages.set(\"sam\", 30); // keys are strings, values numbers - enforced"
+    },
+    {
+      title: "Example 3: a generic class",
+      description: "<p>Classes can be generic too - the type parameter flows through fields and methods.</p>",
+      code: "class Stack<T> {\n" +
+        "  private items: T[] = [];\n" +
+        "  push(x: T) { this.items.push(x); }\n" +
+        "  pop(): T | undefined { return this.items.pop(); }\n" +
+        "}\n" +
+        "const s = new Stack<number>();\n" +
+        "s.push(1);\n" +
+        "const top = s.pop(); // number | undefined"
+    },
+    {
+      title: "Example 4 (edge case): an unused type parameter is a smell",
+      description: "<p>If a type parameter appears in only one position (or none), the generic isn't actually relating anything - it's often a mistake.</p>",
+      code: "function bad<T>(x: unknown): T { return x as T; } // T is unconstrained junk:\n" +
+        "const n = bad<number>(\"not a number\"); // 'n' is number, but it's a string!\n" +
+        "// This is effectively a hidden 'as' cast. A real generic uses T in its INPUT\n" +
+        "// so the compiler can infer and verify it: function good<T>(x: T): T."
     }
   ],
   whenToUse: "<p>Define generic types for any reusable structure or contract that holds or operates on a " +
@@ -2670,6 +3955,26 @@ C["generic-constraints"] = {
         "const user = { id: 1, name: \"Sam\" };\n" +
         "pluck(user, \"name\");  // string\n" +
         "pluck(user, \"nope\");  // ERROR: not a key of user"
+    },
+    {
+      title: "Example 3: constraining to keyof for safe property access",
+      description: "<p>A <code>K extends keyof T</code> constraint is the canonical way to write key-safe generic utilities.</p>",
+      code: "function prop<T, K extends keyof T>(o: T, k: K): T[K] {\n" +
+        "  return o[k];\n" +
+        "}\n" +
+        "const r = prop({ a: 1, b: \"x\" }, \"b\"); // r: string\n" +
+        "prop({ a: 1 }, \"z\"); // ERROR: 'z' not assignable to 'a'"
+    },
+    {
+      title: "Example 4 (edge case): a default must satisfy its own constraint",
+      description: "<p>Constraints and defaults interact - the default has to be assignable to the constraint, and over-constraining can exclude valid callers.</p>",
+      code: "interface HasLen { length: number; }\n" +
+        "function longest<T extends HasLen = string>(a: T, b: T): T {\n" +
+        "  return a.length >= b.length ? a : b;\n" +
+        "}\n" +
+        "longest(\"ab\", \"c\");        // T = string\n" +
+        "longest([1], [1, 2]);      // T = number[] (arrays have length)\n" +
+        "longest(1, 2);             // ERROR: number has no 'length'"
     }
   ],
   whenToUse: "<p>Add a constraint whenever your generic code needs to <em>use</em> something about the type " +
@@ -2724,6 +4029,28 @@ C["decorators"] = {
         "//   findOne(@Param(\"id\") id: string) { ... }\n" +
         "// }\n" +
         "// The framework reads these annotations to set up routing & DI."
+    },
+    {
+      title: "Example 3: a simple method decorator (logging)",
+      description: "<p>A decorator is a function that wraps or annotates the thing below it - here it logs each call.</p>",
+      code: "function log(target: any, key: string, desc: PropertyDescriptor) {\n" +
+        "  const orig = desc.value;\n" +
+        "  desc.value = function (...args: any[]) {\n" +
+        "    console.log(`call ${key}(${args})`);\n" +
+        "    return orig.apply(this, args);\n" +
+        "  };\n" +
+        "}\n" +
+        "class Calc { @log add(a: number, b: number) { return a + b; } }"
+    },
+    {
+      title: "Example 4 (edge case): legacy vs Stage 3 decorators - they differ",
+      description: "<p>There are two incompatible decorator systems. Framework decorators (Angular/NestJS) need the legacy flags; TS 5+ also supports the new standard ones with different signatures.</p>",
+      code: "// Legacy (experimental) - required by Angular, NestJS, TypeORM:\n" +
+        "// tsconfig: { \"experimentalDecorators\": true, \"emitDecoratorMetadata\": true }\n" +
+        "\n" +
+        "// Stage 3 standard (TS 5.0+) - different signature, NO experimental flag:\n" +
+        "// function log<T>(value: T, ctx: ClassMethodDecoratorContext) { ... }\n" +
+        "// Mixing the two models, or wrong flags, causes confusing build errors."
     }
   ],
   whenToUse: "<p>You'll mostly <em>consume</em> decorators when using frameworks that rely on them &mdash; " +
@@ -2772,6 +4099,23 @@ C["utility-types"] = {
         "\n" +
         "type T = Exclude<\"a\" | \"b\" | \"c\", \"b\">; // \"a\" | \"c\"\n" +
         "type R = Awaited<Promise<string>>;          // string"
+    },
+    {
+      title: "Example 3: composing utility types",
+      description: "<p>Utility types nest - combine them to express precise derived shapes.</p>",
+      code: "interface User { id: number; name: string; email: string; password: string; }\n" +
+        "\n" +
+        "// Public, immutable view without the password:\n" +
+        "type PublicUser = Readonly<Omit<User, \"password\">>;\n" +
+        "// A patch payload that can touch any field except id:\n" +
+        "type UserPatch = Partial<Omit<User, \"id\">>;"
+    },
+    {
+      title: "Example 4 (edge case): they only restate existing types - no runtime effect",
+      description: "<p>Utility types are pure compile-time transforms; <code>Readonly</code>/<code>Required</code> don't freeze or validate anything at runtime.</p>",
+      code: "const cfg: Readonly<{ a: number }> = { a: 1 };\n" +
+        "(cfg as { a: number }).a = 2; // compiles after the cast; runtime allows it\n" +
+        "// Object.freeze(cfg) is what actually prevents mutation at runtime."
     }
   ],
   whenToUse: "<p>Reach for utility types whenever a new type is a <em>transformation</em> of an existing one " +
@@ -2810,6 +4154,26 @@ C["partial"] = {
         "  return { ...defaults, ...opts }; // caller overrides a subset\n" +
         "}\n" +
         "configure({ timeout: 5000 });"
+    },
+    {
+      title: "Example 3: a type-safe update function",
+      description: "<p><code>Partial</code> is perfect for merge/patch APIs where any subset of fields may be supplied.</p>",
+      code: "function update<T>(entity: T, patch: Partial<T>): T {\n" +
+        "  return { ...entity, ...patch };\n" +
+        "}\n" +
+        "const u = { id: 1, name: \"Sam\", active: true };\n" +
+        "update(u, { active: false });   // OK - only the fields you want\n" +
+        "update(u, { role: \"admin\" });   // ERROR: 'role' not in T"
+    },
+    {
+      title: "Example 4 (edge case): Partial is shallow",
+      description: "<p>It only makes the top level optional; nested objects stay required. You need a recursive <code>DeepPartial</code> for nested patches.</p>",
+      code: "interface Settings { ui: { theme: string; font: string }; }\n" +
+        "const p: Partial<Settings> = { ui: { theme: \"dark\" } };\n" +
+        "//                                  ^ ERROR: 'font' still required!\n" +
+        "\n" +
+        "type DeepPartial<T> = { [K in keyof T]?: DeepPartial<T[K]> };\n" +
+        "const ok: DeepPartial<Settings> = { ui: { theme: \"dark\" } }; // now fine"
     }
   ],
   whenToUse: "<p>Use <code>Partial&lt;T&gt;</code> for update/patch payloads, optional options objects, and " +
@@ -2844,6 +4208,22 @@ C["pick"] = {
         "  console.log(`Welcome ${user.name} <${user.email}>`);\n" +
         "}\n" +
         "// Callers can pass a full User (structural) but the contract is minimal."
+    },
+    {
+      title: "Example 3: Pick a union of keys for a focused DTO",
+      description: "<p>Select several fields at once with a union of key literals.</p>",
+      code: "interface User { id: number; name: string; email: string; passwordHash: string; }\n" +
+        "\n" +
+        "type UserCard = Pick<User, \"id\" | \"name\">;\n" +
+        "const card: UserCard = { id: 1, name: \"Sam\" }; // email/passwordHash excluded"
+    },
+    {
+      title: "Example 4 (edge case): Pick stays in sync, but a removed key breaks loudly",
+      description: "<p>Because <code>Pick</code> references the source type, renaming a field in the source surfaces an error at the Pick - which is exactly what you want.</p>",
+      code: "// If User.name is renamed to User.fullName, this line errors immediately:\n" +
+        "type UserCard = Pick<User, \"id\" | \"name\">;\n" +
+        "//                              ^^^^^^ 'name' is not a key of User anymore\n" +
+        "// A hand-written duplicate type would silently drift instead."
     }
   ],
   whenToUse: "<p>Use <code>Pick</code> to create a precise subset of a larger type &mdash; public-facing DTOs " +
@@ -2883,6 +4263,21 @@ C["omit"] = {
         "  const { passwordHash, ...safe } = a; // also strip at runtime!\n" +
         "  return safe;\n" +
         "}"
+    },
+    {
+      title: "Example 3: an input type with the server-generated fields removed",
+      description: "<p>A classic use: the 'create' payload is the entity minus fields the server fills in.</p>",
+      code: "interface Post { id: number; createdAt: Date; title: string; body: string; }\n" +
+        "\n" +
+        "type NewPost = Omit<Post, \"id\" | \"createdAt\">;\n" +
+        "const draft: NewPost = { title: \"Hi\", body: \"...\" }; // only what the client sends"
+    },
+    {
+      title: "Example 4 (edge case): Omit does NOT validate the keys you remove",
+      description: "<p>Unlike <code>Pick</code>, <code>Omit</code> happily accepts a key that doesn't exist - a silent footgun if you mistype.</p>",
+      code: "type T = Omit<Post, \"titel\">; // NO ERROR despite the typo!\n" +
+        "// T still has title, so you don't get the omission you intended.\n" +
+        "// A strict alternative: Omit<Post, keyof Pick<Post, \"title\">> forces a real key."
     }
   ],
   whenToUse: "<p>Use <code>Omit</code> when you want a type that's 'everything except a few fields' &mdash; " +
@@ -2922,6 +4317,22 @@ C["readonly"] = {
         "const s: Readonly<State> = { user: { name: \"Sam\" } };\n" +
         "// s.user = {...};      // ERROR (top level is readonly)\n" +
         "s.user.name = \"Alex\";   // ALLOWED (nested is NOT readonly) - a gotcha!"
+    },
+    {
+      title: "Example 3: protecting function arguments from mutation",
+      description: "<p>Accepting <code>Readonly&lt;T&gt;</code> documents and enforces that your function won't modify the caller's object.</p>",
+      code: "function summarize(cfg: Readonly<{ retries: number; tags: string[] }>) {\n" +
+        "  cfg.retries = 0;     // ERROR: read-only\n" +
+        "  return cfg.retries;\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): Readonly is shallow",
+      description: "<p>It freezes only the top level - nested objects and array <em>contents</em> remain mutable.</p>",
+      code: "const c: Readonly<{ tags: string[] }> = { tags: [\"a\"] };\n" +
+        "c.tags = [];        // ERROR: top-level property is read-only\n" +
+        "c.tags.push(\"b\");   // ALLOWED - the array itself isn't readonly\n" +
+        "// Use ReadonlyArray<string> for the field, or a deep-readonly type."
     }
   ],
   whenToUse: "<p>Use <code>Readonly&lt;T&gt;</code> to document and enforce that an object won't be mutated &mdash; " +
@@ -2962,6 +4373,25 @@ C["record"] = {
         "  pending: \"Pending\",\n" +
         "  // omit one -> ERROR: missing key. Add a new Status -> ERROR until handled.\n" +
         "};"
+    },
+    {
+      title: "Example 3: Record with a literal-union key enforces completeness",
+      description: "<p>When the key is a finite union, <code>Record</code> requires every member - great for exhaustive lookup tables.</p>",
+      code: "type Status = \"open\" | \"closed\" | \"pending\";\n" +
+        "\n" +
+        "const labels: Record<Status, string> = {\n" +
+        "  open: \"Open\",\n" +
+        "  closed: \"Closed\",\n" +
+        "  // ERROR: property 'pending' is missing - add a new Status and TS reminds you\n" +
+        "};"
+    },
+    {
+      title: "Example 4 (edge case): a string-keyed Record lies about missing keys",
+      description: "<p><code>Record&lt;string, V&gt;</code> assumes every key exists, so lookups won't be flagged as possibly undefined unless you enable <code>noUncheckedIndexedAccess</code>.</p>",
+      code: "const ages: Record<string, number> = { sam: 30 };\n" +
+        "ages[\"nobody\"].toFixed(); // typed 'number', but undefined at runtime -> crash\n" +
+        "// With noUncheckedIndexedAccess the access becomes number | undefined.\n" +
+        "// For sparse maps, a Map<string, number> is often a safer model."
     }
   ],
   whenToUse: "<p>Use <code>Record&lt;K, V&gt;</code> for dictionary/map-like objects &mdash; it's clearer than " +
@@ -2999,6 +4429,22 @@ C["exclude"] = {
         "\n" +
         "// Omit: works on an OBJECT's properties\n" +
         "type B = Omit<{ x: 1; y: 2; z: 3 }, \"y\">;   // { x: 1; z: 3 }"
+    },
+    {
+      title: "Example 3: Exclude is how Omit removes keys under the hood",
+      description: "<p><code>Exclude</code> operates on unions; combined with <code>keyof</code> it drives key-removal utilities.</p>",
+      code: "type Keys = \"id\" | \"name\" | \"secret\";\n" +
+        "type Public = Exclude<Keys, \"secret\">; // \"id\" | \"name\"\n" +
+        "\n" +
+        "// Omit<T, K> is essentially:  Pick<T, Exclude<keyof T, K>>"
+    },
+    {
+      title: "Example 4 (edge case): Exclude only works on unions, and silently no-ops otherwise",
+      description: "<p>Removing something not in the union just returns the original - no error - so a typo goes unnoticed.</p>",
+      code: "type T = Exclude<\"a\" | \"b\", \"c\">; // \"a\" | \"b\" (nothing removed, no warning)\n" +
+        "\n" +
+        "type N = Exclude<string, number>;  // string (object types aren't 'subtracted')\n" +
+        "// Exclude filters union MEMBERS by assignability, not object properties."
     }
   ],
   whenToUse: "<p>Use <code>Exclude</code> to derive a smaller union by removing certain members &mdash; " +
@@ -3039,6 +4485,24 @@ C["extract"] = {
         "\n" +
         "type AddAction = Extract<Action, { type: \"add\" }>;\n" +
         "// { type: \"add\"; value: number }"
+    },
+    {
+      title: "Example 3: Extract members of a discriminated union by tag",
+      description: "<p><code>Extract</code> pulls out just the union members assignable to a shape - handy for narrowing event/action unions.</p>",
+      code: "type Action =\n" +
+        "  | { type: \"add\"; n: number }\n" +
+        "  | { type: \"reset\" }\n" +
+        "  | { type: \"set\"; n: number };\n" +
+        "\n" +
+        "type WithN = Extract<Action, { n: number }>; // add | set (reset dropped)"
+    },
+    {
+      title: "Example 4 (edge case): Extract is the complement of Exclude",
+      description: "<p>Anything <code>Exclude</code> removes, <code>Extract</code> keeps - they partition a union.</p>",
+      code: "type U = \"a\" | \"b\" | \"c\";\n" +
+        "type Kept = Extract<U, \"a\" | \"b\">;   // \"a\" | \"b\"\n" +
+        "type Dropped = Exclude<U, \"a\" | \"b\">; // \"c\"\n" +
+        "// Extract<U, X> | Exclude<U, X> reconstructs U."
     }
   ],
   whenToUse: "<p>Use <code>Extract</code> to select a subset of a union by a condition &mdash; pulling one " +
@@ -3076,6 +4540,24 @@ C["nonnullable"] = {
         "// A type predicate already narrows the element type:\n" +
         "const present = values.filter((v): v is NonNullable<typeof v> => v != null);\n" +
         "// present: number[]"
+    },
+    {
+      title: "Example 3: cleaning up a type after filtering out null",
+      description: "<p>Pair <code>NonNullable</code> with a guard so the resulting value type matches what you actually kept.</p>",
+      code: "type MaybeUser = { name: string } | null | undefined;\n" +
+        "\n" +
+        "function requireUser(u: MaybeUser): NonNullable<MaybeUser> {\n" +
+        "  if (!u) throw new Error(\"missing\");\n" +
+        "  return u; // type: { name: string }\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): it's just T & {} - equivalent to Exclude<T, null | undefined>",
+      description: "<p><code>NonNullable</code> is a thin conditional type; it has no effect on a type that was never nullable.</p>",
+      code: "type A = NonNullable<string | null>;      // string\n" +
+        "type B = NonNullable<number>;             // number (unchanged)\n" +
+        "type C = NonNullable<null | undefined>;   // never (nothing left)\n" +
+        "// Under the hood: NonNullable<T> = T & {} (and {} excludes null/undefined)."
     }
   ],
   whenToUse: "<p>Use <code>NonNullable&lt;T&gt;</code> when you need the non-null/undefined version of a type " +
@@ -3118,6 +4600,24 @@ C["parameters"] = {
         "  };\n" +
         "}\n" +
         "const wrapped = logged(createUser); // same signature as createUser"
+    },
+    {
+      title: "Example 3: a wrapper that mirrors another function's signature",
+      description: "<p><code>Parameters</code> lets a wrapper accept exactly the same arguments and forward them, staying in sync automatically.</p>",
+      code: "function api(id: number, opts: { force: boolean }) { /* ... */ }\n" +
+        "\n" +
+        "function loggedApi(...args: Parameters<typeof api>) {\n" +
+        "  console.log(\"calling api with\", args);\n" +
+        "  return api(...args); // arg types tracked even if api's signature changes\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): index a single parameter type",
+      description: "<p><code>Parameters&lt;T&gt;</code> is a tuple, so you can index it to grab one argument's type.</p>",
+      code: "type Opts = Parameters<typeof api>[1]; // { force: boolean }\n" +
+        "\n" +
+        "// Note: 'this' parameters are excluded, and overloaded functions only expose\n" +
+        "// the LAST overload's parameters - a common surprise."
     }
   ],
   whenToUse: "<p>Use <code>Parameters&lt;T&gt;</code> when you need a function's argument types derived from the " +
@@ -3156,6 +4656,22 @@ C["returntype"] = {
         "type AddAction = ReturnType<typeof createAddAction>;\n" +
         "// { type: \"add\"; value: number }\n" +
         "function reducer(action: AddAction) { /* ... */ }"
+    },
+    {
+      title: "Example 3: deriving a store/state type from a factory",
+      description: "<p>A common pattern - infer the shape of whatever a factory returns instead of writing it twice.</p>",
+      code: "function createUser(name: string) {\n" +
+        "  return { id: Date.now(), name, active: true };\n" +
+        "}\n" +
+        "type User = ReturnType<typeof createUser>;\n" +
+        "// { id: number; name: string; active: boolean } - stays in sync with the fn"
+    },
+    {
+      title: "Example 4 (edge case): async functions return a Promise - unwrap with Awaited",
+      description: "<p><code>ReturnType</code> of an <code>async</code> function is the <code>Promise</code>, not the resolved value.</p>",
+      code: "async function load() { return { ok: true }; }\n" +
+        "type R = ReturnType<typeof load>;          // Promise<{ ok: boolean }>\n" +
+        "type Data = Awaited<ReturnType<typeof load>>; // { ok: boolean }"
     }
   ],
   whenToUse: "<p>Use <code>ReturnType&lt;T&gt;</code> to derive a type from the function that produces it &mdash; " +
@@ -3196,6 +4712,25 @@ C["instancetype"] = {
         "}\n" +
         "class User { constructor(public name: string) {} }\n" +
         "const u = create(User, \"Sam\"); // typed as User"
+    },
+    {
+      title: "Example 3: typing a registry of classes",
+      description: "<p>When you store constructors and create instances generically, <code>InstanceType</code> gives you the instance type from the class value.</p>",
+      code: "class Logger { log(m: string) {} }\n" +
+        "\n" +
+        "function make<T extends new () => any>(Ctor: T): InstanceType<T> {\n" +
+        "  return new Ctor();\n" +
+        "}\n" +
+        "const l = make(Logger); // l: Logger\n" +
+        "l.log(\"hi\");"
+    },
+    {
+      title: "Example 4 (edge case): use 'typeof Class' to get the constructor type",
+      description: "<p><code>InstanceType</code> expects the constructor type - reach for it via <code>typeof TheClass</code>, not the class name directly.</p>",
+      code: "class Box { value = 0; }\n" +
+        "type B1 = InstanceType<typeof Box>; // Box  (correct)\n" +
+        "type B2 = Box;                      // also Box - simpler when you have the name\n" +
+        "// InstanceType earns its keep when the class is only available as a value/param."
     }
   ],
   whenToUse: "<p>Use <code>InstanceType&lt;T&gt;</code> when you work with classes as <em>values</em> &mdash; " +
@@ -3233,6 +4768,23 @@ C["awaited"] = {
         "}\n" +
         "type Raw = ReturnType<typeof fetchUser>;          // Promise<{ id: number; name: string }>\n" +
         "type User = Awaited<ReturnType<typeof fetchUser>>; // { id: number; name: string }"
+    },
+    {
+      title: "Example 3: typing the result of Promise.all",
+      description: "<p><code>Awaited</code> unwraps each promise's value - useful when deriving the resolved tuple type.</p>",
+      code: "async function user() { return { id: 1 }; }\n" +
+        "async function posts() { return [\"a\", \"b\"]; }\n" +
+        "\n" +
+        "type Results = [Awaited<ReturnType<typeof user>>,\n" +
+        "                Awaited<ReturnType<typeof posts>>];\n" +
+        "// [{ id: number }, string[]]"
+    },
+    {
+      title: "Example 4 (edge case): Awaited recursively unwraps nested promises",
+      description: "<p>Unlike a naive unwrap, <code>Awaited</code> flattens <code>Promise&lt;Promise&lt;T&gt;&gt;</code> all the way down - matching JavaScript's auto-flattening.</p>",
+      code: "type A = Awaited<Promise<Promise<number>>>; // number (fully unwrapped)\n" +
+        "type B = Awaited<number>;                   // number (non-promise passes through)\n" +
+        "type C = Awaited<{ then(cb: (v: string) => void): void }>; // string (thenables too)"
     }
   ],
   whenToUse: "<p>Use <code>Awaited&lt;T&gt;</code> whenever you need the value a promise resolves to as a type " +
@@ -3279,6 +4831,26 @@ C["advanced-types"] = {
         "\n" +
         "// Recursive type for JSON\n" +
         "type Json = string | number | boolean | null | Json[] | { [k: string]: Json };"
+    },
+    {
+      title: "Example 3: the infer keyword extracts a type",
+      description: "<p><code>infer</code> inside a conditional type captures a piece of another type - the engine behind many built-ins.</p>",
+      code: "type ElementOf<T> = T extends (infer U)[] ? U : never;\n" +
+        "type A = ElementOf<number[]>;   // number\n" +
+        "type B = ElementOf<string>;     // never\n" +
+        "\n" +
+        "type FirstArg<F> = F extends (a: infer A, ...rest: any) => any ? A : never;\n" +
+        "type C = FirstArg<(id: number) => void>; // number"
+    },
+    {
+      title: "Example 4 (edge case): advanced types can wreck compile performance",
+      description: "<p>Deeply recursive or combinatorial types can blow up checking time or hit TypeScript's recursion limit - keep them as simple as the problem allows.</p>",
+      code: "// This kind of unbounded recursion can trigger:\n" +
+        "//   'Type instantiation is excessively deep and possibly infinite. ts(2589)'\n" +
+        "type Repeat<T, N extends number, Acc extends T[] = []> =\n" +
+        "  Acc[\"length\"] extends N ? Acc : Repeat<T, N, [...Acc, T]>;\n" +
+        "// Fine for small N; large N slows the compiler dramatically. Prefer runtime\n" +
+        "// logic over type-level computation when the types get this clever."
     }
   ],
   whenToUse: "<p>Use advanced types when you need precise, derived types that simpler features can't express &mdash; " +
@@ -3323,6 +4895,25 @@ C["mapped-types"] = {
         "};\n" +
         "type UserGetters = Getters<{ name: string; age: number }>;\n" +
         "// { getName: () => string; getAge: () => number }"
+    },
+    {
+      title: "Example 3: key remapping with 'as' and modifier stripping",
+      description: "<p>Mapped types can rename keys (<code>as</code>) and add/remove <code>readonly</code>/<code>?</code> with <code>+</code>/<code>-</code>.</p>",
+      code: "type Getters<T> = {\n" +
+        "  [K in keyof T as `get${Capitalize<string & K>}`]: () => T[K];\n" +
+        "};\n" +
+        "type G = Getters<{ name: string }>; // { getName: () => string }\n" +
+        "\n" +
+        "type Mutable<T> = { -readonly [K in keyof T]-?: T[K] }; // strip readonly + optional"
+    },
+    {
+      title: "Example 4 (edge case): filter keys by remapping to never",
+      description: "<p>Mapping a key to <code>never</code> in the <code>as</code> clause drops it - the trick behind 'pick only function properties' utilities.</p>",
+      code: "type FunctionKeys<T> = {\n" +
+        "  [K in keyof T as T[K] extends Function ? K : never]: T[K];\n" +
+        "};\n" +
+        "type M = FunctionKeys<{ id: number; save(): void; load(): void }>;\n" +
+        "// { save(): void; load(): void } - non-function keys mapped to never vanish"
     }
   ],
   whenToUse: "<p>Use mapped types to derive a transformed version of a type &mdash; making properties optional/" +
@@ -3363,6 +4954,23 @@ C["conditional-types"] = {
       code: "type ToArray<T> = T extends any ? T[] : never;\n" +
         "type Arr = ToArray<string | number>; // string[] | number[]  (distributed!)\n" +
         "// Each union member is processed separately, then re-unioned."
+    },
+    {
+      title: "Example 3: distributive conditional types over unions",
+      description: "<p>A naked type parameter distributes over a union - the condition runs per member. Wrapping in a tuple disables that.</p>",
+      code: "type ToArray<T> = T extends any ? T[] : never;\n" +
+        "type A = ToArray<string | number>; // string[] | number[]  (distributed)\n" +
+        "\n" +
+        "type NoDist<T> = [T] extends [any] ? T[] : never;\n" +
+        "type B = NoDist<string | number>;  // (string | number)[]  (not distributed)"
+    },
+    {
+      title: "Example 4 (edge case): extracting with infer inside the condition",
+      description: "<p>Conditional types plus <code>infer</code> unwrap nested types - e.g. the value inside a Promise.</p>",
+      code: "type Unwrap<T> = T extends Promise<infer V> ? V : T;\n" +
+        "type A = Unwrap<Promise<number>>; // number\n" +
+        "type B = Unwrap<string>;          // string\n" +
+        "// Note: 'boolean extends ...' distributes as true|false - a frequent surprise."
     }
   ],
   whenToUse: "<p>Use conditional types when a type genuinely depends on another type &mdash; building flexible " +
@@ -3403,6 +5011,25 @@ C["literal-types"] = {
         "const b = \"active\";        // literal \"active\"\n" +
         "const obj = { role: \"admin\" };          // role: string (widened)\n" +
         "const obj2 = { role: \"admin\" } as const; // role: \"admin\" (literal)"
+    },
+    {
+      title: "Example 3: numeric and boolean literal types",
+      description: "<p>Literals aren't only strings - exact numbers and booleans constrain values precisely.</p>",
+      code: "type DiceRoll = 1 | 2 | 3 | 4 | 5 | 6;\n" +
+        "function score(r: DiceRoll) {}\n" +
+        "score(3);  // OK\n" +
+        "score(7);  // ERROR: 7 is not a valid DiceRoll\n" +
+        "\n" +
+        "type StrictTrue = true; // only the value true is allowed"
+    },
+    {
+      title: "Example 4 (edge case): literals widen unless you pin them",
+      description: "<p>A literal type collapses to its base type in mutable positions - use <code>as const</code> or an explicit annotation to keep it.</p>",
+      code: "const dir = \"up\";          // type \"up\" (const keeps the literal)\n" +
+        "let dir2 = \"up\";           // type string (widened)\n" +
+        "\n" +
+        "const obj = { dir: \"up\" }; // obj.dir is string, NOT \"up\"\n" +
+        "const obj2 = { dir: \"up\" } as const; // obj2.dir is \"up\""
     }
   ],
   whenToUse: "<p>Use literal-type unions for any value restricted to a known, fixed set &mdash; sizes, statuses, " +
@@ -3446,6 +5073,24 @@ C["template-literal-types"] = {
         "\n" +
         "type Pixel = `${number}px`;\n" +
         "const m: Pixel = \"16px\"; // \"16\" alone would error"
+    },
+    {
+      title: "Example 3: combining unions multiplies into all permutations",
+      description: "<p>Template literal types distribute across unions, generating every combination - great for typed CSS/route/event strings.</p>",
+      code: "type Color = \"red\" | \"blue\";\n" +
+        "type Shade = \"light\" | \"dark\";\n" +
+        "type Variant = `${Shade}-${Color}`;\n" +
+        "// \"light-red\" | \"light-blue\" | \"dark-red\" | \"dark-blue\"\n" +
+        "const v: Variant = \"dark-blue\"; // checked against all 4"
+    },
+    {
+      title: "Example 4 (edge case): pattern inference with infer + intrinsic helpers",
+      description: "<p>You can parse strings at the type level and use <code>Uppercase</code>/<code>Capitalize</code> - powerful but easy to over-engineer.</p>",
+      code: "type EventName<T extends string> = `on${Capitalize<T>}`;\n" +
+        "type E = EventName<\"click\">; // \"onClick\"\n" +
+        "\n" +
+        "type ParseId<T> = T extends `user_${infer N}` ? N : never;\n" +
+        "type Id = ParseId<\"user_42\">; // \"42\" (still a string literal type)"
     }
   ],
   whenToUse: "<p>Use template literal types to precisely type string-based patterns &mdash; event handler names " +
@@ -3488,6 +5133,26 @@ C["recursive-types"] = {
         "    : T[K];\n" +
         "};\n" +
         "type Frozen = DeepReadonly<{ a: { b: { c: number } } }>; // readonly all the way down"
+    },
+    {
+      title: "Example 3: a recursive tree and a DeepReadonly transform",
+      description: "<p>Recursive types model trees and also drive deep transformations of nested shapes.</p>",
+      code: "interface TreeNode { value: number; children: TreeNode[]; }\n" +
+        "\n" +
+        "type DeepReadonly<T> = {\n" +
+        "  readonly [K in keyof T]: DeepReadonly<T[K]>;\n" +
+        "};\n" +
+        "type FrozenTree = DeepReadonly<TreeNode>; // every level readonly"
+    },
+    {
+      title: "Example 4 (edge case): recursion limits and the need for interfaces",
+      description: "<p>Very deep recursive instantiation hits the ts(2589) limit; and some recursive type aliases require an interface or indirection to be legal.</p>",
+      code: "// Legal recursive alias (lazy through an array/object):\n" +
+        "type Json = string | number | boolean | null | Json[] | { [k: string]: Json };\n" +
+        "\n" +
+        "// Illegal - directly references itself with no indirection:\n" +
+        "// type Bad = Bad | number; // 'Type alias circularly references itself'\n" +
+        "// Deeply nested DeepReadonly on huge types can also exceed the depth limit."
     }
   ],
   whenToUse: "<p>Use recursive types to model genuinely nested/unbounded data &mdash; JSON, trees, menus, " +
@@ -3536,6 +5201,29 @@ C["typescript-modules"] = {
         "// Adding even an empty export makes it a module (file-scoped):\n" +
         "export {};\n" +
         "const helper = 1; // now scoped to this file, not global"
+    },
+    {
+      title: "Example 3: default vs named exports, and re-exporting",
+      description: "<p>Modules support one default export plus any number of named ones; barrel files re-export to flatten imports.</p>",
+      code: "// math.ts\n" +
+        "export default function add(a: number, b: number) { return a + b; }\n" +
+        "export const PI = 3.14;\n" +
+        "\n" +
+        "// index.ts (barrel) - re-export from several files\n" +
+        "export * from \"./math\";\n" +
+        "export { default as add } from \"./math\";\n" +
+        "\n" +
+        "// consumer\n" +
+        "import add, { PI } from \"./math\";"
+    },
+    {
+      title: "Example 4 (edge case): import type avoids runtime imports and cycles",
+      description: "<p>Type-only imports are erased from the output, preventing accidental runtime dependencies and breaking some circular-import problems.</p>",
+      code: "import type { User } from \"./models\"; // erased - no JS import emitted\n" +
+        "import { saveUser } from \"./db\";       // real runtime import\n" +
+        "\n" +
+        "function show(u: User) { return saveUser(u); }\n" +
+        "// With \"verbatimModuleSyntax\", mixing type and value imports incorrectly errors."
     }
   ],
   whenToUse: "<p>Use ES module <code>import</code>/<code>export</code> for organizing essentially all modern " +
@@ -3577,6 +5265,25 @@ C["namespaces"] = {
         "// consumer.ts\n" +
         "import { area } from \"./geometry\";\n" +
         "area(5); // standard, bundler-friendly, the recommended approach"
+    },
+    {
+      title: "Example 3: namespaces still appear in global .d.ts typings",
+      description: "<p>You mostly meet namespaces when reading ambient type declarations for global libraries, where they group related types.</p>",
+      code: "// e.g. provided by @types - grouping types under a global name:\n" +
+        "declare namespace NodeJS {\n" +
+        "  interface ProcessEnv { NODE_ENV: \"development\" | \"production\"; }\n" +
+        "}\n" +
+        "process.env.NODE_ENV; // typed thanks to the NodeJS namespace"
+    },
+    {
+      title: "Example 4 (edge case): namespaces don't tree-shake; modules do",
+      description: "<p>A reason to avoid namespaces in app code: bundlers can't eliminate unused namespace members the way they prune unused module exports.</p>",
+      code: "namespace Utils {\n" +
+        "  export function used() {}\n" +
+        "  export function neverCalled() {} // stays in the bundle - not tree-shaken\n" +
+        "}\n" +
+        "Utils.used();\n" +
+        "// With ES modules, importing only 'used' lets the bundler drop the rest."
     }
   ],
   whenToUse: "<p>For <strong>new application code, prefer ES Modules</strong> &mdash; namespaces are mostly " +
@@ -3622,6 +5329,27 @@ C["ambient-modules"] = {
         "  export default url;\n" +
         "}\n" +
         "// import logo from \"./logo.png\"; // now typed (bundler provides the value)"
+    },
+    {
+      title: "Example 3: declaring types for non-code imports",
+      description: "<p>Bundlers let you import assets; an ambient module declaration tells TypeScript what those imports are.</p>",
+      code: "// global.d.ts\n" +
+        "declare module \"*.svg\" {\n" +
+        "  const url: string;\n" +
+        "  export default url;\n" +
+        "}\n" +
+        "declare module \"*.css\";\n" +
+        "\n" +
+        "// now valid in .ts:\n" +
+        "import logo from \"./logo.svg\"; // logo: string"
+    },
+    {
+      title: "Example 4 (edge case): a wildcard module silences ALL unknown imports",
+      description: "<p>A broad <code>declare module \"*\"</code> makes every untyped import compile as <code>any</code> - convenient but it disables a real safety check.</p>",
+      code: "// DANGER: this makes any missing-types import 'just work' as any:\n" +
+        "declare module \"*\";\n" +
+        "import whatever from \"totally-made-up-package\"; // no error, type any\n" +
+        "// Prefer declaring the specific module you actually use."
     }
   ],
   whenToUse: "<p>Use ambient module declarations when you need types for something TypeScript can't infer: a " +
@@ -3668,6 +5396,25 @@ C["external-modules"] = {
         "  }\n" +
         "}\n" +
         "// Under NodeNext ESM, relative imports need explicit extensions: \"./helper.js\""
+    },
+    {
+      title: "Example 3: dynamic import() for code splitting",
+      description: "<p>A dynamic <code>import()</code> returns a promise of the module - the basis of lazy loading and route-based splitting.</p>",
+      code: "async function loadEditor() {\n" +
+        "  const { Editor } = await import(\"./editor\"); // loaded on demand\n" +
+        "  return new Editor();\n" +
+        "}\n" +
+        "// TS infers the module's type; bundlers emit a separate chunk for it."
+    },
+    {
+      title: "Example 4 (edge case): default-import interop with CommonJS",
+      description: "<p>Importing a CommonJS module's default can require <code>esModuleInterop</code>, or the namespace form - a frequent migration snag.</p>",
+      code: "// Without esModuleInterop this often fails or yields the wrong shape:\n" +
+        "import express from \"express\";\n" +
+        "\n" +
+        "// Fallback that always works for CJS:\n" +
+        "import * as express2 from \"express\";\n" +
+        "// Set \"esModuleInterop\": true so the clean default-import form works."
     }
   ],
   whenToUse: "<p>You use external/ES modules for all normal code organization &mdash; this is just 'how modules " +
@@ -3713,6 +5460,28 @@ C["namespace-augmentation"] = {
         "    myCustomFlag?: boolean; // merged into the library's options type\n" +
         "  }\n" +
         "}"
+    },
+    {
+      title: "Example 3: augmenting a library's interface (e.g. Express Request)",
+      description: "<p>Re-open a third-party module to add fields your middleware attaches - typed everywhere downstream.</p>",
+      code: "// express.d.ts\n" +
+        "import \"express\";\n" +
+        "declare module \"express\" {\n" +
+        "  interface Request { user?: { id: string }; }\n" +
+        "}\n" +
+        "\n" +
+        "// now anywhere:\n" +
+        "app.get(\"/me\", (req) => req.user?.id); // typed, no casting"
+    },
+    {
+      title: "Example 4 (edge case): augmentation only merges interfaces, and the import matters",
+      description: "<p>You can add to an existing interface but cannot change a member's type; and the file must be a module (have an import/export) for <code>declare module</code> to augment rather than redeclare.</p>",
+      code: "declare module \"express\" {\n" +
+        "  interface Request { id: number; } // OK - adds a member\n" +
+        "  // interface Request { user: string } // ERROR if 'user' already exists differently\n" +
+        "}\n" +
+        "// Forgetting the top-level `import \"express\"` turns this into a NEW ambient\n" +
+        "// module declaration that shadows the real one - a classic mistake."
     }
   ],
   whenToUse: "<p>Use module augmentation to extend third-party types you can't edit &mdash; adding " +
@@ -3762,6 +5531,25 @@ C["global-augmentation"] = {
         "  }\n" +
         "}\n" +
         "// process.env.NODE_ENV is now a typed union, not just string | undefined"
+    },
+    {
+      title: "Example 3: typing a global injected at runtime",
+      description: "<p>Use <code>declare global</code> from inside a module to add a property to <code>window</code> or <code>globalThis</code>.</p>",
+      code: "// analytics.ts\n" +
+        "export {}; // make this file a module\n" +
+        "declare global {\n" +
+        "  interface Window { dataLayer: unknown[]; }\n" +
+        "}\n" +
+        "window.dataLayer.push({ event: \"load\" }); // typed everywhere"
+    },
+    {
+      title: "Example 4 (edge case): declare global requires a module context",
+      description: "<p><code>declare global</code> is only valid inside a module; in a plain script it's an error, hence the empty <code>export {}</code>.</p>",
+      code: "// If a file has no import/export it's a SCRIPT, and:\n" +
+        "declare global { /* ... */ } // ERROR: Augmentations for the global scope can\n" +
+        "                             //         only be directly nested in a module.\n" +
+        "// Fix: add `export {};` so the file becomes a module.\n" +
+        "// Overusing globals also defeats modularity - prefer explicit imports."
     }
   ],
   whenToUse: "<p>Use global augmentation to type genuinely global things &mdash; variables injected by external " +
@@ -3812,6 +5600,28 @@ C["ecosystem"] = {
         "// tsc        -> type correctness (the source of truth for types)\n" +
         "// Vite/esbuild -> fast transpile + bundle (often WITHOUT type-checking)\n" +
         "// Run tsc --noEmit separately so transpile-only speed doesn't hide type errors."
+    },
+    {
+      title: "Example 3: a typical scripts block tying the tools together",
+      description: "<p>The ecosystem tools are usually wired up as npm scripts and run in CI.</p>",
+      code: "// package.json\n" +
+        "{\n" +
+        "  \"scripts\": {\n" +
+        "    \"typecheck\": \"tsc --noEmit\",\n" +
+        "    \"lint\": \"eslint .\",\n" +
+        "    \"format\": \"prettier --write .\",\n" +
+        "    \"test\": \"vitest run\",\n" +
+        "    \"build\": \"vite build\"\n" +
+        "  }\n" +
+        "}"
+    },
+    {
+      title: "Example 4 (edge case): keep responsibilities separate",
+      description: "<p>A common anti-pattern is overlapping tools fighting each other - let the type-checker check types, the formatter format, and the linter catch bugs.</p>",
+      code: "// Don't make ESLint do formatting (slow, conflicts with Prettier):\n" +
+        "//   use eslint-config-prettier to TURN OFF formatting rules in ESLint.\n" +
+        "// Don't rely on your bundler (esbuild/swc) for type safety - it skips checks;\n" +
+        "//   run 'tsc --noEmit' separately. Each tool, one job."
     }
   ],
   whenToUse: "<p>Set up the standard ecosystem tools on essentially every real project &mdash; they're not " +
@@ -3856,6 +5666,24 @@ C["formatting"] = {
         "// Pre-commit hook (e.g. husky + lint-staged) formats staged files:\n" +
         "//   \"lint-staged\": { \"*.{ts,tsx}\": \"prettier --write\" }\n" +
         "// -> every commit is consistently formatted, automatically."
+    },
+    {
+      title: "Example 3: enforce formatting in CI and on commit",
+      description: "<p>A <code>--check</code> run fails the build on unformatted code; a pre-commit hook fixes it automatically.</p>",
+      code: "# CI step - fails if anything isn't formatted:\n" +
+        "npx prettier --check .\n" +
+        "\n" +
+        "# Pre-commit (husky + lint-staged) formats only staged files:\n" +
+        "// package.json\n" +
+        "{ \"lint-staged\": { \"*.{ts,tsx}\": \"prettier --write\" } }"
+    },
+    {
+      title: "Example 4 (edge case): stop ESLint and Prettier from fighting",
+      description: "<p>If formatting rules live in both tools they conflict; disable ESLint's stylistic rules with <code>eslint-config-prettier</code>.</p>",
+      code: "// .eslintrc - 'prettier' MUST be last to win:\n" +
+        "{ \"extends\": [\"plugin:@typescript-eslint/recommended\", \"prettier\"] }\n" +
+        "// 'prettier' here is eslint-config-prettier, which switches OFF every ESLint\n" +
+        "// rule that would disagree with Prettier's output."
     }
   ],
   whenToUse: "<p>Adopt an automated formatter (Prettier) on every project, configured once and enforced via " +
@@ -3902,6 +5730,24 @@ C["linting"] = {
         "  save(); // no-floating-promises ERROR: promise not awaited/handled\n" +
         "          // (a silent bug: errors are swallowed, ordering not guaranteed)\n" +
         "}"
+    },
+    {
+      title: "Example 3: type-aware lint rules catch real bugs",
+      description: "<p>typescript-eslint can use type information to flag mistakes the compiler permits, like unhandled promises.</p>",
+      code: "// eslint flags this with @typescript-eslint/no-floating-promises:\n" +
+        "saveUser(u); // WARNING: promise not awaited or handled\n" +
+        "\n" +
+        "await saveUser(u);          // fixed\n" +
+        "void saveUser(u);           // or explicitly mark fire-and-forget\n" +
+        "// Type-aware rules require 'parserOptions.project' pointing at your tsconfig."
+    },
+    {
+      title: "Example 4 (edge case): lint enforces choices the type system can't",
+      description: "<p>The compiler is about correctness, not style or risk policy - the linter bans patterns that compile fine but you've decided to avoid.</p>",
+      code: "let x: any;                 // compiles; @typescript-eslint/no-explicit-any warns\n" +
+        "if (a == b) {}              // compiles; eqeqeq rule wants ===\n" +
+        "const u = data!.value;      // compiles; no-non-null-assertion can forbid '!'\n" +
+        "// These are policy decisions, layered on top of type-checking."
     }
   ],
   whenToUse: "<p>Use ESLint + typescript-eslint on every project to catch bugs and enforce conventions the type " +
@@ -3948,6 +5794,25 @@ C["useful-packages"] = {
         "\n" +
         "// Validation actually checks at the boundary:\n" +
         "const good = UserSchema.parse(await res.json()); // verified, then typed"
+    },
+    {
+      title: "Example 3: runtime validation that produces a type (zod)",
+      description: "<p>The most important gap to fill: validate untrusted data at the boundary and infer the static type from the same schema.</p>",
+      code: "import { z } from \"zod\";\n" +
+        "\n" +
+        "const User = z.object({ id: z.number(), name: z.string() });\n" +
+        "type User = z.infer<typeof User>; // { id: number; name: string }\n" +
+        "\n" +
+        "const u = User.parse(await res.json()); // throws if the JSON is wrong shape\n" +
+        "// Now 'u' is BOTH validated at runtime AND typed at compile time."
+    },
+    {
+      title: "Example 4 (edge case): prefer built-in types over an extra dependency",
+      description: "<p>Many libraries that once needed <code>@types</code> or polyfills are now redundant - check before adding a package.</p>",
+      code: "// You usually DON'T need these anymore:\n" +
+        "//   @types/node-fetch  -> global fetch exists in modern Node/browsers\n" +
+        "//   moment             -> native Intl.DateTimeFormat / Temporal covers most needs\n" +
+        "// Every dependency is a maintenance + bundle-size cost; add deliberately."
     }
   ],
   whenToUse: "<p>Reach for ecosystem packages to fill gaps TypeScript leaves: most importantly, use a " +
@@ -3993,6 +5858,27 @@ C["build-tools"] = {
         "//\n" +
         "// Produces: dist/index.js, dist/index.cjs, dist/index.d.ts\n" +
         "// (the .d.ts gives consumers full type safety)"
+    },
+    {
+      title: "Example 3: bundler transpiles fast, tsc guards types",
+      description: "<p>The standard modern split - a fast esbuild/swc-based bundler builds, while <code>tsc</code> is the type gate.</p>",
+      code: "// vite.config.ts uses esbuild to strip types (no type-checking) - very fast.\n" +
+        "// So guard types separately:\n" +
+        "// package.json\n" +
+        "{ \"scripts\": {\n" +
+        "    \"dev\": \"vite\",\n" +
+        "    \"build\": \"tsc --noEmit && vite build\"\n" +
+        "} }\n" +
+        "// A green build now means: types are correct AND bundle is produced."
+    },
+    {
+      title: "Example 4 (edge case): emitting declaration files for a library",
+      description: "<p>Bundlers strip types, so to ship a library others can consume you still need <code>tsc</code> (or a plugin) to emit <code>.d.ts</code> files.</p>",
+      code: "{ \"compilerOptions\": { \"declaration\": true, \"emitDeclarationOnly\": true,\n" +
+        "                       \"outDir\": \"dist\" } }\n" +
+        "// package.json\n" +
+        "{ \"types\": \"dist/index.d.ts\", \"main\": \"dist/index.js\" }\n" +
+        "// Without emitted .d.ts, consumers of your published package get no types."
     }
   ],
   whenToUse: "<p>Choose a build tool by use case: <strong>Vite</strong> (or a framework CLI) for web apps " +
